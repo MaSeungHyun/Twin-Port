@@ -14,7 +14,7 @@ export function createBlockCenterCraneInstances(): OverHeadCraneInstance[] {
 
   return BLOCKS.map((block) => ({
     position: [
-      block.origin[0] + width + width / 3,
+      block.origin[0] + width + width / 3 + 0.55,
       DECK_Y,
       block.origin[2] + length / 2,
     ] as [number, number, number],

@@ -1,13 +1,6 @@
-import { DECK_Y } from "@/constants/container";
-import { useRef } from "react";
-import { DirectionalLight } from "three";
-
 export default function SunLight() {
-  const lightRef = useRef<DirectionalLight>(null);
-
   return (
     <directionalLight
-      ref={lightRef}
       position={[100, 120, 40]}
       intensity={1.6}
       color={0xffffff}
@@ -23,9 +16,6 @@ export default function SunLight() {
       shadow-camera-right={90}
       shadow-camera-top={140}
       shadow-camera-bottom={-140}
-    >
-      {/* 그림자 중심을 데크(야드)로 */}
-      {/* <object3D attach="target" position={[0, DECK_Y, 0]} /> */}
-    </directionalLight>
+    />
   );
 }

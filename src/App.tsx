@@ -2,7 +2,7 @@ import Viewport from "./views/viewport";
 
 function App() {
   return (
-    <main className="flex flex-col w-screen h-screen max-w-screen max-h-screen overflow-hidden bg-neutral-700">
+    <main className="flex h-full w-full flex-col overflow-hidden bg-neutral-700">
       <Viewport />
     </main>
   );

@@ -39,7 +39,11 @@ function slotToMatrix(container: Container) {
   return composeContainerMatrix(row, bay, tier, DECK_Y, block.origin, 0);
 }
 
-export default function ContainerYard() {
+export default function ContainerYard({
+  visible = true,
+}: {
+  visible?: boolean;
+}) {
   const meshRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>>(
     {},
   );
@@ -103,7 +107,7 @@ export default function ContainerYard() {
   }, [containers, meshesReady]);
 
   return (
-    <group position={[5, 0, 0]}>
+    <group position={[5, 0, 0]} visible={visible}>
       {CONTAINER_COLORS.map((c) => (
         <instancedMesh
           key={c.key}
