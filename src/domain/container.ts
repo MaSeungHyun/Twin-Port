@@ -58,6 +58,32 @@ export function composeContainerMatrix(
   return new Matrix4().compose(_pos, _quat, _scale);
 }
 
+/** ContainerYard group offset과 동일한 월드 좌표 */
+export const CONTAINER_YARD_OFFSET: Vec3 = [5, 0, 0];
+
+export function getContainerWorldPosition(
+  blockOrigin: Vec3,
+  rowIndex: number,
+  bayIndex: number,
+  tierIndex: number,
+  deckY: number,
+  yardOffset: Vec3 = CONTAINER_YARD_OFFSET,
+) {
+  const matrix = composeContainerMatrix(
+    rowIndex,
+    bayIndex,
+    tierIndex,
+    deckY,
+    blockOrigin,
+    0,
+  );
+  const position = new Vector3().setFromMatrixPosition(matrix);
+  position.x += yardOffset[0];
+  position.y += yardOffset[1];
+  position.z += yardOffset[2];
+  return position;
+}
+
 /** B03-045-06-04 형식 */
 export function formatSlotAddress(
   blockCode: string,

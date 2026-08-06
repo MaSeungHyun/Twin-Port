@@ -40,3 +40,37 @@ export function computeBlockOccupancies(
     };
   });
 }
+
+export type YardStatusKey =
+  | "totalContainers"
+  | "totalCapacity"
+  | "emptySlots"
+  | "blockCount"
+  | "occupancy"
+  | "dangerous";
+
+export type YardStatus = Record<YardStatusKey, number>;
+
+const DANGEROUS_RATIO = 0.8;
+
+export { DANGEROUS_RATIO };
+
+export function computeYardStatus(containers: Container[]): YardStatus {
+  const occupancies = computeBlockOccupancies(containers);
+  const totalContainers = occupancies.reduce(
+    (sum, item) => sum + item.occupied,
+    0,
+  );
+  const totalCapacity = BLOCKS.length * BLOCK_CAPACITY;
+  const ratio = totalCapacity === 0 ? 0 : totalContainers / totalCapacity;
+
+  return {
+    totalContainers,
+    totalCapacity,
+    emptySlots: totalCapacity - totalContainers,
+    blockCount: BLOCKS.length,
+    occupancy: Math.round(ratio * 1000) / 10,
+    dangerous: occupancies.filter((item) => item.ratio >= DANGEROUS_RATIO)
+      .length,
+  };
+}

@@ -140,9 +140,11 @@ function BlockOccupancyBar({
       <Html
         position={[centerX, DECK_Y + dims.fullHeight + 1.2, centerZ]}
         center
-        style={{ userSelect: "none" }}
+        // 기본값 [16777271, 0]이면 헤더 Dropdown 위로 올라옴. UI(99999)보다 낮게 유지
+        zIndexRange={[20, 1]}
+        style={{ userSelect: "none", pointerEvents: "auto" }}
       >
-        <div className="rounded-md bg-black/55 px-2 py-1 text-center whitespace-nowrap text-white shadow transition-transform duration-50 hover:z-1000 hover:scale-125">
+        <div className="rounded-md bg-black/55 px-2 py-1 text-center whitespace-nowrap text-white shadow transition-transform duration-50 hover:z-10 hover:scale-125">
           <div className="flex items-center justify-center gap-2">
             <span className="text-base font-semibold tracking-wide text-white">
               {occupancy.blockCode}

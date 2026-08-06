@@ -27,4 +27,12 @@ export const OCCUPANCY_CAMERA_QUATERNION = new Quaternion(
   0.5005239923437959,
 );
 
-export const CAMERA_FLIGHT_DURATION = 0.8;
+export const CAMERA_FLIGHT_DURATION = 1.2;
+
+/**
+ * 컨테이너 검색 포커스 — 카메라가 목표에서 얼마나 떨어져 볼지
+ * - DISTANCE: 수평 거리 (클수록 멀리)
+ * - HEIGHT: 목표 대비 카메라 높이
+ */
+export const CONTAINER_FOCUS_DISTANCE = 56;
+export const CONTAINER_FOCUS_HEIGHT = 28;

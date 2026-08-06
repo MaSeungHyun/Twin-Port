@@ -48,7 +48,7 @@ export default function Water({ size = 5 }: WaterProps) {
 
   useFrame((_, delta) => {
     if (!ref.current) return;
-    (ref.current.material as WaterMaterial).uniforms.time.value += delta;
+    (ref.current.material as WaterMaterial).uniforms.time.value += delta / 3;
   });
 
   return <primitive ref={ref} object={water} />;

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "danger-1",
+    "status": "error",
+    "title": "B10 점유율 85.2%",
+    "message": "(395/480)",
+    "createdAt": "2026-08-06T10:00:00.000Z"
+  },
+  {
+    "id": "warning-1",
+    "status": "warning",
+    "title": "B21 점유율 78%",
+    "message": "(376/480)",
+    "createdAt": "2026-08-06T10:00:00.000Z"
+  },
+  {
+    "id": "warning-2",
+    "status": "warning",
+    "title": "B17 점유율 66%",
+    "message": "(319/480)",
+    "createdAt": "2026-08-06T10:00:00.000Z"
+  },
+  {
+    "id": "warning-2",
+    "status": "warning",
+    "title": "B17 점유율 66%",
+    "message": "(319/480)",
+    "createdAt": "2026-08-06T10:00:00.000Z"
+  },
+  {
+    "id": "warning-2",
+    "status": "warning",
+    "title": "B17 점유율 66%",
+    "message": "(319/480)",
+    "createdAt": "2026-08-06T10:00:00.000Z"
+  },
+  {
+    "id": "warning-2",
+    "status": "warning",
+    "title": "B17 점유율 66%",
+    "message": "(319/480)",
+    "createdAt": "2026-08-06T10:00:00.000Z"
+  },
+  {
+    "id": "warning-2",
+    "status": "warning",
+    "title": "B17 점유율 66%",
+    "message": "(319/480)",
+    "createdAt": "2026-08-06T10:00:00.000Z"
+  }
+]
