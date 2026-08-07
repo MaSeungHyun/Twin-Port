@@ -16,7 +16,7 @@ export const CONTAINER_COLORS = [
   { key: "red", label: "레드", hex: 0xff312c },
   { key: "orange", label: "오렌지", hex: 0xf07a1a },
   { key: "brown", label: "브라운", hex: 0x9e431f },
-  { key: "green", label: "그린", hex: 0x1c4d3e },
+  { key: "green", label: "그린", hex: 0x18cd3e },
 ] as const;
 
 export type ContainerColorKey = (typeof CONTAINER_COLORS)[number]["key"];

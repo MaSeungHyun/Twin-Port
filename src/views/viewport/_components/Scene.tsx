@@ -1,10 +1,11 @@
 import { Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
-import { Environment, OrbitControls, StatsGl } from "@react-three/drei";
+import { Environment, StatsGl } from "@react-three/drei";
 
 import { FogExp2, PCFShadowMap } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
+import Controls from "./Controls";
 import Water from "./Water";
 import Models from "./Models";
 import SunLight from "./SunLight";
@@ -43,12 +44,7 @@ export default function Scene() {
           backgroundIntensity={0.7}
           environmentIntensity={1}
         />
-        <OrbitControls
-          ref={controlsRef}
-          maxPolarAngle={Math.PI * 0.475}
-          enableDamping={false}
-          maxDistance={240}
-        />
+        <Controls controlsRef={controlsRef} />
         <CameraFlight controlsRef={controlsRef} />
 
         <ambientLight intensity={0.5} />

@@ -1,4 +1,5 @@
 import { CRANE_INSTANCES, SHIP_INSTANCES } from "@/constants/model";
+import { useObjectStore } from "@/stores/object";
 import { useViewportStore } from "@/stores/viewport";
 import BlockFootprints from "./Port/Block";
 import BlockOccupancyView from "./Port/BlockOccupancyView";
@@ -11,7 +12,8 @@ import Terrain from "./Terrain";
 
 function Models() {
   const occupancyMode = useViewportStore((s) => s.occupancyMode);
-  const terrainVisible = useViewportStore((s) => s.terrainVisible);
+  const terrainVisible = useObjectStore((s) => s.terrainVisible);
+  const containerVisible = useObjectStore((s) => s.containerVisible);
 
   return (
     <>
@@ -22,7 +24,7 @@ function Models() {
       <Crane instances={CRANE_INSTANCES} />
       <OverHeadCrane />
 
-      <ContainerYard visible={!occupancyMode} />
+      <ContainerYard visible={!occupancyMode && containerVisible} />
       <BlockFootprints visible={!occupancyMode} />
       {occupancyMode ? <BlockOccupancyView /> : null}
     </>

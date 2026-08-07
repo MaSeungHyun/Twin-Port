@@ -1,12 +1,17 @@
 import { useThree } from "@react-three/fiber";
 import { useEffect, useRef, type RefObject } from "react";
 import gsap from "gsap";
-import { Vector3 } from "three";
+import { Quaternion, Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import {
   CAMERA_FLIGHT_DURATION,
   CONTAINER_FOCUS_DISTANCE,
   CONTAINER_FOCUS_HEIGHT,
+  CONTROL_MODE_CAMERA_POSITION,
+  CONTROL_MODE_CAMERA_QUATERNION,
+  INITIAL_CAMERA_POSITION,
+  INITIAL_CAMERA_QUATERNION,
+  cameraLookAtTarget,
 } from "@/constants/camera";
 import { BLOCK_BY_CODE } from "@/constants/block";
 import { DECK_Y } from "@/constants/container";
@@ -17,6 +22,12 @@ import { useViewportStore } from "@/stores/viewport";
 
 type CameraFlightProps = {
   controlsRef: RefObject<OrbitControlsImpl | null>;
+};
+
+type FlightCamera = {
+  position: Vector3;
+  quaternion: Quaternion;
+  lookAt: (v: Vector3) => void;
 };
 
 function setControlsEnabled(
@@ -45,8 +56,9 @@ function focusCameraPosition(target: Vector3, currentCameraPos: Vector3) {
   return target.clone().add(offset);
 }
 
+/** position + lookAt 타겟 보간 (컨테이너 포커스용) */
 function animateLookAtFlight(options: {
-  camera: { position: Vector3; lookAt: (v: Vector3) => void };
+  camera: FlightCamera;
   controls: OrbitControlsImpl;
   toPosition: Vector3;
   toTarget: Vector3;
@@ -109,28 +121,149 @@ function animateLookAtFlight(options: {
   return timeline;
 }
 
+/** position + quaternion slerp (관제모드 탑뷰용) */
+function animateQuaternionFlight(options: {
+  camera: FlightCamera;
+  controls: OrbitControlsImpl;
+  toPosition: Vector3;
+  toQuaternion: Quaternion;
+  duration?: number;
+  /** 완료 후 OrbitControls 재활성화 여부 (모니터모드 유지 시 false) */
+  restoreControls?: boolean;
+}) {
+  const {
+    camera,
+    controls,
+    toPosition,
+    toQuaternion,
+    duration = CAMERA_FLIGHT_DURATION,
+    restoreControls = true,
+  } = options;
+
+  const fromQuat = camera.quaternion.clone();
+  const toQuat = toQuaternion.clone();
+  const slerpQuat = new Quaternion();
+  const progress = { t: 0 };
+  const toTarget = cameraLookAtTarget(toPosition, toQuat);
+
+  controls.enabled = false;
+
+  const timeline = gsap.timeline({
+    onUpdate: () => {
+      slerpQuat.slerpQuaternions(fromQuat, toQuat, progress.t);
+      camera.quaternion.copy(slerpQuat);
+      controls.target.copy(
+        cameraLookAtTarget(camera.position, camera.quaternion),
+      );
+    },
+    onComplete: () => {
+      camera.position.copy(toPosition);
+      camera.quaternion.copy(toQuat);
+      controls.target.copy(toTarget);
+      controls.enabled = restoreControls;
+    },
+  });
+
+  timeline.to(
+    camera.position,
+    {
+      x: toPosition.x,
+      y: toPosition.y,
+      z: toPosition.z,
+      duration,
+      ease: "power2.inOut",
+    },
+    0,
+  );
+
+  timeline.to(
+    progress,
+    {
+      t: 1,
+      duration,
+      ease: "power2.inOut",
+    },
+    0,
+  );
+
+  return timeline;
+}
+
 export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   const camera = useThree((state) => state.camera);
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const monitorMode = useViewportStore((s) => s.monitorMode);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
   const focusNonce = useViewportStore((s) => s.focusNonce);
   const tweenRef = useRef<gsap.core.Timeline | null>(null);
-  const prevModeRef = useRef<boolean | null>(null);
+  const prevMonitorModeRef = useRef<boolean | null>(null);
   const prevFocusNonceRef = useRef(0);
+  const preControlCameraRef = useRef<{
+    position: Vector3;
+    quaternion: Quaternion;
+    target: Vector3;
+  } | null>(null);
 
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
 
-    if (prevModeRef.current === null) {
-      prevModeRef.current = occupancyMode;
+    if (prevMonitorModeRef.current === null) {
+      prevMonitorModeRef.current = monitorMode;
       return;
     }
-    if (prevModeRef.current === occupancyMode) return;
-    prevModeRef.current = occupancyMode;
+    if (prevMonitorModeRef.current === monitorMode) return;
+    prevMonitorModeRef.current = monitorMode;
 
     tweenRef.current?.kill();
-  }, [controlsRef, camera]);
+
+    if (monitorMode) {
+      preControlCameraRef.current = {
+        position: camera.position.clone(),
+        quaternion: camera.quaternion.clone(),
+        target: controls.target.clone(),
+      };
+
+      const timeline = animateQuaternionFlight({
+        camera,
+        controls,
+        toPosition: CONTROL_MODE_CAMERA_POSITION.clone(),
+        toQuaternion: CONTROL_MODE_CAMERA_QUATERNION.clone(),
+        restoreControls: false,
+      });
+      tweenRef.current = timeline;
+
+      return () => {
+        timeline.kill();
+        // 모니터모드 유지 중이면 OrbitControls를 다시 켜지 않음
+        if (!useViewportStore.getState().monitorMode) {
+          setControlsEnabled(controlsRef, true);
+        }
+      };
+    }
+
+    const restore = preControlCameraRef.current;
+    const toPosition =
+      restore?.position.clone() ?? INITIAL_CAMERA_POSITION.clone();
+    const toQuaternion =
+      restore?.quaternion.clone() ?? INITIAL_CAMERA_QUATERNION.clone();
+    preControlCameraRef.current = null;
+
+    const timeline = animateQuaternionFlight({
+      camera,
+      controls,
+      toPosition,
+      toQuaternion,
+      restoreControls: true,
+    });
+    tweenRef.current = timeline;
+
+    return () => {
+      timeline.kill();
+      if (!useViewportStore.getState().monitorMode) {
+        setControlsEnabled(controlsRef, true);
+      }
+    };
+  }, [monitorMode, controlsRef, camera]);
 
   useEffect(() => {
     const controls = controlsRef.current;

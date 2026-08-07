@@ -1,3 +1,4 @@
+import PieChart from "@/components/PieChart";
 import type { BlockDefinition } from "@/constants/block";
 import { DECK_Y } from "@/constants/container";
 import {
@@ -21,9 +22,14 @@ export default function BlockHoverArea({
   statusVisible: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  // 한 번 마운트한 뒤엔 unmount하지 않고 visible만 토글 (재생성 비용 제거)
+  const [infoMounted, setInfoMounted] = useState(false);
   const center = getBlockFootprintCenter(block.origin);
   const color = occupancyColor(occupancy.ratio);
   const showInfo = statusVisible || hovered;
+  if (showInfo && !infoMounted) {
+    setInfoMounted(true);
+  }
 
   const handleOver = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
@@ -64,31 +70,31 @@ export default function BlockHoverArea({
         />
       </mesh>
 
-      {showInfo ? (
+      {infoMounted ? (
         <Html
-          position={[0, HIT_HEIGHT / 2 + 1.2, 0]}
+          position={[0, 32, 0]}
           center
           zIndexRange={[20, 1]}
-          style={{ userSelect: "none", pointerEvents: "none" }}
+          style={{
+            userSelect: "none",
+            pointerEvents: "none",
+            // drei Html은 Object3D.visible을 DOM에 반영하지 않음
+            display: showInfo ? "block" : "none",
+          }}
         >
-          <div className="min-w-52 rounded-md bg-black/30 px-3 py-2 text-white shadow-lg backdrop-blur-sm">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-base font-semibold tracking-wide">
-                {block.code}
-              </span>
-              <span className="text-base font-bold" style={{ color }}>
-                {occupancy.percent}%
-              </span>
+          <div className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border">
+            <span className="text-base font-semibold tracking-wide">
+              {block.code}
+            </span>
+            <div className="flex items-center">
+              <PieChart value={occupancy.percent} color={color} size={42} />
             </div>
-            <div className="mt-0.5 text-xs text-white/55">{block.name}</div>
-            <div className="mt-2 space-y-0.5 border-t border-white/10 pt-2 text-xs text-white/75">
-              <div className="flex justify-between gap-4">
-                <span>점유</span>
-                <span className="tabular-nums text-white/90">
-                  {occupancy.occupied} / {occupancy.capacity}
-                </span>
-              </div>
-            </div>
+            <span className="text-base font-bold" style={{ color }}>
+              {occupancy.percent}%
+            </span>
+            <span className="text-sm text-white/80">
+              {occupancy.occupied} / {occupancy.capacity}
+            </span>
           </div>
         </Html>
       ) : null}

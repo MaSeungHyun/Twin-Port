@@ -2,15 +2,13 @@ import Button from "@/components/Button";
 import Checkbox from "@/components/Checkbox";
 import { DropdownMenu } from "@/components/DropdownMenu";
 import Icon from "@/components/Icon";
-import { useViewportStore } from "@/stores/viewport";
+import { useObjectStore } from "@/stores/object";
 
 export default function ViewOption() {
-  const terrainVisible = useViewportStore((s) => s.terrainVisible);
-  const setTerrainVisible = useViewportStore((s) => s.setTerrainVisible);
-  const blockStatusVisible = useViewportStore((s) => s.blockStatusVisible);
-  const setBlockStatusVisible = useViewportStore(
-    (s) => s.setBlockStatusVisible,
-  );
+  const terrainVisible = useObjectStore((s) => s.terrainVisible);
+  const setTerrainVisible = useObjectStore((s) => s.setTerrainVisible);
+  const containerVisible = useObjectStore((s) => s.containerVisible);
+  const setContainerVisible = useObjectStore((s) => s.setContainerVisible);
 
   return (
     <DropdownMenu>
@@ -28,12 +26,10 @@ export default function ViewOption() {
             onCheckedChange={(checked) => setTerrainVisible(checked === true)}
           />
           <Checkbox
-            id="view-option-status"
-            label="Status"
-            checked={blockStatusVisible}
-            onCheckedChange={(checked) =>
-              setBlockStatusVisible(checked === true)
-            }
+            id="view-option-container"
+            label="Container"
+            checked={containerVisible}
+            onCheckedChange={(checked) => setContainerVisible(checked === true)}
           />
         </div>
       </DropdownMenu.Content>

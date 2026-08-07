@@ -16,7 +16,7 @@ export default function BlockFootprints({
 }: {
   visible?: boolean;
 }) {
-  const blockStatusVisible = useViewportStore((s) => s.blockStatusVisible);
+  const monitorMode = useViewportStore((s) => s.monitorMode);
 
   const occupancies = useMemo(
     () => computeBlockOccupancies(mockContainers as Container[]),
@@ -42,7 +42,7 @@ export default function BlockFootprints({
             key={block.code}
             block={block}
             occupancy={occupancy}
-            statusVisible={blockStatusVisible}
+            statusVisible={monitorMode}
           />
         );
       })}
