@@ -47,7 +47,7 @@ export default function Scene() {
           ref={controlsRef}
           maxPolarAngle={Math.PI * 0.475}
           enableDamping={false}
-          maxDistance={220}
+          maxDistance={240}
         />
         <CameraFlight controlsRef={controlsRef} />
 

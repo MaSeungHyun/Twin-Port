@@ -151,7 +151,7 @@ function buildColoredTerrainGeometry(heightMap: Texture) {
   return geometry;
 }
 
-export default function Terrain() {
+export default function Terrain({ visible = true }: { visible?: boolean }) {
   const maxAnisotropy = useThree((state) =>
     state.gl.capabilities.getMaxAnisotropy(),
   );
@@ -234,6 +234,7 @@ export default function Terrain() {
       castShadow
       frustumCulled={false}
       material={material}
+      visible={visible}
     />
   );
 }

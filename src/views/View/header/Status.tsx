@@ -1,6 +1,8 @@
 import Icon from "@/components/Icon";
+import PieChart from "@/components/PieChart";
 import {
   computeYardStatus,
+  DANGEROUS_RATIO,
   type YardStatus,
   type YardStatusKey,
 } from "@/domain/occupancy";
@@ -22,24 +24,6 @@ export type StatusItemConfig = {
   of?: YardStatusKey;
   className?: string;
 };
-
-function formatValue(status: YardStatus, item: StatusItemConfig): ReactNode {
-  const value = status[item.key];
-
-  if (item.format === "fraction" && item.of) {
-    return (
-      <>
-        <span>{value.toLocaleString()}</span>
-        <span className="ml-1 text-[11px] font-medium text-white/35">
-          / {status[item.of].toLocaleString()}
-        </span>
-      </>
-    );
-  }
-
-  const text = value.toLocaleString();
-  return item.unit ? `${text}${item.unit}` : text;
-}
 
 function StatusItem({
   icon,
@@ -80,15 +64,68 @@ export default function Status() {
 
   return (
     <div className="flex items-center gap-8">
-      {STATUS_ITEMS.map((item) => (
-        <StatusItem
-          key={item.key}
-          icon={item.icon}
-          label={item.label}
-          display={formatValue(status, item)}
-          className={item.className}
-        />
-      ))}
+      {STATUS_ITEMS.map((item) =>
+        item.key === "occupancy" ? (
+          <OccupancyChart key={item.key} status={status} />
+        ) : (
+          <StatusItem
+            key={item.key}
+            icon={item.icon}
+            label={item.label}
+            display={formatValue(status, item)}
+            className={item.className}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
+function occupancyFill(ratio: number): string {
+  if (ratio < 0.6) return "#22c55e";
+  if (ratio < DANGEROUS_RATIO) return "#eab308";
+  return "#ef2444";
+}
+
+function formatValue(status: YardStatus, item: StatusItemConfig): ReactNode {
+  const value = status[item.key];
+
+  if (item.format === "fraction" && item.of) {
+    return (
+      <>
+        <span>{value.toLocaleString()}</span>
+        <span className="ml-1 text-[11px] font-medium text-white/35">
+          / {status[item.of].toLocaleString()}
+        </span>
+      </>
+    );
+  }
+
+  const text = value.toLocaleString();
+  return item.unit ? `${text}${item.unit}` : text;
+}
+
+function OccupancyChart({ status }: { status: YardStatus }) {
+  // DEV 테스트: 숫자(0~100)로 바꾸면 강제 점유율 적용. null이면 실제 데이터.
+  const DEBUG_OCCUPANCY_PERCENT: number | null = null;
+
+  const occupancy = DEBUG_OCCUPANCY_PERCENT ?? status.occupancy;
+  const fill = occupancyFill(occupancy / 100);
+
+  return (
+    <div className="flex items-center gap-2 rounded-md px-1 py-1">
+      <PieChart value={occupancy} color={fill} size={32} />
+      <div className="flex flex-col leading-tight select-none">
+        <span className="text-xs tracking-semiwide text-neutral-400 uppercase">
+          OCCUPANCY
+        </span>
+        <span
+          className="w-full text-right text-sm font-semibold"
+          style={{ color: fill }}
+        >
+          {occupancy}%
+        </span>
+      </div>
     </div>
   );
 }

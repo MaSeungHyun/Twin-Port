@@ -6,11 +6,11 @@ const ALERT_INTERVAL_MS = 10_000;
 
 function notifyFromMock() {
   for (const item of toastMock) {
-    const type = item.status as ToasterType;
+    const type = item.level as ToasterType;
     const notify = toaster[type] ?? toaster.info;
     notify(item.title, {
       message: item.message,
-      id: `${item.status}-${item.title}-${item.createdAt}`,
+      id: `${item.level}-${item.title}-${item.createdAt}`,
     });
   }
 }

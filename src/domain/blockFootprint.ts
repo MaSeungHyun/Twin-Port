@@ -34,7 +34,17 @@ export type BlockFrameSegment = {
   scale: Vec3;
 };
 
-/** Block 바깥쪽으로 두께 t만큼 돌출되는 4변 프레임 */
+/** 바닥·라인 공통 바깥 여백 기준의 외곽 크기 */
+export function getBlockPaddedSize(pad: number) {
+  return {
+    width: BLOCK_FOOTPRINT_WIDTH + pad * 2,
+    depth: BLOCK_FOOTPRINT_DEPTH + pad * 2,
+  };
+}
+
+/** Block 바깥쪽으로 두께 t만큼 돌출되는 4변 프레임
+ * 바깥 가장자리 = footprint ± (outset + thickness)
+ */
 export function getBlockOuterFrameSegments(
   origin: Vec3,
   y: number,
@@ -51,23 +61,24 @@ export function getBlockOuterFrameSegments(
   const cz = z0 + BLOCK_FOOTPRINT_DEPTH / 2;
   const t = thickness;
   const o = outset;
+  const outerPad = o + t;
 
   return [
     {
       position: [cx, y, z0 - o - t / 2],
-      scale: [BLOCK_FOOTPRINT_WIDTH + (o + t) * 2, height, t],
+      scale: [BLOCK_FOOTPRINT_WIDTH + outerPad * 2, height, t],
     },
     {
       position: [cx, y, z1 + o + t / 2],
-      scale: [BLOCK_FOOTPRINT_WIDTH + (o + t) * 2, height, t],
+      scale: [BLOCK_FOOTPRINT_WIDTH + outerPad * 2, height, t],
     },
     {
       position: [x0 - o - t / 2, y, cz],
-      scale: [t, height, BLOCK_FOOTPRINT_DEPTH + o * 2],
+      scale: [t, height, BLOCK_FOOTPRINT_DEPTH + outerPad * 2],
     },
     {
       position: [x1 + o + t / 2, y, cz],
-      scale: [t, height, BLOCK_FOOTPRINT_DEPTH + o * 2],
+      scale: [t, height, BLOCK_FOOTPRINT_DEPTH + outerPad * 2],
     },
   ];
 }
@@ -80,16 +91,7 @@ export function buildBlockOutlinesGeometry(
 
   for (const block of blocks) {
     const [a, b, c, d] = getBlockFootprintCorners(block.origin, y);
-    positions.push(
-      ...a,
-      ...b,
-      ...b,
-      ...c,
-      ...c,
-      ...d,
-      ...d,
-      ...a,
-    );
+    positions.push(...a, ...b, ...b, ...c, ...c, ...d, ...d, ...a);
   }
 
   return positions;

@@ -27,11 +27,9 @@ function formatAlertDate(iso: string) {
 }
 
 export default function Alarm() {
-  const dangerCount = toastMock.filter(
-    (item) => item.status === "error",
-  ).length;
+  const dangerCount = toastMock.filter((item) => item.level === "error").length;
   const warningCount = toastMock.filter(
-    (item) => item.status === "warning",
+    (item) => item.level === "warning",
   ).length;
 
   return (
@@ -85,7 +83,7 @@ export default function Alarm() {
                 <div className="flex items-center justify-center h-full">
                   <Icon
                     icon="TriangleAlert"
-                    className={`size-6 ${TYPE_ICON_STYLE[item.status as ToasterType] ?? "stroke-primary"}`}
+                    className={`size-6 ${TYPE_ICON_STYLE[item.level as ToasterType] ?? "stroke-primary"}`}
                   />
                 </div>
                 <div className="min-w-0 flex-1 leading-tight">

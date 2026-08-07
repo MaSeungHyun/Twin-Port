@@ -3,6 +3,7 @@ import Status from "./Status";
 import Alarm from "../content/_components/alarm";
 
 import OccupnacyMode from "./OccupnacyMode";
+import ViewOption from "./ViewOption";
 
 export default function Header() {
   return (
@@ -11,8 +12,9 @@ export default function Header() {
         <img src={title} alt="title" className="h-5" />
         <Status />
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-5">
         <OccupnacyMode />
+        <ViewOption />
         <Alarm />
       </div>
     </div>
