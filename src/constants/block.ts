@@ -24,8 +24,8 @@ export type BlockDefinition = {
  *   B23 B19 B15 B11 B07 B03
  *   B24 B20 B16 B12 B08 B04
  */
-const COL_X = [-50, -34, -18, -2, 14, 30] as const;
-const ROW_Z = [-92, -36, 20, 76] as const;
+const COL_X = [-50, -34, -18, 14, 30] as const;
+const ROW_Z = [-148, -92, -36, 20, 76] as const;
 
 export const BLOCKS: readonly BlockDefinition[] = COL_X.flatMap((x, col) =>
   ROW_Z.map((z, row) => {

@@ -27,7 +27,9 @@ function formatAlertDate(iso: string) {
 }
 
 export default function Alarm() {
-  const dangerCount = toastMock.filter((item) => item.status === "error").length;
+  const dangerCount = toastMock.filter(
+    (item) => item.status === "error",
+  ).length;
   const warningCount = toastMock.filter(
     (item) => item.status === "warning",
   ).length;
@@ -46,22 +48,22 @@ export default function Alarm() {
         sideOffset={10}
         alignOffset={-10}
         align="end"
-        className="flex h-80 w-72 min-h-0 flex-col bg-background/80"
+        className="flex h-120 w-72 min-h-0 flex-col bg-background/80"
       >
         <DropdownMenu.Label className="shrink-0 text-white flex justify-between">
           <div>알림</div>
-          <div className="flex items-center gap-1">
-            <div className="flex items-center gap-1 text-red-400">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-red-400">
               <Badge variant="danger" size="sm">
                 위험
               </Badge>
-              {dangerCount}
+              <span className="text-md font-bold">{dangerCount}</span>
             </div>
-            <div className="flex items-center gap-1 text-amber-400">
+            <div className="flex items-center gap-2 text-amber-400">
               <Badge variant="warning" size="sm">
                 경고
               </Badge>
-              {warningCount}
+              <span className="text-md font-bold">{warningCount}</span>
             </div>
           </div>
         </DropdownMenu.Label>

@@ -47,7 +47,7 @@ export default function SearchBar({
         size={size}
         className={cn(
           ICON_PAD[size],
-          "pr-3",
+          "pr-1",
           // type=search 네이티브 X는 color로 안 바뀜 → filter로 재색
           "[&::-webkit-search-cancel-button]:cursor-pointer",
           "[&::-webkit-search-cancel-button]:brightness-0",

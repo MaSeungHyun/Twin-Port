@@ -95,8 +95,8 @@ export default function ContainerYard({
           new MeshStandardMaterial({
             map: texture,
             color: c.hex,
-            roughness: 0.75,
-            metalness: 0.6,
+            roughness: 0.6,
+            metalness: 0.8,
           }),
         ]),
       ) as Record<ContainerColorKey, MeshStandardMaterial>,

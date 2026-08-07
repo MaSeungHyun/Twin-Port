@@ -1,6 +1,7 @@
 import { Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
 import { Environment, OrbitControls, StatsGl } from "@react-three/drei";
+
 import { FogExp2, PCFShadowMap } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
@@ -24,7 +25,7 @@ export default function Scene() {
       className="relative inset-0 h-full w-full touch-none"
       style={{ display: "block", overflow: "hidden" }}
       shadows={{ type: PCFShadowMap, enabled: true }}
-      gl={{ antialias: true }}
+      gl={{ antialias: false }}
       scene={{ fog: new FogExp2(0x00000000, 0.0001) }}
       camera={{
         position: INITIAL_CAMERA_POSITION,
@@ -38,6 +39,7 @@ export default function Scene() {
         <Environment
           files={skybox}
           background
+          backgroundBlurriness={0.2}
           backgroundIntensity={0.7}
           environmentIntensity={1}
         />
@@ -49,7 +51,7 @@ export default function Scene() {
         />
         <CameraFlight controlsRef={controlsRef} />
 
-        <ambientLight intensity={1.2} />
+        <ambientLight intensity={0.5} />
         <SunLight />
         <Water />
         <Models />
