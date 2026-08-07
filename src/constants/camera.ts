@@ -14,11 +14,7 @@ export const INITIAL_CAMERA_QUATERNION = new Quaternion(
 );
 
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
-export const OCCUPANCY_CAMERA_POSITION = new Vector3(
-  0.931190954053672,
-  200,
-  16.84767483354515,
-);
+export const OCCUPANCY_CAMERA_POSITION = new Vector3(0, 200, 16.84767483354515);
 
 export const OCCUPANCY_CAMERA_QUATERNION = new Quaternion(
   -0.5005234916311332,

@@ -42,7 +42,7 @@ export default function Scene() {
           background
           backgroundBlurriness={0.2}
           backgroundIntensity={0.7}
-          environmentIntensity={1}
+          environmentIntensity={0.7}
         />
         <Controls controlsRef={controlsRef} />
         <CameraFlight controlsRef={controlsRef} />

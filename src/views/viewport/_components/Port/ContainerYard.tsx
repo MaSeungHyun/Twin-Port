@@ -1,35 +1,27 @@
+import containersUrl from "@/assets/model/containers.glb";
 import {
   COMPANY_COLOR,
   CONTAINER_COLORS,
-  CONTAINER_D,
-  CONTAINER_H,
-  CONTAINER_W,
   DECK_Y,
   MAX_PER_COLOR,
   type ContainerColorKey,
   type ContainerCompany,
 } from "@/constants/container";
 import { BLOCK_BY_CODE } from "@/constants/block";
-import {
-  composeContainerMatrix,
-  makeCorrugationTexture,
-} from "@/domain/container";
+import { composeContainerMatrix } from "@/domain/container";
+import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { Container } from "@/types/container";
 import mockContainers from "@/data/container_mock.json";
 import { useViewportStore } from "@/stores/viewport";
+import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  BoxGeometry,
   Color,
   DynamicDrawUsage,
-  EdgesGeometry,
   type InstancedMesh,
   LineBasicMaterial,
-  MeshStandardMaterial,
 } from "three";
-
-const HIGHLIGHT_EMISSIVE = new Color(0x22c55e);
 
 /** InstancedMesh를 모서리 라인(gl.LINES)으로 그리기 위한 플래그 */
 function enableInstancedEdges(mesh: InstancedMesh) {
@@ -60,6 +52,7 @@ export default function ContainerYard({
 }: {
   visible?: boolean;
 }) {
+  const { scene } = useGLTF(containersUrl);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
 
   const solidRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>>(
@@ -79,46 +72,11 @@ export default function ContainerYard({
     return new Set([selectedContainerId]);
   }, [selectedContainerId]);
 
-  const texture = useMemo(() => makeCorrugationTexture(), []);
+  const prototypes = useMemo(
+    () => buildContainerPrototypes(scene),
+    [scene],
+  );
 
-  const geometry = useMemo(
-    () => new BoxGeometry(CONTAINER_W, CONTAINER_H, CONTAINER_D),
-    [],
-  );
-  // wireframe 대신 외곽 모서리만 — 확대해도 화면 픽셀 폭(≈1px) 유지
-  const edgeGeometry = useMemo(() => new EdgesGeometry(geometry), [geometry]);
-  const materials = useMemo(
-    () =>
-      Object.fromEntries(
-        CONTAINER_COLORS.map((c) => [
-          c.key,
-          new MeshStandardMaterial({
-            map: texture,
-            color: c.hex,
-            roughness: 0.6,
-            metalness: 0.8,
-          }),
-        ]),
-      ) as Record<ContainerColorKey, MeshStandardMaterial>,
-    [texture],
-  );
-  const highlightMaterials = useMemo(
-    () =>
-      Object.fromEntries(
-        CONTAINER_COLORS.map((c) => [
-          c.key,
-          new MeshStandardMaterial({
-            map: texture,
-            color: c.hex,
-            roughness: 0.45,
-            metalness: 0.35,
-            emissive: HIGHLIGHT_EMISSIVE,
-            emissiveIntensity: 1.2,
-          }),
-        ]),
-      ) as Record<ContainerColorKey, MeshStandardMaterial>,
-    [texture],
-  );
   const wireframeMaterials = useMemo(
     () =>
       Object.fromEntries(
@@ -139,10 +97,9 @@ export default function ContainerYard({
 
   useFrame(({ clock }) => {
     if (!matchedIds) return;
-    // 0.4 ~ 2.2 사이로 맥동
     const pulse = 0.4 + (Math.sin(clock.elapsedTime * 4) * 0.5 + 0.5) * 1.8;
     CONTAINER_COLORS.forEach((c) => {
-      highlightMaterials[c.key].emissiveIntensity = pulse;
+      prototypes[c.key].highlightMaterial.emissiveIntensity = pulse;
     });
   });
 
@@ -243,7 +200,11 @@ export default function ContainerYard({
             solidRefs.current[c.key] = node;
             tryMarkReady();
           }}
-          args={[geometry, materials[c.key], MAX_PER_COLOR]}
+          args={[
+            prototypes[c.key].geometry,
+            prototypes[c.key].material,
+            MAX_PER_COLOR,
+          ]}
           frustumCulled={false}
           castShadow
           receiveShadow
@@ -258,7 +219,11 @@ export default function ContainerYard({
             highlightRefs.current[c.key] = node;
             tryMarkReady();
           }}
-          args={[geometry, highlightMaterials[c.key], MAX_PER_COLOR]}
+          args={[
+            prototypes[c.key].geometry,
+            prototypes[c.key].highlightMaterial,
+            MAX_PER_COLOR,
+          ]}
           frustumCulled={false}
           castShadow
           receiveShadow
@@ -274,7 +239,11 @@ export default function ContainerYard({
             wireframeRefs.current[c.key] = node;
             tryMarkReady();
           }}
-          args={[edgeGeometry, wireframeMaterials[c.key], MAX_PER_COLOR]}
+          args={[
+            prototypes[c.key].edgeGeometry,
+            wireframeMaterials[c.key],
+            MAX_PER_COLOR,
+          ]}
           frustumCulled={false}
           raycast={() => null}
         />
@@ -282,3 +251,5 @@ export default function ContainerYard({
     </group>
   );
 }
+
+useGLTF.preload(containersUrl);
