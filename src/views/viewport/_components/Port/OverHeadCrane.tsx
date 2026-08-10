@@ -1,6 +1,7 @@
 import overheadCraneUrl from "@/assets/model/overhead_crane.glb";
 import { enableGlbShadows } from "@/domain/glb";
 import { useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   type BufferGeometry,
@@ -30,6 +31,8 @@ export default function OverHeadCrane({
 }: OverHeadCraneProps) {
   const { scene } = useGLTF(overheadCraneUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
+  const dummy = useMemo(() => new Object3D(), []);
+  const matrix = useMemo(() => new Matrix4(), []);
 
   const parts = useMemo<CranePart[]>(() => {
     scene.updateMatrixWorld(true);
@@ -49,16 +52,17 @@ export default function OverHeadCrane({
     return collected;
   }, [scene]);
 
-  useLayoutEffect(() => {
-    const dummy = new Object3D();
-    const matrix = new Matrix4();
-
+  function writeMatrices(elapsed: number) {
     parts.forEach((part, partIndex) => {
       const instanced = meshRefs.current[partIndex];
       if (!instanced) return;
 
       instances.forEach((instance, index) => {
-        dummy.position.set(...instance.position);
+        const t = elapsed * instance.speed + instance.phase;
+        const u = (Math.sin(t) + 1) / 2;
+        const z = instance.zMin + (instance.zMax - instance.zMin) * u;
+
+        dummy.position.set(instance.position[0], instance.position[1], z);
         dummy.rotation.set(...(instance.rotation ?? [0, 0, 0]));
 
         const scale = instance.scale ?? 1;
@@ -76,7 +80,15 @@ export default function OverHeadCrane({
       instanced.count = instances.length;
       instanced.instanceMatrix.needsUpdate = true;
     });
+  }
+
+  useLayoutEffect(() => {
+    writeMatrices(0);
   }, [instances, parts]);
+
+  useFrame(({ clock }) => {
+    writeMatrices(clock.elapsedTime);
+  });
 
   if (instances.length === 0) return null;
 
