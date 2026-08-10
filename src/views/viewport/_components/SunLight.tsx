@@ -1,7 +1,7 @@
 export default function SunLight() {
   return (
     <directionalLight
-      position={[100, 120, 40]}
+      position={[10, 120, 20]}
       intensity={1.6}
       color={0xffffff}
       castShadow

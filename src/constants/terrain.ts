@@ -4,7 +4,7 @@ export const TERRAIN_WIDTH = 2400;
 export const TERRAIN_DEPTH = Math.round(TERRAIN_WIDTH * (810 / 670));
 
 /** heightMap 밝기 1.0일 때 Y 최대 높이 */
-export const TERRAIN_MAX_HEIGHT = 250;
+export const TERRAIN_MAX_HEIGHT = 320;
 
 /** Plane 가로·세로 분할 수 — 클수록 기복 디테일↑, 정점 수↑ */
 export const TERRAIN_SEGMENTS = 192;
@@ -112,7 +112,7 @@ export const TERRAIN_COLOR_SNOW_START = 0.72;
  * 하이트맵 우하단 평지가 항만 쪽에 가깝도록 회전/오프셋.
  */
 /** 지형 mesh 월드 위치 [x, y, z] */
-export const TERRAIN_POSITION: [number, number, number] = [-243, -0.8, 255];
+export const TERRAIN_POSITION: [number, number, number] = [-265, -0.8, 255];
 /** 지형 mesh 스케일 [x, y, z] — y는 높이 압축 */
 export const TERRAIN_SCALE: [number, number, number] = [1, 0.5, 1];
 /** 지형 Y축 회전 (라디안) */

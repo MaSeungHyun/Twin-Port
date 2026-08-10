@@ -25,8 +25,8 @@ export const CONTAINER_COMPANIES = [
   "SAMSUNG",
   "LG",
   "SK",
-  "Amazone",
-  "HYNDAI",
+  "Amazon",
+  "HYUNDAI",
 ] as const;
 
 export type ContainerCompany = (typeof CONTAINER_COMPANIES)[number];
@@ -35,6 +35,6 @@ export const COMPANY_COLOR: Record<ContainerCompany, ContainerColorKey> = {
   SAMSUNG: "blue",
   LG: "red",
   SK: "orange",
-  Amazone: "brown",
-  HYNDAI: "green",
+  Amazon: "brown",
+  HYUNDAI: "green",
 };

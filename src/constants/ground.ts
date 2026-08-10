@@ -1,6 +1,6 @@
 export const GROUND_X = 120;
 export const GROUND_Y = 3;
-export const GROUND_Z = 280;
+export const GROUND_Z = 300;
 
 /** asphalt_02 1타일 월드 크기 (클수록 덜 반복) */
 export const TILE_SIZE = 12;

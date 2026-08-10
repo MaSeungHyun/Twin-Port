@@ -8,7 +8,6 @@ import { SHIP_INSTANCES, SHIP_SCALE } from "@/constants/model";
 import {
   SHIP_CARGO,
   SHIP_CARGO_ANIM,
-  SHIP_CARGO_COLOR_CYCLE,
   cargoSlotOrder,
   getShipDepartSigns,
   getShipLoadProfile,
@@ -40,7 +39,7 @@ function buildCargoSlots(shipCount: number): CargoSlot[] {
   const colorCounts = Object.fromEntries(
     CONTAINER_COLORS.map((c) => [c.key, 0]),
   ) as Record<ContainerColorKey, number>;
-  let colorCycle = 0;
+  const colorKeys = CONTAINER_COLORS.map((c) => c.key);
 
   for (let shipIndex = 0; shipIndex < shipCount; shipIndex++) {
     const profile = getShipLoadProfile(shipIndex);
@@ -48,8 +47,7 @@ function buildCargoSlots(shipCount: number): CargoSlot[] {
       for (let row = 0; row < rows; row++) {
         for (let tier = 1; tier <= tiers; tier++) {
           const color =
-            SHIP_CARGO_COLOR_CYCLE[colorCycle % SHIP_CARGO_COLOR_CYCLE.length];
-          colorCycle++;
+            colorKeys[Math.floor(Math.random() * colorKeys.length)];
 
           const colorIndex = colorCounts[color];
           if (colorIndex >= MAX_PER_COLOR) continue;
@@ -196,166 +194,248 @@ export default function ShipCargo({
     const timelines = new Set<gsap.core.Timeline>();
     let cancelled = false;
 
-    const runCycle = (shipIndex: number, isFirst: boolean) => {
-      if (cancelled) return;
+    type ShipMotion = {
+      index: number;
+      ship: ShipInstance;
+      slots: CargoSlot[];
+      profile: ReturnType<typeof getShipLoadProfile>;
+      bx: number;
+      by: number;
+      bz: number;
+      departFarX: number;
+      departFarZ: number;
+      arriveFarX: number;
+      arriveFarZ: number;
+      berthYaw: number;
+      departYaw: number;
+      arriveYaw: number;
+      travel: { x: number; y: number; z: number };
+      facing: { yaw: number };
+    };
 
-      const profile = getShipLoadProfile(shipIndex);
+    const motions: ShipMotion[] = [];
+    for (let shipIndex = 0; shipIndex < shipCount; shipIndex++) {
       const berth = SHIP_INSTANCES[shipIndex];
       const ship = poses[shipIndex];
       const shipSlots = slotsByShip[shipIndex] ?? [];
-      if (!berth || !ship || shipSlots.length === 0) return;
+      if (!berth || !ship || shipSlots.length === 0) continue;
 
       const [bx, by, bz] = berth.position;
       const { sx, sz } = getShipDepartSigns(bx);
+      const profile = getShipLoadProfile(shipIndex);
       const dist = profile.departDistance;
-      // 출항 끝 far. 입항은 같은 바깥 X, 출항 끝 Z의 부두 기준 반대 Z
       const departFarX = bx + sx * dist;
       const departFarZ = bz + sz * dist;
       const arriveFarX = departFarX;
-      const arriveFarZ = bz - (departFarZ - bz); // = bz - sz * dist
+      const arriveFarZ = bz - (departFarZ - bz);
       const berthYaw = berth.rotation?.[1] ?? Math.PI / 2;
-      const departYaw = yawToward(departFarX - bx, departFarZ - bz);
-      const arriveYaw = yawToward(bx - arriveFarX, bz - arriveFarZ);
+
+      motions.push({
+        index: shipIndex,
+        ship,
+        slots: shipSlots,
+        profile,
+        bx,
+        by,
+        bz,
+        departFarX,
+        departFarZ,
+        arriveFarX,
+        arriveFarZ,
+        berthYaw,
+        departYaw: yawToward(departFarX - bx, departFarZ - bz),
+        arriveYaw: yawToward(bx - arriveFarX, bz - arriveFarZ),
+        travel: { x: bx, y: by, z: bz },
+        facing: { yaw: berthYaw },
+      });
+    }
+
+    const applyFacing = (m: ShipMotion, rewriteCargo: boolean) => {
+      ensureRotation(m.ship, m.facing.yaw);
+      if (rewriteCargo) rewriteShipCargo(m.index);
+    };
+
+    const placeAtBerth = (m: ShipMotion) => {
+      m.ship.scale = SHIP_SCALE;
+      m.travel.x = m.bx;
+      m.travel.y = m.by;
+      m.travel.z = m.bz;
+      m.facing.yaw = m.berthYaw;
+      applyTravel(m.ship, m.travel);
+      applyFacing(m, false);
+    };
+
+    /** 단계 안: 완료 대기는 없고, 시작만 간격 두어 덜 동시적으로 */
+    const schedulePhaseStarts = (
+      phaseAt: number,
+      minGap: number,
+      maxGap: number,
+    ) => {
+      const order = [...motions];
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      let t = phaseAt;
+      return order.map((m) => {
+        const start = t;
+        t += minGap + Math.random() * (maxGap - minGap);
+        return { m, start };
+      });
+    };
+
+    /**
+     * 전체: 적재 → 출항 → 입항 (단계만 구분).
+     * 단계 안에서는 시작 시각을 랜덤으로 흩뿌리며, 서로 완료를 기다리지 않음.
+     */
+    const runPhases = () => {
+      if (cancelled) return;
 
       const tl = gsap.timeline({
         onUpdate: flush,
         onComplete: () => {
           timelines.delete(tl);
-          if (!cancelled) runCycle(shipIndex, false);
+          if (!cancelled) runPhases();
         },
       });
       timelines.add(tl);
 
-      const travel = { x: ship.position[0], y: by, z: ship.position[2] };
-      const facing = { yaw: berthYaw };
+      for (const m of motions) {
+        placeAtBerth(m);
+        hideShipCargo(m.index);
+      }
 
-      const applyFacing = (rewriteCargo: boolean) => {
-        ensureRotation(ship, facing.yaw);
-        if (rewriteCargo) rewriteShipCargo(shipIndex);
-      };
+      // —— 1) 적재 ——
+      let loadEnd = 0;
+      for (const { m, start } of schedulePhaseStarts(0.2, 2.2, 4.2)) {
+        const maxOrder = Math.max(...m.slots.map((s) => s.localOrder), 0);
+        for (const slot of m.slots) {
+          const state = { t: 0 };
+          tl.to(
+            state,
+            {
+              t: 1,
+              duration: m.profile.duration,
+              ease: m.profile.ease,
+              onUpdate: () => writeSlot(slot, state.t),
+            },
+            start + slot.localOrder * m.profile.stagger,
+          );
+        }
+        loadEnd = Math.max(
+          loadEnd,
+          start + maxOrder * m.profile.stagger + m.profile.duration,
+        );
+      }
 
-      if (isFirst) {
-        // 첫 사이클: 이미 부두에 정박한 상태로 적재
-        ship.scale = SHIP_SCALE;
-        travel.x = bx;
-        travel.z = bz;
-        facing.yaw = berthYaw;
-        applyTravel(ship, travel);
-        applyFacing(false);
-        hideShipCargo(shipIndex);
-        if (profile.delay > 0) tl.to({}, { duration: profile.delay });
-      } else {
-        // 출항 후 잠깐 숨김 → 같은 편 바깥, 출항 Z의 반대 Z에서 입항
-        ship.scale = SHIP_CARGO_ANIM.hiddenScale;
-        hideShipCargo(shipIndex);
-        tl.to({}, { duration: 0.45 });
+      // —— 2) 출항 (적재 단계 끝난 뒤) ——
+      let departEnd = loadEnd + 0.35;
+      for (const { m, start } of schedulePhaseStarts(
+        loadEnd + 0.35,
+        2.8,
+        5.2,
+      )) {
+        const departTargetYaw = yawLerpTarget(m.berthYaw, m.departYaw);
 
-        tl.call(() => {
-          ship.scale = SHIP_SCALE;
-          travel.x = arriveFarX;
-          travel.y = by;
-          travel.z = arriveFarZ;
-          facing.yaw = arriveYaw;
-          applyTravel(ship, travel);
-          applyFacing(false);
-        });
-
-        const arriveStart = tl.duration();
-        // arriveYaw → berthYaw 최단 경로 (빌드 시점에 상수로 확정)
-        const dockYaw = yawLerpTarget(arriveYaw, berthYaw);
-        tl.to(
-          travel,
-          {
-            x: bx,
-            z: bz,
-            duration: profile.arriveDuration,
-            ease: profile.arriveEase,
-            onUpdate: () => applyTravel(ship, travel),
+        tl.call(
+          () => {
+            m.facing.yaw = m.berthYaw;
+            applyFacing(m, true);
           },
-          arriveStart,
+          undefined,
+          start,
         );
         tl.to(
-          facing,
+          m.travel,
+          {
+            x: m.departFarX,
+            z: m.departFarZ,
+            duration: m.profile.departDuration,
+            ease: SHIP_CARGO_ANIM.departEase,
+            onUpdate: () => {
+              applyTravel(m.ship, m.travel);
+              rewriteShipCargo(m.index);
+            },
+          },
+          start,
+        );
+        tl.to(
+          m.facing,
+          {
+            yaw: departTargetYaw,
+            duration: m.profile.departDuration,
+            ease: "power1.inOut",
+            onUpdate: () => applyFacing(m, true),
+          },
+          start,
+        );
+        tl.call(
+          () => {
+            m.ship.scale = SHIP_CARGO_ANIM.hiddenScale;
+            hideShipCargo(m.index);
+          },
+          undefined,
+          start + m.profile.departDuration,
+        );
+
+        departEnd = Math.max(departEnd, start + m.profile.departDuration);
+      }
+
+      // —— 3) 입항 (출항 단계 끝난 뒤) ——
+      for (const { m, start } of schedulePhaseStarts(
+        departEnd + 0.35,
+        2.8,
+        5.2,
+      )) {
+        const dockYaw = yawLerpTarget(m.arriveYaw, m.berthYaw);
+
+        tl.call(
+          () => {
+            m.ship.scale = SHIP_SCALE;
+            m.travel.x = m.arriveFarX;
+            m.travel.y = m.by;
+            m.travel.z = m.arriveFarZ;
+            m.facing.yaw = m.arriveYaw;
+            applyTravel(m.ship, m.travel);
+            applyFacing(m, false);
+            hideShipCargo(m.index);
+          },
+          undefined,
+          start,
+        );
+        tl.to(
+          m.travel,
+          {
+            x: m.bx,
+            z: m.bz,
+            duration: m.profile.arriveDuration,
+            ease: m.profile.arriveEase,
+            onUpdate: () => applyTravel(m.ship, m.travel),
+          },
+          start,
+        );
+        tl.to(
+          m.facing,
           {
             yaw: dockYaw,
-            duration: profile.arriveDuration,
+            duration: m.profile.arriveDuration,
             ease: "power1.inOut",
-            onUpdate: () => applyFacing(false),
+            onUpdate: () => applyFacing(m, false),
           },
-          arriveStart,
+          start,
         );
-        // 누적각 리셋 → 다음 출항이 한 바퀴 도는 것 방지
-        tl.call(() => {
-          facing.yaw = berthYaw;
-          applyFacing(false);
-        });
-      }
-
-      // 적재
-      const loadAt = tl.duration();
-      for (const slot of shipSlots) {
-        const state = { t: 0 };
-        tl.to(
-          state,
-          {
-            t: 1,
-            duration: profile.duration,
-            ease: profile.ease,
-            onUpdate: () => writeSlot(slot, state.t),
+        tl.call(
+          () => {
+            m.facing.yaw = m.berthYaw;
+            applyFacing(m, false);
           },
-          loadAt + slot.localOrder * profile.stagger,
+          undefined,
+          start + m.profile.arriveDuration,
         );
       }
-
-      const maxOrder = Math.max(...shipSlots.map((s) => s.localOrder));
-      const loadEnd = loadAt + maxOrder * profile.stagger + profile.duration;
-      const departAt = loadEnd + profile.departDelay;
-      const departTargetYaw = yawLerpTarget(berthYaw, departYaw);
-
-      // 출항: 이동과 동시에 최단 각으로 천천히 회전
-      tl.call(
-        () => {
-          facing.yaw = berthYaw;
-        },
-        undefined,
-        departAt,
-      );
-
-      tl.to(
-        travel,
-        {
-          x: departFarX,
-          z: departFarZ,
-          duration: profile.departDuration,
-          ease: SHIP_CARGO_ANIM.departEase,
-          onUpdate: () => {
-            applyTravel(ship, travel);
-            rewriteShipCargo(shipIndex);
-          },
-        },
-        departAt,
-      );
-      tl.to(
-        facing,
-        {
-          yaw: departTargetYaw,
-          duration: profile.departDuration,
-          ease: "power1.inOut",
-          onUpdate: () => applyFacing(true),
-        },
-        departAt,
-      );
-
-      // 출항 완료 → 사라짐
-      tl.call(() => {
-        ship.scale = SHIP_CARGO_ANIM.hiddenScale;
-        hideShipCargo(shipIndex);
-      });
     };
 
-    for (let shipIndex = 0; shipIndex < shipCount; shipIndex++) {
-      runCycle(shipIndex, true);
-    }
+    runPhases();
 
     return () => {
       cancelled = true;
