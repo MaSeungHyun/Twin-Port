@@ -105,18 +105,20 @@ export default function ContainerAccordion() {
 
             return (
               <Accordion.Item key={company} value={company}>
-                <Accordion.Trigger className="px-2 py-2.5 text-xs">
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: accent }}
-                    />
-                    <span className="truncate font-semibold">{company}</span>
-                  </span>
-                  <span className="mr-1 tabular-nums text-white/50">
-                    {count.toLocaleString()}
-                  </span>
-                </Accordion.Trigger>
+                <Accordion.Header className="flex">
+                  <Accordion.Trigger className="px-2 py-2.5 text-xs">
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: accent }}
+                      />
+                      <span className="truncate font-semibold">{company}</span>
+                    </span>
+                    <span className="mr-1 tabular-nums text-white/50">
+                      {count.toLocaleString()}
+                    </span>
+                  </Accordion.Trigger>
+                </Accordion.Header>
                 <Accordion.Content className="px-0">
                   <ul className="flex flex-col border-t border-white/5">
                     {preview.map((container) => (

@@ -34,9 +34,11 @@ export default function ContainerContentAccordion({
           open && "min-h-0 flex-1",
         )}
       >
-        <Accordion.Trigger className="shrink-0 px-3 py-2 text-sm">
-          Containers
-        </Accordion.Trigger>
+        <Accordion.Header className="flex">
+          <Accordion.Trigger className="shrink-0 px-3 py-2 text-sm">
+            Containers
+          </Accordion.Trigger>
+        </Accordion.Header>
         <Accordion.Content className="min-h-0 overflow-y-auto overscroll-contain px-1 data-[state=open]:flex data-[state=open]:flex-1 data-[state=open]:flex-col">
           <ContainerAccordion />
         </Accordion.Content>

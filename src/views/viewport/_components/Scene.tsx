@@ -2,7 +2,7 @@ import { Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
 import { Environment, StatsGl } from "@react-three/drei";
 
-import { FogExp2, PCFShadowMap } from "three";
+import { FogExp2 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import Controls from "./Controls";
@@ -36,6 +36,7 @@ export default function Scene() {
         far: 20000,
       }}
     >
+      {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}
       <Suspense fallback={null}>
         <Environment
           files={skybox}

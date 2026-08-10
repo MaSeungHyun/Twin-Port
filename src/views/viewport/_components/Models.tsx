@@ -1,7 +1,7 @@
 import { CRANE_INSTANCES, SHIP_INSTANCES } from "@/constants/model";
 import { useObjectStore } from "@/stores/object";
 import { useViewportStore } from "@/stores/viewport";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import BlockFootprints from "./Port/Block";
 import BlockOccupancyView from "./Port/BlockOccupancyView";
 import ContainerYard from "./Port/ContainerYard";
@@ -17,17 +17,15 @@ function YardLayer() {
   const containerVisible = useObjectStore((s) => s.containerVisible);
   const [occupancyMounted, setOccupancyMounted] = useState(false);
 
-  useEffect(() => {
-    if (occupancyMode) setOccupancyMounted(true);
-  }, [occupancyMode]);
+  if (occupancyMode && !occupancyMounted) {
+    setOccupancyMounted(true);
+  }
 
   return (
     <>
       <ContainerYard visible={!occupancyMode && containerVisible} />
       <BlockFootprints visible={!occupancyMode} />
-      {occupancyMounted ? (
-        <BlockOccupancyView visible={occupancyMode} />
-      ) : null}
+      {occupancyMounted ? <BlockOccupancyView visible={occupancyMode} /> : null}
     </>
   );
 }

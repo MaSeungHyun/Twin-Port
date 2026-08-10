@@ -19,11 +19,7 @@ export default function BlockSortDropdown({
   onSortOrderChange,
 }: BlockSortDropdownProps) {
   return (
-    <span
-      className="mr-1"
-      onPointerDown={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
-    >
+    <div className="shrink-0">
       <DropdownMenu>
         <DropdownMenu.Trigger asChild>
           <Button
@@ -67,7 +63,7 @@ export default function BlockSortDropdown({
           </SortOption>
         </DropdownMenu.Content>
       </DropdownMenu>
-    </span>
+    </div>
   );
 }
 

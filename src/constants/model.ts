@@ -15,7 +15,7 @@ export const SHIP_INSTANCES: ShipInstance[] = [
     scale: SHIP_SCALE,
   },
   {
-    position: [70, SHIP_POSITION_Y, 15],
+    position: [70, SHIP_POSITION_Y, 10],
     rotation: SHIP_ROATION,
     scale: SHIP_SCALE,
   },
@@ -30,7 +30,7 @@ export const SHIP_INSTANCES: ShipInstance[] = [
     scale: SHIP_SCALE,
   },
   {
-    position: [-70, SHIP_POSITION_Y, 15],
+    position: [-70, SHIP_POSITION_Y, 10],
     rotation: SHIP_ROATION,
     scale: SHIP_SCALE,
   },

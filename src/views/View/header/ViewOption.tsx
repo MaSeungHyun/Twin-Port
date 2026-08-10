@@ -12,7 +12,7 @@ export default function ViewOption() {
 
   return (
     <DropdownMenu>
-      <DropdownMenu.Trigger>
+      <DropdownMenu.Trigger asChild>
         <Button>
           <Icon icon="Eye" />
         </Button>
