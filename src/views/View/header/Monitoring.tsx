@@ -2,6 +2,7 @@ import Button from "@/components/Button";
 import Icon from "@/components/Icon";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
+import { startTransition } from "react";
 
 function Monitoring() {
   const monitorMode = useViewportStore((s) => s.monitorMode);
@@ -10,7 +11,11 @@ function Monitoring() {
   return (
     <Button
       type="button"
-      onClick={() => setMonitorMode(!monitorMode)}
+      onClick={() => {
+        startTransition(() => {
+          setMonitorMode(!monitorMode);
+        });
+      }}
       aria-label="Monitoring Mode"
       className={cn(
         !monitorMode && "hover:bg-primary/40",

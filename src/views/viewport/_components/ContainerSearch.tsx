@@ -38,7 +38,7 @@ export default function ContainerSearch() {
   }
 
   return (
-    <div className="relative w-64">
+    <div className="relative w-full">
       <SearchBar
         size="md"
         value={query}

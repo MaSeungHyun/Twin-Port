@@ -19,6 +19,36 @@ body,
   --color-background: #060d13;
   --color-foreground: #0a151d;
   --color-primary: #377cbd;
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* flex 패널: 열린 Content만 남는 높이를 쓰고 내부 스크롤 (접힘 애니메이션은 유지) */
+[data-slot="accordion-content"][data-state="open"].flex-1 {
+  height: auto !important;
+  animation: none;
+}
+
+[data-slot="accordion-content"][data-state="closed"] {
+  flex: none !important;
 }
 
 /* 스크롤바 숨김 (스크롤 동작은 유지) */

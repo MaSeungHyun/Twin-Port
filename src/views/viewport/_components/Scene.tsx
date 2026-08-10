@@ -25,9 +25,9 @@ export default function Scene() {
     <R3FCanvas
       className="relative inset-0 h-full w-full touch-none"
       style={{ display: "block", overflow: "hidden" }}
-      shadows={{ type: PCFShadowMap, enabled: true }}
-      gl={{ antialias: false }}
-      scene={{ fog: new FogExp2(0x00000000, 0.0001) }}
+      shadows={{ enabled: true }}
+      gl={{ antialias: true }}
+      scene={{ fog: new FogExp2(0x00000000, 0.0005) }}
       camera={{
         position: INITIAL_CAMERA_POSITION,
         quaternion: INITIAL_CAMERA_QUATERNION,
@@ -52,9 +52,7 @@ export default function Scene() {
         <Water />
         <Models />
       </Suspense>
-      {import.meta.env.DEV && (
-        <StatsGl clearStatsGlStyle={true} className="relative top-2 right-2" />
-      )}
+      {import.meta.env.DEV && <StatsGl className="absolute top-16 right-2" />}
     </R3FCanvas>
   );
 }

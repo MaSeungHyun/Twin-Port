@@ -17,8 +17,4 @@ export const BORDER_OUTSET = BLOCK_MARK.pad - BLOCK_MARK.borderThickness;
 export const PADDED_SIZE = getBlockPaddedSize(BLOCK_MARK.pad);
 export const HIT_HEIGHT = SLOT_MAX_SIZE.tiers * CONTAINER_H;
 
-export function occupancyColor(ratio: number): string {
-  if (ratio < 0.6) return "#22c55e";
-  if (ratio < 0.8) return "#eab308";
-  return "#ef2444";
-}
+export { occupancyColor } from "@/domain/occupancy";

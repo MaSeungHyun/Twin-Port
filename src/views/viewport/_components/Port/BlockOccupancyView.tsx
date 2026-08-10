@@ -38,9 +38,11 @@ function occupancyColor(ratio: number): string {
 function BlockOccupancyBar({
   occupancy,
   index,
+  visible,
 }: {
   occupancy: BlockOccupancy;
   index: number;
+  visible: boolean;
 }) {
   const block = useMemo(
     () => BLOCKS.find((b) => b.code === occupancy.blockCode),
@@ -68,7 +70,7 @@ function BlockOccupancyBar({
 
   useEffect(() => {
     const mesh = fillRef.current;
-    if (!mesh) return;
+    if (!mesh || !visible) return;
 
     const { fillHeight } = dims;
     const progress = { t: 0 };
@@ -91,7 +93,7 @@ function BlockOccupancyBar({
     return () => {
       tween.kill();
     };
-  }, [dims, index]);
+  }, [dims, index, visible]);
 
   if (!block) return null;
 
@@ -100,7 +102,7 @@ function BlockOccupancyBar({
   const color = occupancyColor(occupancy.ratio);
 
   return (
-    <group>
+    <group visible={visible}>
       {/* 용량 전체 — 흐린 박스 */}
       <mesh
         position={[centerX, DECK_Y + dims.fullHeight / 2, centerZ]}
@@ -142,7 +144,11 @@ function BlockOccupancyBar({
         center
         // 기본값 [16777271, 0]이면 헤더 Dropdown 위로 올라옴. UI(99999)보다 낮게 유지
         zIndexRange={[20, 1]}
-        style={{ userSelect: "none", pointerEvents: "auto" }}
+        style={{
+          userSelect: "none",
+          pointerEvents: visible ? "auto" : "none",
+          display: visible ? "block" : "none",
+        }}
       >
         <div className="rounded-md bg-black/55 px-2 py-1 text-center whitespace-nowrap text-white shadow transition-transform duration-50 hover:z-10 hover:scale-125">
           <div className="flex items-center justify-center gap-2">
@@ -168,19 +174,24 @@ function BlockOccupancyBar({
   );
 }
 
-export default function BlockOccupancyView() {
+export default function BlockOccupancyView({
+  visible = true,
+}: {
+  visible?: boolean;
+}) {
   const occupancies = useMemo(
     () => computeBlockOccupancies(mockContainers as Container[]),
     [],
   );
 
   return (
-    <group position={[5, 0, 0]}>
+    <group position={[5, 0, 0]} visible={visible}>
       {occupancies.map((occupancy, index) => (
         <BlockOccupancyBar
           key={occupancy.blockCode}
           occupancy={occupancy}
           index={index}
+          visible={visible}
         />
       ))}
     </group>

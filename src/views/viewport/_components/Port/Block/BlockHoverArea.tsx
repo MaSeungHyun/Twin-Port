@@ -82,7 +82,7 @@ export default function BlockHoverArea({
             display: showInfo ? "block" : "none",
           }}
         >
-          <div className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border">
+          <div className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border border-background">
             <span className="text-base font-semibold tracking-wide">
               {block.code}
             </span>

@@ -2,6 +2,7 @@ import Icon from "@/components/Icon";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
 import Button from "@/components/Button";
+import { startTransition } from "react";
 
 export default function OccupnacyMode() {
   const occupancyMode = useViewportStore((s) => s.occupancyMode);
@@ -18,7 +19,11 @@ export default function OccupnacyMode() {
         occupancyMode && "bg-primary/60",
         monitorMode && "cursor-not-allowed opacity-40",
       )}
-      onClick={toggleOccupancyMode}
+      onClick={() => {
+        startTransition(() => {
+          toggleOccupancyMode();
+        });
+      }}
     >
       <Icon icon="ChartNoAxesColumn" />
     </Button>

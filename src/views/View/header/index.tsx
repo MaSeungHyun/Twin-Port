@@ -1,6 +1,6 @@
 import title from "@/assets/image/wordmark.png";
 import Status from "./Status";
-import Alarm from "../content/_components/alarm";
+import Alarm from "./Alarm";
 
 import OccupnacyMode from "./OccupnacyMode";
 import ViewOption from "./ViewOption";
