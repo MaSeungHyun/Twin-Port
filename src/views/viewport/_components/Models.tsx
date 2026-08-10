@@ -1,4 +1,4 @@
-import { CRANE_INSTANCES, SHIP_INSTANCES } from "@/constants/model";
+import { CRANE_INSTANCES } from "@/constants/model";
 import { useObjectStore } from "@/stores/object";
 import { useViewportStore } from "@/stores/viewport";
 import { useState } from "react";
@@ -8,7 +8,8 @@ import ContainerYard from "./Port/ContainerYard";
 import Crane from "./Port/Crane";
 import Ground from "./Port/Ground";
 import OverHeadCrane from "./Port/OverHeadCrane";
-import Ship from "./Port/Ship";
+import SeaTraffic from "./Port/SeaTraffic";
+import ShipFleet from "./Port/ShipFleet";
 import Terrain from "./Terrain";
 
 /** occupancy/container 가시성만 구독 — Ship/Crane 등과 리렌더 분리 */
@@ -38,7 +39,8 @@ function Models() {
       <Terrain visible={terrainVisible} />
       <Ground />
 
-      <Ship instances={SHIP_INSTANCES} />
+      <ShipFleet />
+      {/* <SeaTraffic /> */}
       <Crane instances={CRANE_INSTANCES} />
       <OverHeadCrane />
 

@@ -1,14 +1,15 @@
-import shipUrl from "@/assets/model/ship.glb";
+import shipUrl from "@/assets/model/ship_empty.glb";
 import { enableGlbShadows } from "@/domain/glb";
 import { useGLTF } from "@react-three/drei";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { useMemo, useRef, type RefObject } from "react";
 import {
+  type BufferGeometry,
   type InstancedMesh,
+  type Material,
   Matrix4,
   type Mesh,
-  type Material,
   Object3D,
-  type BufferGeometry,
 } from "three";
 
 export type ShipInstance = {
@@ -24,12 +25,17 @@ type ShipPart = {
 };
 
 type ShipProps = {
-  instances: ShipInstance[];
+  /** 정적 인스턴스 (posesRef 없을 때) */
+  instances?: ShipInstance[];
+  /** 애니메이션용 가변 pose (매 프레임 반영) */
+  posesRef?: RefObject<ShipInstance[]>;
 };
 
-export default function Ship({ instances }: ShipProps) {
+export default function Ship({ instances, posesRef }: ShipProps) {
   const { scene } = useGLTF(shipUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
+  const dummy = useMemo(() => new Object3D(), []);
+  const matrix = useMemo(() => new Matrix4(), []);
 
   const parts = useMemo<ShipPart[]>(() => {
     scene.updateMatrixWorld(true);
@@ -49,15 +55,14 @@ export default function Ship({ instances }: ShipProps) {
     return collected;
   }, [scene]);
 
-  useLayoutEffect(() => {
-    const dummy = new Object3D();
-    const matrix = new Matrix4();
+  function writeMatrices(list: ShipInstance[]) {
+    if (list.length === 0) return;
 
     parts.forEach((part, partIndex) => {
       const instanced = meshRefs.current[partIndex];
       if (!instanced) return;
 
-      instances.forEach((instance, index) => {
+      list.forEach((instance, index) => {
         dummy.position.set(...instance.position);
         dummy.rotation.set(...(instance.rotation ?? [0, 0, 0]));
 
@@ -73,12 +78,19 @@ export default function Ship({ instances }: ShipProps) {
         instanced.setMatrixAt(index, matrix);
       });
 
-      instanced.count = instances.length;
+      instanced.count = list.length;
       instanced.instanceMatrix.needsUpdate = true;
     });
-  }, [instances, parts]);
+  }
 
-  if (instances.length === 0) return null;
+  useFrame(() => {
+    const list = posesRef?.current ?? instances;
+    if (!list || list.length === 0) return;
+    writeMatrices(list);
+  });
+
+  const count = posesRef?.current?.length ?? instances?.length ?? 0;
+  if (count === 0) return null;
 
   return (
     <group>
@@ -88,7 +100,7 @@ export default function Ship({ instances }: ShipProps) {
           ref={(node) => {
             meshRefs.current[index] = node;
           }}
-          args={[part.geometry, part.material, instances.length]}
+          args={[part.geometry, part.material, count]}
           castShadow
           receiveShadow
           frustumCulled={false}
