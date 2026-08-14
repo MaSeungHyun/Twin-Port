@@ -1,11 +1,15 @@
 import type { BlockDefinition } from "@/constants/block";
-import { getBlockFootprintCenter } from "@/domain/blockFootprint";
+import {
+  getBlockFootprintCenter,
+  getBlockFootprintSize,
+  getBlockLabelSize,
+} from "@/domain/blockFootprint";
 import type { BlockOccupancy } from "@/domain/occupancy";
 import { Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useRef } from "react";
 import type { Material, Mesh } from "three";
-import { LABEL_Y } from "./constants";
+import { useYardStore } from "@/stores/yard";
 
 function applyAlwaysOnTop(material: Material | Material[] | undefined) {
   if (!material) return;
@@ -20,14 +24,18 @@ function applyAlwaysOnTop(material: Material | Material[] | undefined) {
   }
 }
 
-/** 바닥과 평행한 Block 코드 라벨 (drei Text = Troika) */
+/** 바닥과 평행한 Block 코드 라벨 — 블록 크기에 비례 */
 export default function BlockFloorLabel({
   block,
 }: {
   block: BlockDefinition;
   occupancy: BlockOccupancy;
 }) {
-  const center = getBlockFootprintCenter(block.origin);
+  const deckY = useYardStore((s) => s.deckY);
+  const center = getBlockFootprintCenter(block);
+  const { width, depth } = getBlockFootprintSize(block);
+  const fontSize = getBlockLabelSize(block);
+  const alongBay = depth >= width;
   const textRef = useRef<Mesh>(null);
 
   const handleSync = useCallback((text: Mesh) => {
@@ -35,7 +43,6 @@ export default function BlockFloorLabel({
     applyAlwaysOnTop(text.material);
   }, []);
 
-  // Troika sync 후에도 material이 리셋될 수 있어 매 프레임 유지
   useFrame(() => {
     const text = textRef.current;
     if (!text) return;
@@ -45,18 +52,22 @@ export default function BlockFloorLabel({
 
   return (
     <group
-      position={[center[0], LABEL_Y, center[2]]}
-      rotation={[-Math.PI / 2, 0, Math.PI / 2]}
+      position={[center[0], deckY + block.origin[1] + 0.03, center[2]]}
+      rotation={[
+        -Math.PI / 2,
+        0,
+        (block.yaw ?? 0) + (alongBay ? 0 : Math.PI / 2),
+      ]}
     >
       <Text
         ref={textRef}
-        fontSize={5}
-        letterSpacing={0.06}
+        fontSize={fontSize}
+        letterSpacing={0.04}
         color="#f8fafc"
-        fillOpacity={0.8}
-        outlineWidth={0.06}
+        fillOpacity={0.9}
+        outlineWidth={fontSize * 0.08}
         outlineColor="#0f172a"
-        outlineOpacity={0}
+        outlineOpacity={0.55}
         anchorX="center"
         anchorY="middle"
         renderOrder={10000}

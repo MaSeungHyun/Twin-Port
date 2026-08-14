@@ -15,6 +15,7 @@ import {
   createBlockCenterCraneInstances,
   type OverHeadCraneInstance,
 } from "./overheadCraneInstances";
+import { useYardStore } from "@/stores/yard";
 
 type CranePart = {
   geometry: BufferGeometry;
@@ -27,8 +28,14 @@ type OverHeadCraneProps = {
 };
 
 export default function OverHeadCrane({
-  instances = createBlockCenterCraneInstances(),
+  instances,
 }: OverHeadCraneProps) {
+  const blocks = useYardStore((s) => s.blocks);
+  const deckY = useYardStore((s) => s.deckY);
+  const resolvedInstances = useMemo(
+    () => instances ?? createBlockCenterCraneInstances(blocks, deckY),
+    [instances, blocks, deckY],
+  );
   const { scene } = useGLTF(overheadCraneUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
@@ -57,7 +64,7 @@ export default function OverHeadCrane({
       const instanced = meshRefs.current[partIndex];
       if (!instanced) return;
 
-      instances.forEach((instance, index) => {
+      resolvedInstances.forEach((instance, index) => {
         const t = elapsed * instance.speed + instance.phase;
         const u = (Math.sin(t) + 1) / 2;
         const z = instance.zMin + (instance.zMax - instance.zMin) * u;
@@ -77,20 +84,20 @@ export default function OverHeadCrane({
         instanced.setMatrixAt(index, matrix);
       });
 
-      instanced.count = instances.length;
+      instanced.count = resolvedInstances.length;
       instanced.instanceMatrix.needsUpdate = true;
     });
   }
 
   useLayoutEffect(() => {
     writeMatrices(0);
-  }, [instances, parts]);
+  }, [resolvedInstances, parts]);
 
   useFrame(({ clock }) => {
     writeMatrices(clock.elapsedTime);
   });
 
-  if (instances.length === 0) return null;
+  if (resolvedInstances.length === 0) return null;
 
   return (
     <group>
@@ -100,7 +107,7 @@ export default function OverHeadCrane({
           ref={(node) => {
             meshRefs.current[index] = node;
           }}
-          args={[part.geometry, part.material, instances.length]}
+          args={[part.geometry, part.material, resolvedInstances.length]}
           castShadow
           receiveShadow
           frustumCulled={false}

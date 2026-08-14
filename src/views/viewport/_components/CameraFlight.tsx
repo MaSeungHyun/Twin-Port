@@ -13,12 +13,10 @@ import {
   INITIAL_CAMERA_QUATERNION,
   cameraLookAtTarget,
 } from "@/constants/camera";
-import { BLOCK_BY_CODE } from "@/constants/block";
-import { DECK_Y } from "@/constants/container";
 import { getContainerWorldPosition } from "@/domain/container";
-import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
+import { getBlockSlotGrid } from "@/constants/block";
 import { useViewportStore } from "@/stores/viewport";
+import { useYardStore } from "@/stores/yard";
 
 type CameraFlightProps = {
   controlsRef: RefObject<OrbitControlsImpl | null>;
@@ -273,20 +271,28 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     }
     prevFocusNonceRef.current = focusNonce;
 
-    const container = (mockContainers as Container[]).find(
+    const { blocks, containers, deckY, yardOffset } = useYardStore.getState();
+    const container = containers.find(
       (item) => item.id === selectedContainerId,
     );
     if (!container) return;
 
-    const block = BLOCK_BY_CODE[container.location.block];
+    const block = blocks.find((item) => item.code === container.location.block);
     if (!block) return;
 
+    const grid = getBlockSlotGrid(block);
     const toTarget = getContainerWorldPosition(
       block.origin,
       Number(container.location.slot.row) - 1,
       Number(container.location.slot.bay) - 1,
       Number(container.location.slot.tier),
-      DECK_Y,
+      deckY,
+      yardOffset,
+      block.yaw ?? 0,
+      grid.rowPitch,
+      grid.bayPitch,
+      grid.padX,
+      grid.padZ,
     );
     const toPosition = focusCameraPosition(toTarget, camera.position);
 

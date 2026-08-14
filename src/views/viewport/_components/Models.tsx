@@ -8,7 +8,6 @@ import ContainerYard from "./Port/ContainerYard";
 import Crane from "./Port/Crane";
 import Ground from "./Port/Ground";
 import OverHeadCrane from "./Port/OverHeadCrane";
-import SeaTraffic from "./Port/SeaTraffic";
 import ShipFleet from "./Port/ShipFleet";
 import Terrain from "./Terrain";
 
@@ -37,14 +36,15 @@ function Models() {
   return (
     <>
       <Terrain visible={terrainVisible} />
-      <Ground />
+      {/* <Ground /> */}
 
-      <ShipFleet />
+      {/* <ShipFleet /> */}
       {/* <SeaTraffic /> */}
-      <Crane instances={CRANE_INSTANCES} />
-      <OverHeadCrane />
+      {/* <Crane instances={CRANE_INSTANCES} /> */}
+      {/* <OverHeadCrane /> */}
 
       <YardLayer />
+      <Ground />
     </>
   );
 }

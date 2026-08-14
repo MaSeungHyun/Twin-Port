@@ -1,7 +1,7 @@
-import { BLOCKS } from "@/constants/block";
+import { useYardStore } from "@/stores/yard";
 import {
   getBlockFootprintCenter,
-  getBlockOuterFrameSegments,
+  getBlockFootprintSize,
 } from "@/domain/blockFootprint";
 import type { BlockOccupancy } from "@/domain/occupancy";
 import { useEffect, useMemo, useRef } from "react";
@@ -10,97 +10,75 @@ import {
   Color,
   Matrix4,
   MeshStandardMaterial,
+  Quaternion,
+  Vector3,
   type InstancedMesh,
 } from "three";
 import BlockFloorLabel from "./BlockFloorLabel";
-import {
-  BLOCK_MARK,
-  BORDER_OUTSET,
-  BORDER_Y,
-  FLOOR_Y,
-  occupancyColor,
-  PADDED_SIZE,
-} from "./constants";
+import { BLOCK_MARK, occupancyColor } from "./constants";
 
-/** 바닥 색 + 외곽 라인 — 동일 PAD로 크기 동기화 */
+const _pos = new Vector3();
+const _quat = new Quaternion();
+const _scale = new Vector3();
+const _axis = new Vector3(0, 1, 0);
+const _matrix = new Matrix4();
+
+function writeInstance(
+  mesh: InstancedMesh,
+  index: number,
+  position: readonly [number, number, number],
+  scale: readonly [number, number, number],
+  yaw: number,
+) {
+  _pos.set(position[0], position[1], position[2]);
+  _quat.setFromAxisAngle(_axis, yaw);
+  _scale.set(scale[0], scale[1], scale[2]);
+  mesh.setMatrixAt(index, _matrix.compose(_pos, _quat, _scale));
+}
+
+/** 바닥 색 + 외곽 라인 — 블록 yaw·크기에 맞춤 */
 export default function BlockMarks({
   occupancyByCode,
 }: {
   occupancyByCode: Record<string, BlockOccupancy>;
 }) {
-  const borderRef = useRef<InstancedMesh>(null);
+  const blocks = useYardStore((s) => s.blocks);
+  const deckY = useYardStore((s) => s.deckY);
   const floorRef = useRef<InstancedMesh>(null);
 
-  const segments = useMemo(
-    () =>
-      BLOCKS.flatMap((block) =>
-        getBlockOuterFrameSegments(
-          block.origin,
-          BORDER_Y,
-          BLOCK_MARK.borderThickness,
-          BLOCK_MARK.borderHeight,
-          BORDER_OUTSET,
-        ),
-      ),
-    [],
-  );
-
   const geometry = useMemo(() => new BoxGeometry(1, 1, 1), []);
-  const borderMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: "#cacaca",
-        emissive: "#1a4a7a",
-        roughness: 0.85,
-        metalness: 0.05,
-        transparent: true,
-        opacity: 0.92,
-        depthWrite: false,
-      }),
-    [],
-  );
   const floorMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
         roughness: 0.9,
         metalness: 0.05,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.28,
         depthWrite: false,
       }),
     [],
   );
 
   useEffect(() => {
-    const mesh = borderRef.current;
-    if (!mesh) return;
-
-    const matrix = new Matrix4();
-    segments.forEach((segment, index) => {
-      matrix.makeScale(...segment.scale);
-      matrix.setPosition(...segment.position);
-      mesh.setMatrixAt(index, matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.count = segments.length;
-  }, [segments]);
-
-  useEffect(() => {
     const mesh = floorRef.current;
     if (!mesh) return;
 
-    const matrix = new Matrix4();
     const color = new Color();
 
-    BLOCKS.forEach((block, index) => {
-      const center = getBlockFootprintCenter(block.origin);
-      matrix.makeScale(
-        PADDED_SIZE.width,
-        BLOCK_MARK.floorHeight,
-        PADDED_SIZE.depth,
+    blocks.forEach((block, index) => {
+      const center = getBlockFootprintCenter(block);
+      const { width, depth } = getBlockFootprintSize(block);
+      writeInstance(
+        mesh,
+        index,
+        [
+          center[0],
+          deckY + block.origin[1] + BLOCK_MARK.floorHeight / 2 + 0.004,
+          center[2],
+        ],
+        [width, BLOCK_MARK.floorHeight, depth],
+        block.yaw ?? 0,
       );
-      matrix.setPosition(center[0], FLOOR_Y, center[2]);
-      mesh.setMatrixAt(index, matrix);
 
       const occupancy = occupancyByCode[block.code];
       color.set(occupancyColor(occupancy?.ratio ?? 0));
@@ -109,28 +87,20 @@ export default function BlockMarks({
 
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.count = BLOCKS.length;
-  }, [occupancyByCode]);
+    mesh.count = blocks.length;
+  }, [occupancyByCode, blocks, deckY]);
 
   return (
     <group name="block-marks">
       <instancedMesh
         ref={floorRef}
-        args={[geometry, floorMaterial, BLOCKS.length]}
+        args={[geometry, floorMaterial, Math.max(blocks.length, 1)]}
         frustumCulled={false}
         renderOrder={15}
         receiveShadow
         raycast={() => null}
       />
-      <instancedMesh
-        ref={borderRef}
-        args={[geometry, borderMaterial, segments.length]}
-        frustumCulled={false}
-        renderOrder={20}
-        receiveShadow
-        raycast={() => null}
-      />
-      {BLOCKS.map((block) => {
+      {blocks.map((block) => {
         const occupancy = occupancyByCode[block.code];
         if (!occupancy) return null;
         return (

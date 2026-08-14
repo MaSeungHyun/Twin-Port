@@ -2,16 +2,15 @@ import containersUrl from "@/assets/model/containers.glb";
 import {
   COMPANY_COLOR,
   CONTAINER_COLORS,
-  DECK_Y,
   MAX_PER_COLOR,
   type ContainerColorKey,
   type ContainerCompany,
 } from "@/constants/container";
-import { BLOCK_BY_CODE } from "@/constants/block";
+import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { composeContainerMatrix } from "@/domain/container";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
+import { useYardStore } from "@/stores/yard";
 import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
 import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -36,15 +35,31 @@ function isCompany(value: string): value is ContainerCompany {
   return value in COMPANY_COLOR;
 }
 
-function slotToMatrix(container: Container) {
-  const block = BLOCK_BY_CODE[container.location.block];
+function slotToMatrix(
+  container: Container,
+  blockByCode: Record<string, BlockDefinition>,
+  deckY: number,
+) {
+  const block = blockByCode[container.location.block];
   if (!block) return null;
 
   const row = Number(container.location.slot.row) - 1;
   const bay = Number(container.location.slot.bay) - 1;
   const tier = Number(container.location.slot.tier);
 
-  return composeContainerMatrix(row, bay, tier, DECK_Y, block.origin, 0);
+  const grid = getBlockSlotGrid(block);
+  return composeContainerMatrix(
+    row,
+    bay,
+    tier,
+    deckY,
+    block.origin,
+    block.yaw ?? 0,
+    grid.rowPitch,
+    grid.bayPitch,
+    grid.padX,
+    grid.padZ,
+  );
 }
 
 export default function ContainerYard({
@@ -52,6 +67,10 @@ export default function ContainerYard({
 }: {
   visible?: boolean;
 }) {
+  const blocks = useYardStore((s) => s.blocks);
+  const deckY = useYardStore((s) => s.deckY);
+  const yardOffset = useYardStore((s) => s.yardOffset);
+  const containers = useYardStore((s) => s.containers);
   const { scene } = useGLTF(containersUrl);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
 
@@ -65,12 +84,20 @@ export default function ContainerYard({
     Partial<Record<ContainerColorKey, InstancedMesh>>
   >({});
   const [meshesReady, setMeshesReady] = useState(false);
-  const containers = mockContainers as Container[];
 
   const matchedIds = useMemo(() => {
     if (!selectedContainerId) return null;
     return new Set([selectedContainerId]);
   }, [selectedContainerId]);
+
+  const blockByCode = useMemo(
+    () =>
+      Object.fromEntries(blocks.map((block) => [block.code, block])) as Record<
+        string,
+        BlockDefinition
+      >,
+    [blocks],
+  );
 
   const prototypes = useMemo(
     () => buildContainerPrototypes(scene),
@@ -129,7 +156,7 @@ export default function ContainerYard({
       if (container.status !== "stored") continue;
       if (!isCompany(container.company)) continue;
 
-      const matrix = slotToMatrix(container);
+      const matrix = slotToMatrix(container, blockByCode, deckY);
       if (!matrix) continue;
 
       const colorKey = COMPANY_COLOR[container.company];
@@ -171,7 +198,7 @@ export default function ContainerYard({
       if (highlight) highlight.instanceMatrix.needsUpdate = true;
       if (wire) wire.instanceMatrix.needsUpdate = true;
     });
-  }, [containers, meshesReady, matchedIds]);
+  }, [containers, meshesReady, matchedIds, blockByCode, deckY]);
 
   function tryMarkReady() {
     if (meshesReady) return;
@@ -190,7 +217,7 @@ export default function ContainerYard({
   }
 
   return (
-    <group position={[5, 0, 0]} visible={visible}>
+    <group position={[...yardOffset]} visible={visible}>
       {CONTAINER_COLORS.map((c) => (
         <instancedMesh
           key={`solid-${c.key}`}

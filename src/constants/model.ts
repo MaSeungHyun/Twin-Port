@@ -42,25 +42,25 @@ export const SHIP_INSTANCES: ShipInstance[] = [
 ];
 
 export const CRANE_INSTANCES: CraneInstance[] = [
-  { position: [50, 0, 70], scale: CRANE_SCALE },
-  { position: [50, 0, 80], scale: CRANE_SCALE },
-  { position: [50, 0, 90], scale: CRANE_SCALE },
+  { position: [58, 0, 70], scale: CRANE_SCALE },
+  { position: [58, 0, 80], scale: CRANE_SCALE },
+  { position: [58, 0, 90], scale: CRANE_SCALE },
 
   { position: [-55, 0, 70], rotation: YAW_180, scale: CRANE_SCALE },
   { position: [-55, 0, 80], rotation: YAW_180, scale: CRANE_SCALE },
   { position: [-55, 0, 90], rotation: YAW_180, scale: CRANE_SCALE },
 
-  { position: [50, 0, 0], scale: CRANE_SCALE },
-  { position: [50, 0, 10], scale: CRANE_SCALE },
-  { position: [50, 0, 20], scale: CRANE_SCALE },
+  { position: [58, 0, 0], scale: CRANE_SCALE },
+  { position: [58, 0, 10], scale: CRANE_SCALE },
+  { position: [58, 0, 20], scale: CRANE_SCALE },
 
   { position: [-55, 0, 0], rotation: YAW_180, scale: CRANE_SCALE },
   { position: [-55, 0, 10], rotation: YAW_180, scale: CRANE_SCALE },
   { position: [-55, 0, 20], rotation: YAW_180, scale: CRANE_SCALE },
 
-  { position: [50, 0, -50], scale: CRANE_SCALE },
-  { position: [50, 0, -60], scale: CRANE_SCALE },
-  { position: [50, 0, -70], scale: CRANE_SCALE },
+  { position: [58, 0, -50], scale: CRANE_SCALE },
+  { position: [58, 0, -60], scale: CRANE_SCALE },
+  { position: [58, 0, -70], scale: CRANE_SCALE },
 
   { position: [-55, 0, -50], rotation: YAW_180, scale: CRANE_SCALE },
   { position: [-55, 0, -60], rotation: YAW_180, scale: CRANE_SCALE },

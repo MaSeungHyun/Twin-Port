@@ -1,16 +1,11 @@
-import { BLOCKS, SLOT_MAX_SIZE } from "@/constants/block";
-import {
-  CONTAINER_D,
-  CONTAINER_H,
-  CONTAINER_W,
-  DECK_Y,
-} from "@/constants/container";
+import { getBlockSlotGrid } from "@/constants/block";
+import { useYardStore } from "@/stores/yard";
+import { CONTAINER_H } from "@/constants/container";
+import { getBlockFootprintCenter } from "@/domain/blockFootprint";
 import {
   computeBlockOccupancies,
   type BlockOccupancy,
 } from "@/domain/occupancy";
-import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
 import { Html } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import { BoxGeometry, EdgesGeometry, type Mesh } from "three";
@@ -23,10 +18,8 @@ const COLOR_MAP = {
 };
 const HEIGHT_SCALE = 5;
 
-/** 카메라가 상공으로 올라가는 동안 시작 */
 const FILL_DELAY = 0.15;
 const FILL_DURATION = 1;
-/** Block 순서대로 조금씩 늦게 차오르게 */
 const FILL_STAGGER = 0.0;
 
 function occupancyColor(ratio: number): string {
@@ -44,18 +37,24 @@ function BlockOccupancyBar({
   index: number;
   visible: boolean;
 }) {
+  const blocks = useYardStore((s) => s.blocks);
+  const deckY = useYardStore((s) => s.deckY);
   const block = useMemo(
-    () => BLOCKS.find((b) => b.code === occupancy.blockCode),
-    [occupancy.blockCode],
+    () => blocks.find((b) => b.code === occupancy.blockCode),
+    [occupancy.blockCode, blocks],
   );
 
   const dims = useMemo(() => {
-    const width = SLOT_MAX_SIZE.rows * CONTAINER_W;
-    const depth = SLOT_MAX_SIZE.bays * CONTAINER_D;
-    const fullHeight = SLOT_MAX_SIZE.tiers * CONTAINER_H * HEIGHT_SCALE;
+    if (!block) {
+      return { width: 1, depth: 1, fullHeight: 1, fillHeight: 1 };
+    }
+    const grid = getBlockSlotGrid(block);
+    const width = grid.sizeX;
+    const depth = grid.sizeZ;
+    const fullHeight = grid.tiers * CONTAINER_H * HEIGHT_SCALE;
     const fillHeight = Math.max(fullHeight * occupancy.ratio, 0.02);
     return { width, depth, fullHeight, fillHeight };
-  }, [occupancy.ratio]);
+  }, [occupancy.ratio, block]);
 
   const shellGeometry = useMemo(
     () => new BoxGeometry(dims.width, dims.fullHeight, dims.depth),
@@ -77,7 +76,7 @@ function BlockOccupancyBar({
 
     const applyProgress = () => {
       mesh.scale.y = Math.max(progress.t, 0.0001);
-      mesh.position.y = DECK_Y + (fillHeight * progress.t) / 2;
+      mesh.position.y = (fillHeight * progress.t) / 2;
     };
 
     applyProgress();
@@ -93,21 +92,21 @@ function BlockOccupancyBar({
     return () => {
       tween.kill();
     };
-  }, [dims, index, visible]);
+  }, [dims, index, visible, deckY, block]);
 
   if (!block) return null;
 
-  const centerX = block.origin[0] + dims.width / 2;
-  const centerZ = block.origin[2] + dims.depth / 2;
+  const center = getBlockFootprintCenter(block);
   const color = occupancyColor(occupancy.ratio);
+  const baseY = deckY + block.origin[1];
 
   return (
-    <group visible={visible}>
-      {/* 용량 전체 — 흐린 박스 */}
-      <mesh
-        position={[centerX, DECK_Y + dims.fullHeight / 2, centerZ]}
-        geometry={shellGeometry}
-      >
+    <group
+      visible={visible}
+      position={[center[0], baseY, center[2]]}
+      rotation={[0, block.yaw ?? 0, 0]}
+    >
+      <mesh position={[0, dims.fullHeight / 2, 0]} geometry={shellGeometry}>
         <meshStandardMaterial
           color="#cbd5e1"
           transparent
@@ -116,17 +115,16 @@ function BlockOccupancyBar({
         />
       </mesh>
       <lineSegments
-        position={[centerX, DECK_Y + dims.fullHeight / 2, centerZ]}
+        position={[0, dims.fullHeight / 2, 0]}
         geometry={shellEdges}
         raycast={() => null}
       >
         <lineBasicMaterial color="#e2e8f0" transparent opacity={0.55} />
       </lineSegments>
 
-      {/* 점유율만큼 Y 채움 */}
       <mesh
         ref={fillRef}
-        position={[centerX, DECK_Y, centerZ]}
+        position={[0, 0, 0]}
         scale={[1, 0.0001, 1]}
         raycast={() => null}
       >
@@ -140,9 +138,8 @@ function BlockOccupancyBar({
       </mesh>
 
       <Html
-        position={[centerX, DECK_Y + dims.fullHeight + 1.2, centerZ]}
+        position={[0, dims.fullHeight + 1.2, 0]}
         center
-        // 기본값 [16777271, 0]이면 헤더 Dropdown 위로 올라옴. UI(99999)보다 낮게 유지
         zIndexRange={[20, 1]}
         style={{
           userSelect: "none",
@@ -179,13 +176,16 @@ export default function BlockOccupancyView({
 }: {
   visible?: boolean;
 }) {
+  const blocks = useYardStore((s) => s.blocks);
+  const yardOffset = useYardStore((s) => s.yardOffset);
+  const containers = useYardStore((s) => s.containers);
   const occupancies = useMemo(
-    () => computeBlockOccupancies(mockContainers as Container[]),
-    [],
+    () => computeBlockOccupancies(containers, blocks),
+    [blocks, containers],
   );
 
   return (
-    <group position={[5, 0, 0]} visible={visible}>
+    <group position={[...yardOffset]} visible={visible}>
       {occupancies.map((occupancy, index) => (
         <BlockOccupancyBar
           key={occupancy.blockCode}

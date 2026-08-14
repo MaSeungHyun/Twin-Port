@@ -47,14 +47,24 @@ export function composeContainerMatrix(
   deckY: number,
   origin: Vec3,
   yaw = 0,
+  rowPitch = CONTAINER_W,
+  bayPitch = CONTAINER_D,
+  padX = 0,
+  padZ = 0,
 ) {
-  const baseY = (tierIndex - 1) * CONTAINER_H;
-  _pos.set(
-    origin[0] + rowIndex * CONTAINER_W + CONTAINER_W / 2,
-    deckY + origin[1] + baseY + CONTAINER_H / 2,
-    origin[2] + bayIndex * CONTAINER_D + CONTAINER_D / 2,
-  );
-  _quat.setFromAxisAngle(_axis, yaw);
+  const heading = yaw;
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  const sx = (rowPitch / CONTAINER_W) * 0.99;
+  const sz = (bayPitch / CONTAINER_D) * 0.99;
+  const sy = 0.99;
+  const tierH = CONTAINER_H * sy;
+  const lx = padX + rowIndex * rowPitch + rowPitch / 2;
+  const ly = deckY + origin[1] + (tierIndex - 1) * tierH + tierH / 2;
+  const lz = padZ + bayIndex * bayPitch + bayPitch / 2;
+  _pos.set(origin[0] + lx * c + lz * s, ly, origin[2] + -lx * s + lz * c);
+  _quat.setFromAxisAngle(_axis, heading);
+  _scale.set(sx, sy, sz);
   return new Matrix4().compose(_pos, _quat, _scale);
 }
 
@@ -68,6 +78,11 @@ export function getContainerWorldPosition(
   tierIndex: number,
   deckY: number,
   yardOffset: Vec3 = CONTAINER_YARD_OFFSET,
+  yaw = 0,
+  rowPitch = CONTAINER_W,
+  bayPitch = CONTAINER_D,
+  padX = 0,
+  padZ = 0,
 ) {
   const matrix = composeContainerMatrix(
     rowIndex,
@@ -75,7 +90,11 @@ export function getContainerWorldPosition(
     tierIndex,
     deckY,
     blockOrigin,
-    0,
+    yaw,
+    rowPitch,
+    bayPitch,
+    padX,
+    padZ,
   );
   const position = new Vector3().setFromMatrixPosition(matrix);
   position.x += yardOffset[0];

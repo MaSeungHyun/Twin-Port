@@ -4,8 +4,8 @@ import Icon from "@/components/Icon";
 import SearchBar from "@/components/SearchBar";
 import { searchContainers } from "@/domain/containerSearch";
 import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
 import { useViewportStore } from "@/stores/viewport";
+import { useYardStore } from "@/stores/yard";
 import { useDeferredValue, useMemo, useState } from "react";
 import { companyAccent } from "../../util/containerAccent";
 import ContainerDetailCard from "./ContainerDetailCard";
@@ -22,7 +22,7 @@ export default function ContainerAccordion() {
 
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
-  const containers = mockContainers as Container[];
+  const containers = useYardStore((s) => s.containers);
 
   const results = useMemo(
     () => searchContainers(containers, deferredQuery),

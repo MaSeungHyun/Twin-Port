@@ -1,3 +1,4 @@
+import { CONTAINER_D, CONTAINER_W } from "./container";
 import type { Vec3 } from "./geometry";
 
 /** 실제 야드에 가까운 Block 용량: Bay20 × Row6 × Tier4 */
@@ -7,12 +8,54 @@ export const SLOT_MAX_SIZE = {
   tiers: 4,
 } as const;
 
+/** Row 방향 블록 폭 (X) */
+export const BLOCK_SIZE_X = SLOT_MAX_SIZE.rows * CONTAINER_W;
+/** Bay 방향 블록 깊이 (Z) */
+export const BLOCK_SIZE_Z = SLOT_MAX_SIZE.bays * CONTAINER_D;
+/** 통로 = 블록 폭 × 2 (텍스처 2칸) */
+export const BLOCK_AISLE = BLOCK_SIZE_X * 2;
+export const BLOCK_PITCH_X = BLOCK_SIZE_X + BLOCK_AISLE;
+export const BLOCK_PITCH_Z = BLOCK_SIZE_Z + BLOCK_AISLE;
+
 export type BlockDefinition = {
   code: string;
   name: string;
   /** Block 로컬 원점 (월드). Bay↑Z, Row↑X */
   origin: Vec3;
+  /** 컨테이너 장축(Bay) 방향. 모델 블록 yaw */
+  yaw?: number;
+  /** 메시 footprint (Row=X, Bay=Z) */
+  sizeX?: number;
+  sizeZ?: number;
+  rows?: number;
+  bays?: number;
+  tiers?: number;
+  rowPitch?: number;
+  bayPitch?: number;
+  /** 격자 여백 (로컬 X/Z). 컨테이너를 블록 안에 가운데 정렬 */
+  padX?: number;
+  padZ?: number;
 };
+
+export function getBlockSlotGrid(block: BlockDefinition) {
+  const sizeX = block.sizeX ?? BLOCK_SIZE_X;
+  const sizeZ = block.sizeZ ?? BLOCK_SIZE_Z;
+  const rows = block.rows ?? SLOT_MAX_SIZE.rows;
+  const bays = block.bays ?? SLOT_MAX_SIZE.bays;
+  const tiers = block.tiers ?? SLOT_MAX_SIZE.tiers;
+  return {
+    sizeX,
+    sizeZ,
+    rows,
+    bays,
+    tiers,
+    rowPitch: block.rowPitch ?? CONTAINER_W,
+    bayPitch: block.bayPitch ?? CONTAINER_D,
+    padX: block.padX ?? 0,
+    padZ: block.padZ ?? 0,
+    capacity: rows * bays * tiers,
+  };
+}
 
 /**
  * Block footprint ≈ Bay20×2.42(~48) × Row6×0.98(~6)
@@ -24,8 +67,21 @@ export type BlockDefinition = {
  *   B23 B19 B15 B11 B07 B03
  *   B24 B20 B16 B12 B08 B04
  */
-const COL_X = [-50, -34, -18, -2, 14, 30] as const;
-const ROW_Z = [-92, -36, 20, 76] as const;
+/** CONTAINER_YARD_OFFSET.x — 월드 대칭을 위해 origin에서 미리 뺌 */
+const YARD_OFFSET_X = 5;
+const COL_COUNT = 6;
+const ROW_COUNT = 4;
+const COL_ORIGIN_X =
+  -((COL_COUNT - 1) * BLOCK_PITCH_X + BLOCK_SIZE_X) / 2 - YARD_OFFSET_X;
+const ROW_ORIGIN_Z = -92;
+const COL_X = Array.from(
+  { length: COL_COUNT },
+  (_, i) => COL_ORIGIN_X + i * BLOCK_PITCH_X,
+);
+const ROW_Z = Array.from(
+  { length: ROW_COUNT },
+  (_, i) => ROW_ORIGIN_Z + i * BLOCK_PITCH_Z,
+);
 
 export const BLOCKS: readonly BlockDefinition[] = COL_X.flatMap((x, col) =>
   ROW_Z.map((z, row) => {

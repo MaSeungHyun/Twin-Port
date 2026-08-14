@@ -1,16 +1,16 @@
 import PieChart from "@/components/PieChart";
-import type { BlockDefinition } from "@/constants/block";
-import { DECK_Y } from "@/constants/container";
+import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
+import { CONTAINER_H } from "@/constants/container";
 import {
-  BLOCK_FOOTPRINT_DEPTH,
-  BLOCK_FOOTPRINT_WIDTH,
   getBlockFootprintCenter,
+  getBlockFootprintSize,
 } from "@/domain/blockFootprint";
 import type { BlockOccupancy } from "@/domain/occupancy";
+import { useYardStore } from "@/stores/yard";
 import { Html } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useState } from "react";
-import { HIT_HEIGHT, occupancyColor } from "./constants";
+import { occupancyColor } from "./constants";
 
 export default function BlockHoverArea({
   block,
@@ -21,10 +21,12 @@ export default function BlockHoverArea({
   occupancy: BlockOccupancy;
   statusVisible: boolean;
 }) {
+  const deckY = useYardStore((s) => s.deckY);
   const [hovered, setHovered] = useState(false);
   // 한 번 마운트한 뒤엔 unmount하지 않고 visible만 토글 (재생성 비용 제거)
   const [infoMounted, setInfoMounted] = useState(false);
-  const center = getBlockFootprintCenter(block.origin);
+  const center = getBlockFootprintCenter(block);
+  const { width, depth } = getBlockFootprintSize(block);
   const color = occupancyColor(occupancy.ratio);
   const showInfo = statusVisible || hovered;
   if (showInfo && !infoMounted) {
@@ -48,20 +50,19 @@ export default function BlockHoverArea({
     };
   }, []);
 
+  const hitHeight = Math.max(
+    getBlockSlotGrid(block).tiers * CONTAINER_H * 3,
+    0.4,
+  );
+
   return (
     <group
-      position={[center[0], DECK_Y + HIT_HEIGHT / 2, center[2]]}
+      position={[center[0], deckY + block.origin[1] + hitHeight / 2, center[2]]}
       onPointerOver={handleOver}
       onPointerOut={handleOut}
     >
-      <mesh>
-        <boxGeometry
-          args={[
-            BLOCK_FOOTPRINT_WIDTH + 0.1,
-            HIT_HEIGHT + 0.1,
-            BLOCK_FOOTPRINT_DEPTH + 0.1,
-          ]}
-        />
+      <mesh rotation={[0, block.yaw ?? 0, 0]}>
+        <boxGeometry args={[width, hitHeight, depth]} />
         <meshBasicMaterial
           color={color}
           transparent
@@ -72,7 +73,7 @@ export default function BlockHoverArea({
 
       {infoMounted ? (
         <Html
-          position={[0, 32, 0]}
+          position={[0, hitHeight / 2 + 0.35, 0]}
           center
           zIndexRange={[20, 1]}
           style={{

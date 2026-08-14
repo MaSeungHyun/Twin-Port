@@ -1,12 +1,9 @@
-import { BLOCKS } from "@/constants/block";
-import { CONTAINER_YARD_OFFSET } from "@/domain/container";
+import { useYardStore } from "@/stores/yard";
+import { useViewportStore } from "@/stores/viewport";
 import {
   computeBlockOccupancies,
   type BlockOccupancy,
 } from "@/domain/occupancy";
-import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
-import { useViewportStore } from "@/stores/viewport";
 import { useMemo } from "react";
 import BlockHoverArea from "./BlockHoverArea";
 import BlockMarks from "./BlockMarks";
@@ -16,11 +13,14 @@ export default function BlockFootprints({
 }: {
   visible?: boolean;
 }) {
+  const blocks = useYardStore((s) => s.blocks);
+  const yardOffset = useYardStore((s) => s.yardOffset);
   const monitorMode = useViewportStore((s) => s.monitorMode);
 
+  const containers = useYardStore((s) => s.containers);
   const occupancies = useMemo(
-    () => computeBlockOccupancies(mockContainers as Container[]),
-    [],
+    () => computeBlockOccupancies(containers, blocks),
+    [blocks, containers],
   );
 
   const occupancyByCode = useMemo(
@@ -32,9 +32,9 @@ export default function BlockFootprints({
   );
 
   return (
-    <group position={CONTAINER_YARD_OFFSET} visible={visible}>
+    <group position={[...yardOffset]} visible={visible}>
       <BlockMarks occupancyByCode={occupancyByCode} />
-      {BLOCKS.map((block) => {
+      {blocks.map((block) => {
         const occupancy = occupancyByCode[block.code];
         if (!occupancy) return null;
         return (

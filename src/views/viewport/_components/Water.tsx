@@ -37,7 +37,7 @@ export default function Water({ size = 5 }: WaterProps) {
       waterNormals,
       sunDirection: new Vector3(0.70707, 0.70707, 0),
       sunColor: 0xffffff,
-      waterColor: 0x001e3f,
+      waterColor: 0x001e4f,
       distortionScale: 0.1,
       fog: false,
     });

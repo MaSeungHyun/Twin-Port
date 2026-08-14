@@ -1,4 +1,4 @@
-import { BLOCKS, SLOT_MAX_SIZE } from "@/constants/block";
+import { BLOCKS, getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import type { Container } from "@/types/container";
 
 export type BlockOccupancy = {
@@ -11,13 +11,11 @@ export type BlockOccupancy = {
   percent: number;
 };
 
-const BLOCK_CAPACITY =
-  SLOT_MAX_SIZE.bays * SLOT_MAX_SIZE.rows * SLOT_MAX_SIZE.tiers;
-
 export function computeBlockOccupancies(
   containers: Container[],
+  blocks: readonly BlockDefinition[] = BLOCKS,
 ): BlockOccupancy[] {
-  const counts = Object.fromEntries(BLOCKS.map((b) => [b.code, 0])) as Record<
+  const counts = Object.fromEntries(blocks.map((b) => [b.code, 0])) as Record<
     string,
     number
   >;
@@ -28,13 +26,14 @@ export function computeBlockOccupancies(
     if (code in counts) counts[code] += 1;
   }
 
-  return BLOCKS.map((block) => {
+  return blocks.map((block) => {
     const occupied = counts[block.code] ?? 0;
-    const ratio = BLOCK_CAPACITY === 0 ? 0 : occupied / BLOCK_CAPACITY;
+    const capacity = getBlockSlotGrid(block).capacity;
+    const ratio = capacity === 0 ? 0 : occupied / capacity;
     return {
       blockCode: block.code,
       occupied,
-      capacity: BLOCK_CAPACITY,
+      capacity,
       ratio,
       percent: Math.round(ratio * 1000) / 10,
     };
@@ -62,20 +61,26 @@ export function occupancyColor(ratio: number): string {
   return "#ef2444";
 }
 
-export function computeYardStatus(containers: Container[]): YardStatus {
-  const occupancies = computeBlockOccupancies(containers);
+export function computeYardStatus(
+  containers: Container[],
+  blocks: readonly BlockDefinition[] = BLOCKS,
+): YardStatus {
+  const occupancies = computeBlockOccupancies(containers, blocks);
   const totalContainers = occupancies.reduce(
     (sum, item) => sum + item.occupied,
     0,
   );
-  const totalCapacity = BLOCKS.length * BLOCK_CAPACITY;
+  const totalCapacity = occupancies.reduce(
+    (sum, item) => sum + item.capacity,
+    0,
+  );
   const ratio = totalCapacity === 0 ? 0 : totalContainers / totalCapacity;
 
   return {
     totalContainers,
     totalCapacity,
     emptySlots: totalCapacity - totalContainers,
-    blockCount: BLOCKS.length,
+    blockCount: blocks.length,
     occupancy: Math.round(ratio * 1000) / 10,
     dangerous: occupancies.filter((item) => item.ratio >= DANGEROUS_RATIO)
       .length,

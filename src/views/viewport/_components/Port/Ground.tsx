@@ -1,157 +1,98 @@
-import asphaltDiff from "@/assets/image/port/asphalt_02_diff_1k.jpg";
-import asphaltNormal from "@/assets/image/port/asphalt_02_nor_gl_1k.png";
-import asphaltRough from "@/assets/image/port/asphalt_02_rough_1k.jpg";
-import { GROUND_X, GROUND_Y, GROUND_Z, TILE_SIZE } from "@/constants/ground";
-import { createGroundSurfaceMaterial } from "@/domain/groundMaterial";
-import { resolveGroundRepeat } from "@/domain/groundTexture";
-import { useLoader } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import groundUrl from "@/assets/model/BUSAN.glb";
+import { enableGlbShadows } from "@/domain/glb";
 import {
-  Mesh,
-  RepeatWrapping,
-  SRGBColorSpace,
-  TextureLoader,
-  type Texture,
-  type Vector3Tuple,
-} from "three";
+  extractGroundBlocks,
+  listObjectNames,
+} from "@/domain/extractGroundBlocks";
+import { useYardStore } from "@/stores/yard";
+import { useGLTF } from "@react-three/drei";
+import { useLayoutEffect, useMemo } from "react";
+import { Material, Mesh, type Object3D, type Vector3Tuple } from "three";
+
+/** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
+function enableGroundAlpha(root: Object3D) {
+  root.traverse((child) => {
+    if (!(child instanceof Mesh)) return;
+
+    const source = child.material;
+    const list = Array.isArray(source) ? source : [source];
+
+    const next = list.map((mat) => {
+      if (!(mat instanceof Material)) return mat;
+
+      const hasOpacity =
+        "opacity" in mat && typeof mat.opacity === "number" && mat.opacity < 1;
+      const hasAlphaMap = "alphaMap" in mat && Boolean(mat.alphaMap);
+      if (!mat.transparent && !hasOpacity && !hasAlphaMap) return mat;
+
+      const cloned = mat.clone();
+      cloned.transparent = true;
+      cloned.depthWrite = false;
+      if ("alphaTest" in cloned && cloned.alphaTest < 0.08) {
+        cloned.alphaTest = 0.08;
+      }
+      cloned.needsUpdate = true;
+      return cloned;
+    });
+
+    child.material = Array.isArray(source) ? next : next[0]!;
+  });
+}
 
 type GroundProps = {
   position?: Vector3Tuple;
   rotation?: Vector3Tuple;
   scale?: Vector3Tuple;
-  /** diffuse — 미지정 시 asphalt_02 */
-  texture?: string;
-  /** normal — asphalt 기본일 때만 자동 */
-  normalMap?: string;
-  /** roughness — asphalt 기본일 때만 자동 */
-  roughnessMap?: string;
-  /** UV repeat — 미지정 시 scale·회전·tileSize로 자동 계산 */
-  repeat?: [number, number];
-  /** 텍스처 UV 회전 (라디안) */
-  textureRotation?: number;
-  /** repeat 자동 계산 시 1타일 월드 크기 */
-  tileSize?: number;
 };
 
-function configureGroundMap(
-  source: Texture,
-  repeatU: number,
-  repeatV: number,
-  textureRotation: number,
-  colorSpace?: typeof SRGBColorSpace,
-) {
-  const cloned = source.clone();
-  cloned.wrapS = cloned.wrapT = RepeatWrapping;
-  cloned.repeat.set(repeatU, repeatV);
-  cloned.center.set(0.5, 0.5);
-  cloned.rotation = textureRotation;
-  if (colorSpace) cloned.colorSpace = colorSpace;
-  cloned.needsUpdate = true;
-  return cloned;
-}
-
 export default function Ground({
-  position = [0, 0, 0],
-  rotation = [0, 0, 0],
-  scale = [1, 1, 1],
-  texture = asphaltDiff,
-  normalMap,
-  roughnessMap,
-  repeat,
-  textureRotation = 0,
-  tileSize = TILE_SIZE,
+  position = [0, -3, 0],
+  rotation = [0, Math.PI / 2, 0],
+  scale = [5, 5, 5],
 }: GroundProps) {
-  const meshRef = useRef<Mesh>(null);
+  const setModelBlocks = useYardStore((s) => s.setModelBlocks);
+  const resetBlocks = useYardStore((s) => s.resetBlocks);
+  const { scene } = useGLTF(groundUrl);
 
-  const resolvedNormal =
-    normalMap ?? (texture === asphaltDiff ? asphaltNormal : undefined);
-  const resolvedRough =
-    roughnessMap ?? (texture === asphaltDiff ? asphaltRough : undefined);
-
-  const urls = [texture, resolvedNormal, resolvedRough].filter(
-    (url): url is string => Boolean(url),
-  );
-  const loaded = useLoader(TextureLoader, urls);
-
-  const [map, normal, rough] = useMemo(() => {
-    const [repeatU, repeatV] = resolveGroundRepeat(
-      scale,
-      rotation[1] ?? 0,
-      textureRotation,
-      tileSize,
-      repeat,
-    );
-
-    const diffTex = loaded[0]!;
-    const normalTex = resolvedNormal ? loaded[1] : undefined;
-    const roughTex = resolvedRough
-      ? loaded[resolvedNormal ? 2 : 1]
-      : undefined;
-
-    return [
-      configureGroundMap(
-        diffTex,
-        repeatU,
-        repeatV,
-        textureRotation,
-        SRGBColorSpace,
-      ),
-      normalTex
-        ? configureGroundMap(normalTex, repeatU, repeatV, textureRotation)
-        : undefined,
-      roughTex
-        ? configureGroundMap(roughTex, repeatU, repeatV, textureRotation)
-        : undefined,
-    ] as const;
-  }, [
-    loaded,
-    resolvedNormal,
-    resolvedRough,
-    repeat,
-    rotation,
-    scale,
-    textureRotation,
-    tileSize,
-  ]);
-
-  const material = useMemo(
-    () =>
-      createGroundSurfaceMaterial({
-        map,
-        normalMap: normal,
-        roughnessMap: rough,
-      }),
-    [map, normal, rough],
-  );
+  const model = useMemo(() => {
+    const cloned = scene.clone(true);
+    cloned.updateMatrixWorld(true);
+    enableGlbShadows(cloned);
+    enableGroundAlpha(cloned);
+    return cloned;
+  }, [scene]);
 
   useLayoutEffect(() => {
-    const geometry = meshRef.current?.geometry;
-    if (!geometry || !normal) return;
-    if (!geometry.getAttribute("tangent")) {
-      geometry.computeTangents();
+    model.position.set(...position);
+    model.rotation.set(...rotation);
+    model.scale.set(...scale);
+    model.updateMatrixWorld(true);
+    const blocks = extractGroundBlocks(model);
+    if (blocks.length > 0) {
+      if (import.meta.env.DEV) {
+        console.info(
+          `[Ground] ${blocks.length}개 블록 위치`,
+          blocks.map((b) => `${b.code}@${b.origin.map((n) => n.toFixed(1)).join(",")}`),
+        );
+      }
+      setModelBlocks(blocks);
+    } else if (import.meta.env.DEV) {
+      console.warn(
+        "[Ground] Block / ContainerStack 오브젝트가 없습니다. 노드:",
+        listObjectNames(model),
+      );
     }
-  }, [normal]);
-
-  useLayoutEffect(() => {
-    return () => {
-      map.dispose();
-      normal?.dispose();
-      rough?.dispose();
-      material.dispose();
-    };
-  }, [map, normal, rough, material]);
+    return () => resetBlocks();
+  }, [model, position, rotation, scale, setModelBlocks, resetBlocks]);
 
   return (
-    <mesh
-      ref={meshRef}
+    <primitive
+      object={model}
       position={position}
       rotation={rotation}
       scale={scale}
-      castShadow
-      receiveShadow
-      material={material}
-    >
-      <boxGeometry args={[GROUND_X, GROUND_Y, GROUND_Z]} />
-    </mesh>
+    />
   );
 }
+
+useGLTF.preload(groundUrl);

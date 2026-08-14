@@ -1,9 +1,8 @@
 import { Accordion } from "@/components/Accordion";
 import PieChart from "@/components/PieChart";
-import { BLOCKS, SLOT_MAX_SIZE } from "@/constants/block";
+import { getBlockSlotGrid } from "@/constants/block";
 import { computeBlockOccupancies, occupancyColor } from "@/domain/occupancy";
-import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
+import { useYardStore } from "@/stores/yard";
 import { useMemo } from "react";
 
 export type BlockSortBy = "name" | "occupancy";
@@ -16,9 +15,11 @@ export default function BlockAccordion({
   sortBy?: BlockSortBy;
   sortOrder?: BlockSortOrder;
 }) {
+  const blocks = useYardStore((s) => s.blocks);
+  const containers = useYardStore((s) => s.containers);
   const occupancies = useMemo(
-    () => computeBlockOccupancies(mockContainers as Container[]),
-    [],
+    () => computeBlockOccupancies(containers, blocks),
+    [blocks, containers],
   );
 
   const byCode = useMemo(
@@ -27,10 +28,10 @@ export default function BlockAccordion({
   );
 
   const sortedBlocks = useMemo(() => {
-    const blocks = [...BLOCKS];
+    const sorted = [...blocks];
     const dir = sortOrder === "desc" ? -1 : 1;
 
-    blocks.sort((a, b) => {
+    sorted.sort((a, b) => {
       if (sortBy === "name") {
         return a.code.localeCompare(b.code) * dir;
       }
@@ -43,14 +44,15 @@ export default function BlockAccordion({
       return a.code.localeCompare(b.code);
     });
 
-    return blocks;
-  }, [byCode, sortBy, sortOrder]);
+    return sorted;
+  }, [blocks, byCode, sortBy, sortOrder]);
 
   return (
     <Accordion type="multiple" className="w-full">
       {sortedBlocks.map((block) => {
         const occupancy = byCode[block.code];
         if (!occupancy) return null;
+        const grid = getBlockSlotGrid(block);
         const color = occupancyColor(occupancy.ratio);
         const empty = occupancy.capacity - occupancy.occupied;
 
@@ -83,7 +85,7 @@ export default function BlockAccordion({
                   <Row label="공슬롯" value={String(empty)} />
                   <Row
                     label="규격"
-                    value={`${SLOT_MAX_SIZE.bays}×${SLOT_MAX_SIZE.rows}×${SLOT_MAX_SIZE.tiers}`}
+                    value={`${grid.bays}×${grid.rows}×${grid.tiers}`}
                   />
                 </div>
               </div>

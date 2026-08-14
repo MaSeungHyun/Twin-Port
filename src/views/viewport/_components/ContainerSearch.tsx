@@ -4,8 +4,8 @@ import Button from "@/components/Button";
 import { formatSlotAddress } from "@/domain/container";
 import { searchContainers } from "@/domain/containerSearch";
 import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
 import { useViewportStore } from "@/stores/viewport";
+import { useYardStore } from "@/stores/yard";
 import { useDeferredValue, useMemo, useState } from "react";
 
 const MAX_RESULTS = 8;
@@ -19,14 +19,15 @@ export default function ContainerSearch() {
   const [panelOpen, setPanelOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
 
+  const containers = useYardStore((s) => s.containers);
   const results = useMemo(
     () =>
       searchContainers(
-        mockContainers as Container[],
+        containers,
         deferredQuery,
         MAX_RESULTS,
       ),
-    [deferredQuery],
+    [containers, deferredQuery],
   );
 
   const showPanel = panelOpen && deferredQuery.trim().length > 0;

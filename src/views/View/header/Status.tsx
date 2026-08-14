@@ -6,8 +6,7 @@ import {
   type YardStatus,
   type YardStatusKey,
 } from "@/domain/occupancy";
-import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
+import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
 import type { icons } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
@@ -57,9 +56,11 @@ function StatusItem({
 }
 
 export default function Status() {
+  const blocks = useYardStore((s) => s.blocks);
+  const containers = useYardStore((s) => s.containers);
   const status = useMemo(
-    () => computeYardStatus(mockContainers as Container[]),
-    [],
+    () => computeYardStatus(containers, blocks),
+    [blocks, containers],
   );
 
   return (
