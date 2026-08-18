@@ -1,7 +1,7 @@
 import { SHIP_INSTANCES } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { useYardStore } from "@/stores/yard";
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import Ship, { type ShipInstance } from "./Ship";
 import ShipCargo from "./ShipCargo";
 
@@ -21,13 +21,15 @@ export default function ShipFleet() {
   const berths = modelShips.length > 0 ? modelShips : SHIP_INSTANCES;
   const poses = useMemo(() => cloneShipPoses(berths), [berths]);
   const posesRef = useRef<ShipInstance[]>(poses);
-  posesRef.current = poses;
+  useLayoutEffect(() => {
+    posesRef.current = poses;
+  }, [poses]);
 
   if (berths.length === 0) return null;
 
   return (
     <>
-      <Ship key={berths.length} posesRef={posesRef} />
+      <Ship key={berths.length} instances={poses} posesRef={posesRef} />
       {SHIP_TWEEN.enabled ? (
         <ShipCargo
           key={`cargo-${berths.length}`}

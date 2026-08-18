@@ -1,13 +1,12 @@
 import { useThree } from "@react-three/fiber";
 import { useEffect, useRef, type RefObject } from "react";
 import gsap from "gsap";
-import { Quaternion, Vector3 } from "three";
+import { type Quaternion, Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import {
   CAMERA_FLIGHT_DURATION,
   CONTAINER_FOCUS_DISTANCE,
   CONTAINER_FOCUS_HEIGHT,
-  cameraLookAtTarget,
 } from "@/constants/camera";
 import { getContainerWorldPosition } from "@/domain/container";
 import { getBlockSlotGrid } from "@/constants/block";
@@ -106,74 +105,6 @@ function animateLookAtFlight(options: {
       x: toTarget.x,
       y: toTarget.y,
       z: toTarget.z,
-      duration,
-      ease: "power2.inOut",
-    },
-    0,
-  );
-
-  return timeline;
-}
-
-/** position + quaternion slerp (관제모드 탑뷰용) */
-function animateQuaternionFlight(options: {
-  camera: FlightCamera;
-  controls: OrbitControlsImpl;
-  toPosition: Vector3;
-  toQuaternion: Quaternion;
-  duration?: number;
-  /** 완료 후 OrbitControls 재활성화 여부 (모니터모드 유지 시 false) */
-  restoreControls?: boolean;
-}) {
-  const {
-    camera,
-    controls,
-    toPosition,
-    toQuaternion,
-    duration = CAMERA_FLIGHT_DURATION,
-    restoreControls = true,
-  } = options;
-
-  const fromQuat = camera.quaternion.clone();
-  const toQuat = toQuaternion.clone();
-  const slerpQuat = new Quaternion();
-  const progress = { t: 0 };
-  const toTarget = cameraLookAtTarget(toPosition, toQuat);
-
-  controls.enabled = false;
-
-  const timeline = gsap.timeline({
-    onUpdate: () => {
-      slerpQuat.slerpQuaternions(fromQuat, toQuat, progress.t);
-      camera.quaternion.copy(slerpQuat);
-      controls.target.copy(
-        cameraLookAtTarget(camera.position, camera.quaternion),
-      );
-    },
-    onComplete: () => {
-      camera.position.copy(toPosition);
-      camera.quaternion.copy(toQuat);
-      controls.target.copy(toTarget);
-      controls.enabled = restoreControls;
-    },
-  });
-
-  timeline.to(
-    camera.position,
-    {
-      x: toPosition.x,
-      y: toPosition.y,
-      z: toPosition.z,
-      duration,
-      ease: "power2.inOut",
-    },
-    0,
-  );
-
-  timeline.to(
-    progress,
-    {
-      t: 1,
       duration,
       ease: "power2.inOut",
     },

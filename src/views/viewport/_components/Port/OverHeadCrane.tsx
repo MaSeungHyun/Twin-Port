@@ -2,7 +2,7 @@ import overheadCraneUrl from "@/assets/model/overhead_crane.glb";
 import { enableGlbShadows } from "@/domain/glb";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import {
   type BufferGeometry,
   type InstancedMesh,
@@ -57,44 +57,47 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
     return collected;
   }, [scene]);
 
-  function writeMatrices(elapsed: number) {
-    parts.forEach((part, partIndex) => {
-      const instanced = meshRefs.current[partIndex];
-      if (!instanced) return;
+  const writeMatrices = useCallback(
+    (elapsed: number) => {
+      parts.forEach((part, partIndex) => {
+        const instanced = meshRefs.current[partIndex];
+        if (!instanced) return;
 
-      resolvedInstances.forEach((instance, index) => {
-        const t = elapsed * instance.speed + instance.phase;
-        const u = (Math.sin(t) + 1) / 2;
-        const [sx, sy, sz] = instance.start;
-        const [ex, ey, ez] = instance.end;
+        resolvedInstances.forEach((instance, index) => {
+          const t = elapsed * instance.speed + instance.phase;
+          const u = (Math.sin(t) + 1) / 2;
+          const [sx, sy, sz] = instance.start;
+          const [ex, ey, ez] = instance.end;
 
-        dummy.position.set(
-          sx + (ex - sx) * u,
-          sy + (ey - sy) * u,
-          sz + (ez - sz) * u,
-        );
-        dummy.rotation.set(...(instance.rotation ?? [0, 0, 0]));
+          dummy.position.set(
+            sx + (ex - sx) * u,
+            sy + (ey - sy) * u,
+            sz + (ez - sz) * u,
+          );
+          dummy.rotation.set(...(instance.rotation ?? [0, 0, 0]));
 
-        const scale = instance.scale ?? 1;
-        if (typeof scale === "number") {
-          dummy.scale.setScalar(scale);
-        } else {
-          dummy.scale.set(...scale);
-        }
+          const scale = instance.scale ?? 1;
+          if (typeof scale === "number") {
+            dummy.scale.setScalar(scale);
+          } else {
+            dummy.scale.set(...scale);
+          }
 
-        dummy.updateMatrix();
-        matrix.multiplyMatrices(dummy.matrix, part.localMatrix);
-        instanced.setMatrixAt(index, matrix);
+          dummy.updateMatrix();
+          matrix.multiplyMatrices(dummy.matrix, part.localMatrix);
+          instanced.setMatrixAt(index, matrix);
+        });
+
+        instanced.count = resolvedInstances.length;
+        instanced.instanceMatrix.needsUpdate = true;
       });
-
-      instanced.count = resolvedInstances.length;
-      instanced.instanceMatrix.needsUpdate = true;
-    });
-  }
+    },
+    [dummy, matrix, parts, resolvedInstances],
+  );
 
   useLayoutEffect(() => {
     writeMatrices(0);
-  }, [resolvedInstances, parts]);
+  }, [writeMatrices]);
 
   useFrame(({ clock }) => {
     writeMatrices(clock.elapsedTime);

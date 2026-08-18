@@ -1,11 +1,6 @@
 import { Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
-import {
-  Environment,
-  GizmoHelper,
-  GizmoViewport,
-  StatsGl,
-} from "@react-three/drei";
+import { Environment, StatsGl } from "@react-three/drei";
 
 import { FogExp2 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";

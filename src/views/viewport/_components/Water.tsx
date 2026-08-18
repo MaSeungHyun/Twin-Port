@@ -38,7 +38,7 @@ export default function Water({ size = 5 }: WaterProps) {
       sunDirection: new Vector3(0.70707, 0.70707, 0),
       sunColor: 0xffffff,
       waterColor: 0x001e4f,
-      distortionScale: 0.1,
+      distortionScale: 0.3,
       fog: false,
     });
     (instance.material as WaterMaterial).uniforms.size.value = size;

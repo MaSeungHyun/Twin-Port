@@ -89,7 +89,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     writeMatrices(list);
   });
 
-  const count = posesRef?.current?.length ?? instances?.length ?? 0;
+  const count = instances?.length ?? 0;
   if (count === 0) return null;
 
   return (
