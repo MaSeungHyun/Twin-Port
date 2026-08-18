@@ -7,10 +7,6 @@ import {
   CAMERA_FLIGHT_DURATION,
   CONTAINER_FOCUS_DISTANCE,
   CONTAINER_FOCUS_HEIGHT,
-  CONTROL_MODE_CAMERA_POSITION,
-  CONTROL_MODE_CAMERA_QUATERNION,
-  INITIAL_CAMERA_POSITION,
-  INITIAL_CAMERA_QUATERNION,
   cameraLookAtTarget,
 } from "@/constants/camera";
 import { getContainerWorldPosition } from "@/domain/container";
@@ -195,11 +191,6 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   const tweenRef = useRef<gsap.core.Timeline | null>(null);
   const prevMonitorModeRef = useRef<boolean | null>(null);
   const prevFocusNonceRef = useRef(0);
-  const preControlCameraRef = useRef<{
-    position: Vector3;
-    quaternion: Quaternion;
-    target: Vector3;
-  } | null>(null);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -215,52 +206,11 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     tweenRef.current?.kill();
 
     if (monitorMode) {
-      preControlCameraRef.current = {
-        position: camera.position.clone(),
-        quaternion: camera.quaternion.clone(),
-        target: controls.target.clone(),
-      };
-
-      const timeline = animateQuaternionFlight({
-        camera,
-        controls,
-        toPosition: CONTROL_MODE_CAMERA_POSITION.clone(),
-        toQuaternion: CONTROL_MODE_CAMERA_QUATERNION.clone(),
-        restoreControls: false,
-      });
-      tweenRef.current = timeline;
-
-      return () => {
-        timeline.kill();
-        // 모니터모드 유지 중이면 OrbitControls를 다시 켜지 않음
-        if (!useViewportStore.getState().monitorMode) {
-          setControlsEnabled(controlsRef, true);
-        }
-      };
+      setControlsEnabled(controlsRef, false);
+      return;
     }
 
-    const restore = preControlCameraRef.current;
-    const toPosition =
-      restore?.position.clone() ?? INITIAL_CAMERA_POSITION.clone();
-    const toQuaternion =
-      restore?.quaternion.clone() ?? INITIAL_CAMERA_QUATERNION.clone();
-    preControlCameraRef.current = null;
-
-    const timeline = animateQuaternionFlight({
-      camera,
-      controls,
-      toPosition,
-      toQuaternion,
-      restoreControls: true,
-    });
-    tweenRef.current = timeline;
-
-    return () => {
-      timeline.kill();
-      if (!useViewportStore.getState().monitorMode) {
-        setControlsEnabled(controlsRef, true);
-      }
-    };
+    setControlsEnabled(controlsRef, true);
   }, [monitorMode, controlsRef, camera]);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { CONTAINER_COLORS, type ContainerColorKey } from "./container";
+import { CONTAINER_COLORS, CONTAINER_W, type ContainerColorKey } from "./container";
 import { SHIP_SCALE } from "./model";
 
 /** 선박 화물창 격자 (bay=길이, row=폭, tier=단) */
@@ -13,60 +13,35 @@ export const SHIP_CARGO = {
   originLocal: [-32, 14.5, -5.88] as [number, number, number],
   /** 슬롯 로컬 Yaw (컨테이너 장축을 선박 길이에 맞춤) */
   yawLocal: Math.PI / 2,
-  /** 선박 스케일 적용 전 로컬 피치 = 월드 CONTAINER_* / SHIP_SCALE */
-  pitchScale: 1 / SHIP_SCALE,
 } as const;
 
-export type ShipLoadOrder = "bay" | "tier" | "row";
-
-export type ShipLoadProfile = {
-  /** 첫 사이클 적재 시작 지연 */
-  delay: number;
-  stagger: number;
-  duration: number;
-  dropHeight: number;
-  ease: string;
-  order: ShipLoadOrder;
-  /** 적재 완료 후 출항까지 대기 */
-  departDelay: number;
-  departDuration: number;
-  /** 출항 대각선 |ΔX|·|ΔZ| */
-  departDistance: number;
-  /** 입항 시간 */
-  arriveDuration: number;
-  arriveEase: string;
+export type ShipCargoGrid = {
+  bays: number;
+  rows: number;
+  tiers: number;
+  originLocal: [number, number, number];
 };
 
-export const SHIP_CARGO_ANIM = {
-  ease: "power2.out",
-  departEase: "power1.in",
-  hiddenScale: 0.0001,
-} as const;
-
-/** 선박마다 다른 적재·출항 프로파일 (적재 방향은 전 선박 bay→row→tier 고정) */
-export function getShipLoadProfile(shipIndex: number): ShipLoadProfile {
+/** 선체 스케일에 비례해 갑판을 채우는 격자. 컨테이너 월드 크기는 유지 */
+export function shipCargoGrid(scale: number): ShipCargoGrid {
+  const ratio = scale / SHIP_SCALE;
+  const bays = Math.max(1, Math.round(SHIP_CARGO.bays * ratio));
+  const rows = Math.max(1, Math.round(SHIP_CARGO.rows * ratio));
+  const tiers = Math.max(1, Math.round(SHIP_CARGO.tiers * ratio));
+  const pitch = 1 / scale;
   return {
-    delay: shipIndex * 1.35 + (shipIndex % 2) * 0.55,
-    stagger: 0.007 + (shipIndex % 4) * 0.003,
-    duration: 0.38 + (shipIndex % 3) * 0.12,
-    dropHeight: 2.5 + (shipIndex % 3) * 10.2,
-    ease: shipIndex % 2 === 0 ? "power2.out" : "power1.inOut",
-    order: "tier",
-    departDelay: 0.55 + (shipIndex % 3) * 0.2,
-    departDuration: 14 + (shipIndex % 4) * 2.4,
-    departDistance: 110 + (shipIndex % 3) * 18,
-    arriveDuration: 12 + (shipIndex % 3) * 2.2,
-    arriveEase: "power2.out",
+    bays,
+    rows,
+    tiers,
+    originLocal: [
+      SHIP_CARGO.originLocal[0],
+      SHIP_CARGO.originLocal[1],
+      -(rows * CONTAINER_W * pitch) / 2,
+    ],
   };
 }
 
-/** 출항 대각선: X는 안벽 바깥(좌−/우+), Z는 공통 −Z */
-export function getShipDepartSigns(berthX: number) {
-  return {
-    sx: Math.sign(berthX || 1) || 1,
-    sz: -1,
-  };
-}
+export type ShipLoadOrder = "bay" | "tier" | "row";
 
 /**
  * 선수(+X 로컬)가 월드 (dx,dz)를 향하는 Yaw.
@@ -74,6 +49,22 @@ export function getShipDepartSigns(berthX: number) {
  */
 export function yawToward(dx: number, dz: number) {
   return normalizeYaw(Math.atan2(-dz, dx));
+}
+
+/** 선수 방향 직선 이동량 */
+export function bowOffset(yaw: number, dist: number) {
+  return shipLocalOffset(yaw, dist, 0, 0);
+}
+
+/** 선박 로컬 (선수 +X, 위 +Y, 우현 +Z) → 월드 이동량 */
+export function shipLocalOffset(yaw: number, lx: number, ly: number, lz: number) {
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  return {
+    x: lx * c + lz * s,
+    y: ly,
+    z: -lx * s + lz * c,
+  };
 }
 
 export function normalizeYaw(yaw: number) {
@@ -93,8 +84,9 @@ export function cargoSlotOrder(
   row: number,
   tier: number,
   order: ShipLoadOrder,
+  grid: Pick<ShipCargoGrid, "bays" | "rows" | "tiers"> = SHIP_CARGO,
 ): number {
-  const { bays, rows, tiers } = SHIP_CARGO;
+  const { bays, rows, tiers } = grid;
   const t = tier - 1;
   switch (order) {
     case "tier":

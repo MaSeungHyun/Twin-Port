@@ -1,21 +1,46 @@
-import { BLOCKS, getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
+import {
+  BLOCKS,
+  getBlockSlotGrid,
+  type BlockDefinition,
+} from "@/constants/block";
 import { DECK_Y } from "@/constants/container";
+import type { Vec3 } from "@/constants/geometry";
+import {
+  OVERHEAD_CRANE_SCALE,
+  OVERHEAD_CRANE_SPAN_X,
+} from "@/constants/model";
 
 export type OverHeadCraneInstance = {
-  /** 기준 위치 (X/Y 고정, Z는 애니메이션) */
-  position: [number, number, number];
-  rotation?: [number, number, number];
-  scale?: number | [number, number, number];
-  /** Block 위 Z 이동 구간 */
-  zMin: number;
-  zMax: number;
+  /** 기준 위치 (레일 중간, Y 고정) */
+  position: Vec3;
+  rotation?: Vec3;
+  scale?: number | Vec3;
+  /** 블록 로컬 베이 방향 왕복 끝점 */
+  start: Vec3;
+  end: Vec3;
   /** rad/s — sin 왕복 속도 */
   speed: number;
   /** 시작 위상 (블록마다 다르게) */
   phase: number;
 };
 
-/** Block footprint 위에서 Z축으로 왕복할 크레인 인스턴스 */
+function blockLocalToWorld(
+  origin: Vec3,
+  yaw: number,
+  lx: number,
+  y: number,
+  lz: number,
+): Vec3 {
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  return [
+    origin[0] + lx * c + lz * s,
+    y,
+    origin[2] + -lx * s + lz * c,
+  ];
+}
+
+/** Block footprint 위에서 베이 방향으로 왕복할 크레인 인스턴스 */
 export function createBlockCenterCraneInstances(
   blocks: readonly BlockDefinition[] = BLOCKS,
   deckY = DECK_Y,
@@ -25,22 +50,24 @@ export function createBlockCenterCraneInstances(
     const width = grid.sizeX;
     const length = grid.sizeZ;
     const inset = length * 0.08;
-
-    const x = block.origin[0] + width + width / 3 + 0.55;
-    const zMin = block.origin[2] + inset;
-    const zMax = block.origin[2] + length - inset;
+    const yaw = block.yaw ?? 0;
+    const y = deckY + block.origin[1];
+    const scale =
+      OVERHEAD_CRANE_SCALE * (width / OVERHEAD_CRANE_SPAN_X);
+    const localX = width / 2;
+    const start = blockLocalToWorld(block.origin, yaw, localX, y, inset);
+    const end = blockLocalToWorld(block.origin, yaw, localX, y, length - inset);
 
     return {
-      position: [x, deckY + block.origin[1], (zMin + zMax) / 2] as [
-        number,
-        number,
-        number,
+      position: [
+        (start[0] + end[0]) / 2,
+        y,
+        (start[2] + end[2]) / 2,
       ],
-      rotation: [0, 0, 0] as [number, number, number],
-      scale: 1.5,
-      zMin,
-      zMax,
-      // 속도·위상 분산 → 동시에 같은 위치로 몰리지 않음
+      rotation: [0, yaw, 0],
+      scale,
+      start,
+      end,
       speed: 0.09 + (index % 7) * 0.02,
       phase: index * 0.85,
     };

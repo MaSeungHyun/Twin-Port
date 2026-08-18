@@ -1,6 +1,11 @@
 import { Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
-import { Environment, StatsGl } from "@react-three/drei";
+import {
+  Environment,
+  GizmoHelper,
+  GizmoViewport,
+  StatsGl,
+} from "@react-three/drei";
 
 import { FogExp2 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -17,16 +22,21 @@ import {
   INITIAL_CAMERA_POSITION,
   INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
+import { useViewportStore } from "@/stores/viewport";
 
 export default function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
+  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const monitorMode = useViewportStore((s) => s.monitorMode);
+  const pauseRender = occupancyMode || monitorMode;
 
   return (
     <R3FCanvas
-      className="relative inset-0 h-full w-full touch-none"
+      className="h-full w-full touch-none"
       style={{ display: "block", overflow: "hidden" }}
       shadows={{ enabled: true }}
       gl={{ antialias: true }}
+      frameloop={pauseRender ? "never" : "always"}
       scene={{ fog: new FogExp2(0x00000000, 0.0005) }}
       camera={{
         position: INITIAL_CAMERA_POSITION,

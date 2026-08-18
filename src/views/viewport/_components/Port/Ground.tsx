@@ -4,6 +4,7 @@ import {
   extractGroundBlocks,
   listObjectNames,
 } from "@/domain/extractGroundBlocks";
+import { shipsFromPlacements } from "@/domain/extractShipCubes";
 import { useYardStore } from "@/stores/yard";
 import { useGLTF } from "@react-three/drei";
 import { useLayoutEffect, useMemo } from "react";
@@ -51,6 +52,7 @@ export default function Ground({
   scale = [5, 5, 5],
 }: GroundProps) {
   const setModelBlocks = useYardStore((s) => s.setModelBlocks);
+  const setModelShips = useYardStore((s) => s.setModelShips);
   const resetBlocks = useYardStore((s) => s.resetBlocks);
   const { scene } = useGLTF(groundUrl);
 
@@ -68,11 +70,15 @@ export default function Ground({
     model.scale.set(...scale);
     model.updateMatrixWorld(true);
     const blocks = extractGroundBlocks(model);
+    const berths = shipsFromPlacements();
+    if (berths.length > 0) setModelShips(berths);
     if (blocks.length > 0) {
       if (import.meta.env.DEV) {
         console.info(
           `[Ground] ${blocks.length}개 블록 위치`,
-          blocks.map((b) => `${b.code}@${b.origin.map((n) => n.toFixed(1)).join(",")}`),
+          blocks.map(
+            (b) => `${b.code}@${b.origin.map((n) => n.toFixed(1)).join(",")}`,
+          ),
         );
       }
       setModelBlocks(blocks);
@@ -83,7 +89,15 @@ export default function Ground({
       );
     }
     return () => resetBlocks();
-  }, [model, position, rotation, scale, setModelBlocks, resetBlocks]);
+  }, [
+    model,
+    position,
+    rotation,
+    scale,
+    setModelBlocks,
+    setModelShips,
+    resetBlocks,
+  ]);
 
   return (
     <primitive

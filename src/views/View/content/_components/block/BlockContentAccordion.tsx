@@ -18,8 +18,8 @@ export default function BlockContentAccordion({
   onOpenChange,
 }: BlockContentAccordionProps) {
   const [value, setValue] = useState("blocks");
-  const [sortBy, setSortBy] = useState<BlockSortBy>("occupancy");
-  const [sortOrder, setSortOrder] = useState<BlockSortOrder>("desc");
+  const [sortBy, setSortBy] = useState<BlockSortBy>("name");
+  const [sortOrder, setSortOrder] = useState<BlockSortOrder>("asc");
   const open = value === "blocks";
 
   return (

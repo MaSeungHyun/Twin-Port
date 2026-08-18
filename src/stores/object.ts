@@ -5,6 +5,8 @@ type ObjectState = {
   setTerrainVisible: (visible: boolean) => void;
   containerVisible: boolean;
   setContainerVisible: (visible: boolean) => void;
+  heatmapVisible: boolean;
+  setHeatmapVisible: (visible: boolean) => void;
 };
 
 export const useObjectStore = create<ObjectState>((set) => ({
@@ -12,4 +14,6 @@ export const useObjectStore = create<ObjectState>((set) => ({
   setTerrainVisible: (visible) => set({ terrainVisible: visible }),
   containerVisible: true,
   setContainerVisible: (visible) => set({ containerVisible: visible }),
+  heatmapVisible: true,
+  setHeatmapVisible: (visible) => set({ heatmapVisible: visible }),
 }));

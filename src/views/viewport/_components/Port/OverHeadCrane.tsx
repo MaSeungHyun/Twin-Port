@@ -27,9 +27,7 @@ type OverHeadCraneProps = {
   instances?: OverHeadCraneInstance[];
 };
 
-export default function OverHeadCrane({
-  instances,
-}: OverHeadCraneProps) {
+export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
   const resolvedInstances = useMemo(
@@ -67,9 +65,14 @@ export default function OverHeadCrane({
       resolvedInstances.forEach((instance, index) => {
         const t = elapsed * instance.speed + instance.phase;
         const u = (Math.sin(t) + 1) / 2;
-        const z = instance.zMin + (instance.zMax - instance.zMin) * u;
+        const [sx, sy, sz] = instance.start;
+        const [ex, ey, ez] = instance.end;
 
-        dummy.position.set(instance.position[0], instance.position[1], z);
+        dummy.position.set(
+          sx + (ex - sx) * u,
+          sy + (ey - sy) * u,
+          sz + (ez - sz) * u,
+        );
         dummy.rotation.set(...(instance.rotation ?? [0, 0, 0]));
 
         const scale = instance.scale ?? 1;

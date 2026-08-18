@@ -112,8 +112,8 @@ export const TERRAIN_COLOR_SNOW_START = 0.72;
  * 하이트맵 우하단 평지가 항만 쪽에 가깝도록 회전/오프셋.
  */
 /** 지형 mesh 월드 위치 [x, y, z] */
-export const TERRAIN_POSITION: [number, number, number] = [-265, -0.8, 255];
+export const TERRAIN_POSITION: [number, number, number] = [-142, -0.8, -320];
 /** 지형 mesh 스케일 [x, y, z] — y는 높이 압축 */
 export const TERRAIN_SCALE: [number, number, number] = [1, 0.5, 1];
 /** 지형 Y축 회전 (라디안) */
-export const TERRAIN_ROTATION_Y = (Math.PI / 180) * 270;
+export const TERRAIN_ROTATION_Y = (Math.PI / 180) * 180;

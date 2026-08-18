@@ -1,6 +1,7 @@
 import Header from "./views/View/header";
 import ViewLoader from "./views/View/ViewLoader";
 import Viewport from "./views/viewport";
+import OccupancyOverlay from "./views/viewport/_components/OccupancyOverlay";
 
 function App() {
   return (
@@ -8,6 +9,7 @@ function App() {
       <ViewLoader />
       <Header />
       <Viewport />
+      <OccupancyOverlay />
     </main>
   );
 }

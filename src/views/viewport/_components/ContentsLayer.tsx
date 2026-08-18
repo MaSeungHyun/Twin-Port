@@ -7,11 +7,13 @@ import { useViewportStore } from "@/stores/viewport";
  */
 export default function ContentsLayer() {
   const monitorMode = useViewportStore((s) => s.monitorMode);
+  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const hidden = monitorMode || occupancyMode;
 
   return (
     <div
-      className={monitorMode ? "hidden" : undefined}
-      aria-hidden={monitorMode}
+      className={hidden ? "hidden" : undefined}
+      aria-hidden={hidden}
     >
       <Contents />
     </div>

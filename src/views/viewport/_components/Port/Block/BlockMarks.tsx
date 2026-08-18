@@ -1,4 +1,5 @@
 import { useYardStore } from "@/stores/yard";
+import { useObjectStore } from "@/stores/object";
 import {
   getBlockFootprintCenter,
   getBlockFootprintSize,
@@ -44,6 +45,7 @@ export default function BlockMarks({
 }) {
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
+  const heatmapVisible = useObjectStore((s) => s.heatmapVisible);
   const floorRef = useRef<InstancedMesh>(null);
 
   const geometry = useMemo(() => new BoxGeometry(1, 1, 1), []);
@@ -96,6 +98,7 @@ export default function BlockMarks({
         ref={floorRef}
         args={[geometry, floorMaterial, Math.max(blocks.length, 1)]}
         frustumCulled={false}
+        visible={heatmapVisible}
         renderOrder={15}
         receiveShadow
         raycast={() => null}

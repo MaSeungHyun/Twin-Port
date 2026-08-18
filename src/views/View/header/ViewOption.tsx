@@ -9,6 +9,8 @@ export default function ViewOption() {
   const setTerrainVisible = useObjectStore((s) => s.setTerrainVisible);
   const containerVisible = useObjectStore((s) => s.containerVisible);
   const setContainerVisible = useObjectStore((s) => s.setContainerVisible);
+  const heatmapVisible = useObjectStore((s) => s.heatmapVisible);
+  const setHeatmapVisible = useObjectStore((s) => s.setHeatmapVisible);
 
   return (
     <DropdownMenu>
@@ -30,6 +32,12 @@ export default function ViewOption() {
             label="Container"
             checked={containerVisible}
             onCheckedChange={(checked) => setContainerVisible(checked === true)}
+          />
+          <Checkbox
+            id="view-option-heatmap"
+            label="HeatMap"
+            checked={heatmapVisible}
+            onCheckedChange={(checked) => setHeatmapVisible(checked === true)}
           />
         </div>
       </DropdownMenu.Content>
