@@ -5,8 +5,16 @@ import {
   listObjectNames,
 } from "@/domain/extractGroundBlocks";
 import { shipsFromPlacements } from "@/domain/extractShipCubes";
+import { bakeLandMask } from "@/domain/bakeLandMask";
+import { enableGroundWaveResponse } from "@/domain/groundWaveMaterial";
+import { bindLandTexture, resetLandTexture } from "@/domain/waterSim";
+import {
+  OCEAN_SIM_EXTENT,
+  OCEAN_SIM_SIZE,
+} from "@/constants/ocean";
 import { useYardStore } from "@/stores/yard";
 import { useGLTF } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import { useLayoutEffect, useMemo } from "react";
 import { Material, Mesh, type Object3D, type Vector3Tuple } from "three";
 
@@ -47,13 +55,14 @@ type GroundProps = {
 };
 
 export default function Ground({
-  position = [0, -3, 0],
+  position = [0, -4.3, 0],
   rotation = [0, Math.PI / 2, 0],
   scale = [5, 5, 5],
 }: GroundProps) {
   const setModelBlocks = useYardStore((s) => s.setModelBlocks);
   const setModelShips = useYardStore((s) => s.setModelShips);
   const resetBlocks = useYardStore((s) => s.resetBlocks);
+  const gl = useThree((state) => state.gl);
   const { scene } = useGLTF(groundUrl);
 
   const model = useMemo(() => {
@@ -61,6 +70,7 @@ export default function Ground({
     cloned.updateMatrixWorld(true);
     enableGlbShadows(cloned);
     enableGroundAlpha(cloned);
+    enableGroundWaveResponse(cloned);
     return cloned;
   }, [scene]);
 
@@ -88,7 +98,13 @@ export default function Ground({
         listObjectNames(model),
       );
     }
-    return () => resetBlocks();
+    const land = bakeLandMask(gl, model, OCEAN_SIM_SIZE, OCEAN_SIM_EXTENT);
+    bindLandTexture(land.texture, OCEAN_SIM_SIZE);
+    return () => {
+      resetBlocks();
+      land.dispose();
+      resetLandTexture();
+    };
   }, [
     model,
     position,
@@ -97,6 +113,7 @@ export default function Ground({
     setModelBlocks,
     setModelShips,
     resetBlocks,
+    gl,
   ]);
 
   return (

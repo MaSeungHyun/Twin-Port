@@ -4,7 +4,6 @@ import ContainerYard from "./Port/ContainerYard";
 import Ground from "./Port/Ground";
 import OverHeadCrane from "./Port/OverHeadCrane";
 import ShipFleet from "./Port/ShipFleet";
-import Terrain from "./Terrain";
 
 /** occupancy/container 가시성만 구독 — Ship/Crane 등과 리렌더 분리 */
 function YardLayer() {
@@ -19,11 +18,11 @@ function YardLayer() {
 }
 
 function Models() {
-  const terrainVisible = useObjectStore((s) => s.terrainVisible);
+  // const terrainVisible = useObjectStore((s) => s.terrainVisible);
 
   return (
     <>
-      <Terrain visible={terrainVisible} />
+      {/* <Terrain visible={terrainVisible} /> */}
       {/* <Ground /> */}
 
       {/* <SeaTraffic /> */}

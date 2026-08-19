@@ -1,5 +1,6 @@
 import { SHIP_INSTANCES } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
+import { bindShipPoses } from "@/domain/shipWake";
 import { useYardStore } from "@/stores/yard";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import Ship, { type ShipInstance } from "./Ship";
@@ -23,6 +24,8 @@ export default function ShipFleet() {
   const posesRef = useRef<ShipInstance[]>(poses);
   useLayoutEffect(() => {
     posesRef.current = poses;
+    bindShipPoses(poses);
+    return () => bindShipPoses(null);
   }, [poses]);
 
   if (berths.length === 0) return null;

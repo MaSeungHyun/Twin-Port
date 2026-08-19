@@ -99,7 +99,7 @@ export const SHIP_PLACEMENTS: readonly ShipPlacement[] = [
   {
     label: "008+009",
     locators: [8, 9],
-    position: [-7.4812, SHIP_POSITION_Y, -79.0481],
+    position: [-7.4812, SHIP_POSITION_Y, -76.0481],
     yawDeg: 0,
     scale: MERGED_SHIP_SCALE,
   },
