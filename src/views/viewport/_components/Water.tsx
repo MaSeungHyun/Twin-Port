@@ -22,6 +22,7 @@ import {
   OCEAN_SHIP_MAX,
   OCEAN_SIM_EXTENT,
   OCEAN_SIM_SIZE,
+  OCEAN_SIM_STEPS,
   OCEAN_TELEPORT_THRESHOLD,
   OCEAN_WAKE_DISTORT,
   OCEAN_WAKE_MIN_SCALE,
@@ -182,7 +183,9 @@ export default function Water({ size = 5 }: WaterProps) {
 
     uniforms.uCount.value = count;
     sim.displaceHulls();
-    sim.stepSimulation();
+    for (let i = 0; i < OCEAN_SIM_STEPS; i++) {
+      sim.stepSimulation();
+    }
     sim.updateNormals();
 
     bindHeightTexture(sim.texture);

@@ -36,8 +36,9 @@ export function injectHeightfield(
 					vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) );`,
       `vec3 surfaceNormal = vec3( 0.0, 1.0, 0.0 );
 					vec2 huv = worldPosition.xz / ( 2.0 * uSimExtent ) + 0.5;
-					float wakeMask = step( 0.0, huv.x ) * step( huv.x, 1.0 ) * step( 0.0, huv.y ) * step( huv.y, 1.0 );
-					wakeMask *= 1.0 - texture2D( tLand, huv ).r;
+					float inSim = step( 0.0, huv.x ) * step( huv.x, 1.0 ) * step( 0.0, huv.y ) * step( huv.y, 1.0 );
+					if ( inSim > 0.5 && texture2D( tLand, huv ).r > 0.5 ) discard;
+					float wakeMask = inSim * ( 1.0 - texture2D( tLand, huv ).r );
 					float wakeFoam = 0.0;
 					if ( wakeMask > 0.5 ) {
 						vec4 info = texture2D( tHeight, huv );

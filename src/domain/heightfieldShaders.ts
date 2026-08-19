@@ -19,23 +19,37 @@ uniform sampler2D tLand;
 uniform vec2 delta;
 uniform float poolWidth;
 uniform float poolLength;
+uniform float uWallBounce;
+uniform float uDamping;
 
 varying vec2 coord;
 
 float landAt(vec2 uv) {
-  return texture2D(tLand, clamp(uv, 0.0, 1.0)).r;
+  return step(0.5, texture2D(tLand, clamp(uv, 0.0, 1.0)).r);
+}
+
+float sampleHeight(vec2 uv, float hC) {
+  float wall = landAt(uv);
+  float sampled = texture2D(tInput, uv).r;
+  // 육지 칸은 높이 0 고정벽. ghost = -bounce * h 이면 위상 반전 반사.
+  return mix(sampled, -uWallBounce * hC, wall);
 }
 
 void main() {
   vec4 info = texture2D(tInput, coord);
   float land = landAt(coord);
+  if (land > 0.5) {
+    gl_FragColor = vec4(0.0, 0.0, info.ba);
+    return;
+  }
+
   vec2 dx = vec2(delta.x, 0.0);
   vec2 dy = vec2(0.0, delta.y);
   float hC = info.r;
-  float hE = mix(texture2D(tInput, coord + dx).r, hC, landAt(coord + dx));
-  float hW = mix(texture2D(tInput, coord - dx).r, hC, landAt(coord - dx));
-  float hN = mix(texture2D(tInput, coord + dy).r, hC, landAt(coord + dy));
-  float hS = mix(texture2D(tInput, coord - dy).r, hC, landAt(coord - dy));
+  float hE = sampleHeight(coord + dx, hC);
+  float hW = sampleHeight(coord - dx, hC);
+  float hN = sampleHeight(coord + dy, hC);
+  float hS = sampleHeight(coord - dy, hC);
 
   float d2h_dx2 = hE + hW - 2.0 * hC;
   float d2h_dz2 = hN + hS - 2.0 * hC;
@@ -44,16 +58,17 @@ void main() {
   info.g += 0.5 * stabilityScale * (
     d2h_dx2 / (poolWidth * poolWidth) + d2h_dz2 / (poolLength * poolLength)
   );
-  info.g *= 0.995;
-  info.r += info.g;
 
+  // 시뮬 바깥만 스펀지로 흡수. 항만·안벽 쪽은 반사파가 남도록 감쇠를 약하게.
   float edge =
     smoothstep(0.0, 0.04, coord.x) *
     smoothstep(1.0, 0.96, coord.x) *
     smoothstep(0.0, 0.04, coord.y) *
     smoothstep(1.0, 0.96, coord.y);
-  info.r *= edge * (1.0 - land);
-  info.g *= edge * (1.0 - land);
+  info.g *= mix(0.96, uDamping, edge);
+  info.r += info.g;
+  info.r *= edge;
+  info.g *= edge;
 
   gl_FragColor = info;
 }
@@ -90,6 +105,7 @@ export const HULL_DISPLACE_FRAG = /* glsl */ `
 precision highp float;
 
 uniform sampler2D tInput;
+uniform sampler2D tLand;
 uniform vec2 uOldPos[${OCEAN_SHIP_MAX}];
 uniform vec2 uNewPos[${OCEAN_SHIP_MAX}];
 uniform vec2 uFwd[${OCEAN_SHIP_MAX}];
@@ -130,6 +146,10 @@ float volumeInHull(
 
 void main() {
   vec4 info = texture2D(tInput, coord);
+  if (texture2D(tLand, coord).r > 0.5) {
+    gl_FragColor = vec4(0.0, 0.0, info.ba);
+    return;
+  }
   for (int i = 0; i < ${OCEAN_SHIP_MAX}; i++) {
     if (i < uCount && uStrength[i] > 0.0001) {
       float oldV = volumeInHull(

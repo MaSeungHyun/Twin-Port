@@ -16,7 +16,11 @@ import {
   WebGLRenderTarget,
   type WebGLRenderer,
 } from "three";
-import { OCEAN_SHIP_MAX } from "@/constants/ocean";
+import {
+  OCEAN_SHIP_MAX,
+  OCEAN_WALL_BOUNCE,
+  OCEAN_WAVE_DAMPING,
+} from "@/constants/ocean";
 import { waterSimUniforms } from "./waterSim";
 import {
   HULL_DISPLACE_FRAG,
@@ -88,6 +92,8 @@ export class HeightfieldWater {
         delta: { value: delta.clone() },
         poolWidth: { value: 1 },
         poolLength: { value: 1 },
+        uWallBounce: { value: OCEAN_WALL_BOUNCE },
+        uDamping: { value: OCEAN_WAVE_DAMPING },
       },
     });
 
@@ -107,6 +113,7 @@ export class HeightfieldWater {
       fragmentShader: HULL_DISPLACE_FRAG,
       uniforms: {
         tInput: { value: null },
+        tLand: waterSimUniforms.tLand,
         uOldPos: { value: makeVec2Array(OCEAN_SHIP_MAX) },
         uNewPos: { value: makeVec2Array(OCEAN_SHIP_MAX) },
         uFwd: { value: makeVec2Array(OCEAN_SHIP_MAX) },

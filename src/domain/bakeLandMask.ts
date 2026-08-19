@@ -5,17 +5,24 @@ import {
   NearestFilter,
   NoColorSpace,
   OrthographicCamera,
+  PlaneGeometry,
   RGBAFormat,
   Scene,
   ShaderMaterial,
   UnsignedByteType,
+  Vector2,
   Vector3,
   Vector4,
   WebGLRenderTarget,
   type Object3D,
   type WebGLRenderer,
 } from "three";
-import { OCEAN_LAND_MAX_Y, OCEAN_LAND_MIN_Y } from "@/constants/ocean";
+import {
+  OCEAN_LAND_DILATE,
+  OCEAN_LAND_MAX_Y,
+  OCEAN_LAND_MIN_Y,
+} from "@/constants/ocean";
+import { SIM_QUAD_VERT } from "./heightfieldShaders";
 
 const BAKE_VERT = /* glsl */ `
 uniform float uExtent;
@@ -40,6 +47,23 @@ void main() {
 }
 `;
 
+const DILATE_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D tInput;
+uniform vec2 delta;
+varying vec2 coord;
+
+void main() {
+  float land = 0.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      land = max(land, texture2D(tInput, coord + vec2(float(x), float(y)) * delta).r);
+    }
+  }
+  gl_FragColor = vec4(land);
+}
+`;
+
 function namesOf(mesh: Mesh) {
   return [mesh.name, mesh.parent?.name ?? "", mesh.geometry?.name ?? ""];
 }
@@ -58,17 +82,14 @@ function skipLandBake(mesh: Mesh) {
 }
 
 const _box = new Box3();
-const _size = new Vector3();
 
-/** 수면 아래 깔린 넓은 바닥·수면 평면은 항만 수역을 육지로 덮지 않게 제외 */
-function isHarborFloor(mesh: Mesh) {
+/** 수면보다 아래에 있는 메시만 제외. 갑판·야드는 육지로 유지 */
+function isUnderwaterSlab(mesh: Mesh) {
   _box.setFromObject(mesh);
   if (_box.isEmpty()) return true;
   if (_box.max.y < OCEAN_LAND_MIN_Y) return true;
   if (_box.min.y > OCEAN_LAND_MAX_Y) return true;
-  _box.getSize(_size);
-  const xzArea = _size.x * _size.z;
-  return _size.y < 0.55 && xzArea > 600;
+  return false;
 }
 
 function makeTarget(size: number) {
@@ -86,7 +107,7 @@ function makeTarget(size: number) {
 
 /**
  * 수면 높이의 안벽·갑판만 육지로 구움.
- * 해저·넓은 바닥을 넣으면 항만 한가운데 물결이 전부 꺼진다.
+ * 해저만 빼고, 야드 갑판은 남겨 파동이 Ground 너머로 새지 않게 한다.
  */
 export function bakeLandMask(
   renderer: WebGLRenderer,
@@ -95,6 +116,7 @@ export function bakeLandMask(
   extent: number,
 ) {
   const baked = makeTarget(size);
+  const dilated = makeTarget(size);
   const dummyCamera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const bakeMaterial = new ShaderMaterial({
     vertexShader: BAKE_VERT,
@@ -107,6 +129,19 @@ export function bakeLandMask(
     depthTest: false,
     depthWrite: false,
   });
+  const dilateMaterial = new ShaderMaterial({
+    vertexShader: SIM_QUAD_VERT,
+    fragmentShader: DILATE_FRAG,
+    uniforms: {
+      tInput: { value: null },
+      delta: { value: new Vector2(1 / size, 1 / size) },
+    },
+    depthTest: false,
+    depthWrite: false,
+  });
+  const quad = new Mesh(new PlaneGeometry(2, 2), dilateMaterial);
+  const dilateScene = new Scene();
+  dilateScene.add(quad);
 
   const bakeScene = new Scene();
   const clone = root.clone(true);
@@ -116,7 +151,7 @@ export function bakeLandMask(
       if (child instanceof Mesh) child.visible = false;
       return;
     }
-    if (isHarborFloor(child)) {
+    if (isUnderwaterSlab(child)) {
       child.visible = false;
       return;
     }
@@ -142,6 +177,26 @@ export function bakeLandMask(
     renderer.setRenderTarget(baked);
     renderer.clear();
     renderer.render(bakeScene, dummyCamera);
+
+    let read = baked;
+    let write = dilated;
+    const passes = Math.max(0, OCEAN_LAND_DILATE);
+    for (let i = 0; i < passes; i++) {
+      dilateMaterial.uniforms.tInput.value = read.texture;
+      renderer.setRenderTarget(write);
+      renderer.clear();
+      renderer.render(dilateScene, dummyCamera);
+      const next = read;
+      read = write;
+      write = next;
+    }
+
+    if (read !== dilated) {
+      dilated.dispose();
+      return baked;
+    }
+    baked.dispose();
+    return dilated;
   } finally {
     renderer.setRenderTarget(prevTarget);
     renderer.setViewport(viewport);
@@ -150,7 +205,7 @@ export function bakeLandMask(
     renderer.setClearColor(prevColor, prevAlpha);
     bakeScene.remove(clone);
     bakeMaterial.dispose();
+    dilateMaterial.dispose();
+    quad.geometry.dispose();
   }
-
-  return baked;
 }
