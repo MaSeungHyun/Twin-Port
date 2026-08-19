@@ -28,17 +28,17 @@ float landAt(vec2 uv) {
   return step(0.5, texture2D(tLand, clamp(uv, 0.0, 1.0)).r);
 }
 
-float sampleHeight(vec2 uv, float hC) {
-  float wall = landAt(uv);
+// 원본 풀 벽(ClampToEdge): 벽 너머 높이를 자기 칸으로 복사 → 파동이 되돌아옴
+float heightAt(vec2 uv, float hC) {
   float sampled = texture2D(tInput, uv).r;
-  // 육지 칸은 높이 0 고정벽. ghost = -bounce * h 이면 위상 반전 반사.
-  return mix(sampled, -uWallBounce * hC, wall);
+  float wall = landAt(uv);
+  float reflected = mix(0.0, hC, uWallBounce);
+  return mix(sampled, reflected, wall);
 }
 
 void main() {
   vec4 info = texture2D(tInput, coord);
-  float land = landAt(coord);
-  if (land > 0.5) {
+  if (landAt(coord) > 0.5) {
     gl_FragColor = vec4(0.0, 0.0, info.ba);
     return;
   }
@@ -46,29 +46,24 @@ void main() {
   vec2 dx = vec2(delta.x, 0.0);
   vec2 dy = vec2(0.0, delta.y);
   float hC = info.r;
-  float hE = sampleHeight(coord + dx, hC);
-  float hW = sampleHeight(coord - dx, hC);
-  float hN = sampleHeight(coord + dy, hC);
-  float hS = sampleHeight(coord - dy, hC);
+  float average = (
+    heightAt(coord + dx, hC) +
+    heightAt(coord - dx, hC) +
+    heightAt(coord + dy, hC) +
+    heightAt(coord - dy, hC)
+  ) * 0.25;
 
-  float d2h_dx2 = hE + hW - 2.0 * hC;
-  float d2h_dz2 = hN + hS - 2.0 * hC;
+  info.g += (average - info.r) * 2.0;
+  info.g *= uDamping;
+  info.r += info.g;
 
-  float stabilityScale = min(1.0, min(poolWidth * poolWidth, poolLength * poolLength));
-  info.g += 0.5 * stabilityScale * (
-    d2h_dx2 / (poolWidth * poolWidth) + d2h_dz2 / (poolLength * poolLength)
-  );
-
-  // 시뮬 바깥만 스펀지로 흡수. 항만·안벽 쪽은 반사파가 남도록 감쇠를 약하게.
   float edge =
     smoothstep(0.0, 0.04, coord.x) *
     smoothstep(1.0, 0.96, coord.x) *
     smoothstep(0.0, 0.04, coord.y) *
     smoothstep(1.0, 0.96, coord.y);
-  info.g *= mix(0.96, uDamping, edge);
-  info.r += info.g;
   info.r *= edge;
-  info.g *= edge;
+  info.g *= mix(0.96, 1.0, edge);
 
   gl_FragColor = info;
 }
@@ -78,22 +73,29 @@ export const WATER_NORMAL_FRAG = /* glsl */ `
 precision highp float;
 
 uniform sampler2D tInput;
+uniform sampler2D tLand;
 uniform float poolWidth;
 uniform float poolLength;
 uniform vec2 delta;
 
 varying vec2 coord;
 
+float heightAt(vec2 uv, float hC) {
+  float wall = step(0.5, texture2D(tLand, clamp(uv, 0.0, 1.0)).r);
+  return mix(texture2D(tInput, uv).r, hC, wall);
+}
+
 void main() {
   vec4 info = texture2D(tInput, coord);
+  float hC = info.r;
   vec3 dx = vec3(
     delta.x * 2.0 * poolWidth,
-    texture2D(tInput, vec2(coord.x + delta.x, coord.y)).r - info.r,
+    heightAt(vec2(coord.x + delta.x, coord.y), hC) - hC,
     0.0
   );
   vec3 dy = vec3(
     0.0,
-    texture2D(tInput, vec2(coord.x, coord.y + delta.y)).r - info.r,
+    heightAt(vec2(coord.x, coord.y + delta.y), hC) - hC,
     delta.y * 2.0 * poolLength
   );
   info.ba = normalize(cross(dy, dx)).xz;

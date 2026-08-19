@@ -102,6 +102,7 @@ export class HeightfieldWater {
       fragmentShader: WATER_NORMAL_FRAG,
       uniforms: {
         tInput: { value: null },
+        tLand: waterSimUniforms.tLand,
         delta: { value: delta.clone() },
         poolWidth: { value: 1 },
         poolLength: { value: 1 },
@@ -178,6 +179,9 @@ export class HeightfieldWater {
     const prevAlpha = renderer.getClearAlpha();
 
     material.uniforms.tInput.value = this.readTarget().texture;
+    if (material.uniforms.tLand) {
+      material.uniforms.tLand.value = waterSimUniforms.tLand.value;
+    }
     this.plane.material = material;
 
     renderer.xr.enabled = false;

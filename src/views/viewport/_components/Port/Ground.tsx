@@ -8,10 +8,7 @@ import { shipsFromPlacements } from "@/domain/extractShipCubes";
 import { bakeLandMask } from "@/domain/bakeLandMask";
 import { enableGroundWaveResponse } from "@/domain/groundWaveMaterial";
 import { bindLandTexture, resetLandTexture } from "@/domain/waterSim";
-import {
-  OCEAN_SIM_EXTENT,
-  OCEAN_SIM_SIZE,
-} from "@/constants/ocean";
+import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
 import { useYardStore } from "@/stores/yard";
 import { useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
@@ -55,7 +52,7 @@ type GroundProps = {
 };
 
 export default function Ground({
-  position = [0, -4.3, 0],
+  position = [0, -4.1, 0],
   rotation = [0, Math.PI / 2, 0],
   scale = [5, 5, 5],
 }: GroundProps) {

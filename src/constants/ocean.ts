@@ -2,10 +2,10 @@
 
 /** 시각 수면 크기 (월드) */
 export const OCEAN_PLANE_SIZE = 1000;
-/** 수면 메시 분할. 높낮이가 보일 밀도 */
+/** 수면 메시 분할. 안벽 반사가 보이려면 시뮬보다 너무 성기면 안 됨 */
 export const OCEAN_PLANE_SEGMENTS = 220;
 /** 파동 격자 */
-export const OCEAN_SIM_SIZE = 1024;
+export const OCEAN_SIM_SIZE = 2048;
 /**
  * 시뮬이 덮는 월드 반경.
  * 안벽·출항 선박이 이 안에 있어야 물이 밀린다.

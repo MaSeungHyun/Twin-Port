@@ -126,6 +126,7 @@ export function bakeLandMask(
       uMinY: { value: OCEAN_LAND_MIN_Y },
       uMaxY: { value: OCEAN_LAND_MAX_Y },
     },
+    toneMapped: false,
     depthTest: false,
     depthWrite: false,
   });
