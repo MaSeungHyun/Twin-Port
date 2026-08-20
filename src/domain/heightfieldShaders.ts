@@ -21,6 +21,7 @@ uniform float poolWidth;
 uniform float poolLength;
 uniform float uWallBounce;
 uniform float uDamping;
+uniform float uWaveSpeed;
 
 varying vec2 coord;
 
@@ -53,7 +54,7 @@ void main() {
     heightAt(coord - dy, hC)
   ) * 0.25;
 
-  info.g += (average - info.r) * 2.0;
+  info.g += (average - info.r) * uWaveSpeed;
   info.g *= uDamping;
   info.r += info.g;
 
@@ -120,30 +121,24 @@ uniform int uCount;
 
 varying vec2 coord;
 
-float volumeInHull(
+float hullSkin(
   vec2 center,
   vec2 fwd,
   float halfLen,
-  float halfW,
-  float centerY,
-  float halfH
+  float halfW
 ) {
   vec2 world = coord * 2.0 - 1.0;
   vec2 right = vec2(-fwd.y, fwd.x);
   vec2 rel = world - center;
   float along = dot(rel, fwd);
   float across = dot(rel, right);
-  vec3 p = vec3(along, -centerY, across);
-  vec3 halfSize = vec3(halfLen, halfH, halfW);
-  vec3 d = abs(p) - halfSize;
-  float signedDistance =
-    length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0);
-  float scale = max(max(halfSize.x, halfSize.y), halfSize.z);
-  float t = max(signedDistance, 0.0) / max(scale, 0.0001);
-  float dy = exp(-pow(t * 1.5, 6.0));
-  float ymin = min(0.0, centerY - dy);
-  float ymax = min(max(0.0, centerY + dy), ymin + 2.0 * dy);
-  return (ymax - ymin) * 0.1;
+  float taper = mix(1.12, 0.28, smoothstep(-halfLen, halfLen, along));
+  vec2 q = abs(vec2(along, across)) - vec2(halfLen, halfW * taper);
+  float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+  float band = max(halfW * 0.4, 0.00015);
+  float skin = exp(-pow(max(sd, 0.0) / band, 2.0));
+  float inside = 1.0 - smoothstep(-band * 0.35, 0.0, sd);
+  return skin * (1.0 - inside * 0.82);
 }
 
 void main() {
@@ -152,15 +147,25 @@ void main() {
     gl_FragColor = vec4(0.0, 0.0, info.ba);
     return;
   }
+  vec2 world = coord * 2.0 - 1.0;
   for (int i = 0; i < ${OCEAN_SHIP_MAX}; i++) {
     if (i < uCount && uStrength[i] > 0.0001) {
-      float oldV = volumeInHull(
-        uOldPos[i], uFwd[i], uHalfLen[i], uHalfWidth[i], uCenterY[i], uHalfH[i]
-      );
-      float newV = volumeInHull(
-        uNewPos[i], uFwd[i], uHalfLen[i], uHalfWidth[i], uCenterY[i], uHalfH[i]
-      );
-      info.r += (oldV - newV) * uStrength[i];
+      vec2 vel = uNewPos[i] - uOldPos[i];
+      float speed = length(vel);
+      if (speed > 0.00001) {
+        vec2 dir = vel / speed;
+        vec2 rel = world - uNewPos[i];
+        float rlen = length(rel);
+        vec2 outward = rlen > 0.00001 ? rel / rlen : uFwd[i];
+        vec2 right = vec2(-uFwd[i].y, uFwd[i].x);
+        float side = abs(dot(outward, right));
+        float skin = hullSkin(
+          uNewPos[i], uFwd[i], uHalfLen[i], uHalfWidth[i]
+        );
+        float push = -dot(dir, outward);
+        push *= mix(0.4, 1.0, side);
+        info.r += push * speed * skin * uStrength[i] * 28.0;
+      }
     }
   }
   gl_FragColor = info;

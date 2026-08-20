@@ -19,12 +19,14 @@ import {
   OCEAN_MOVE_THRESHOLD,
   OCEAN_PLANE_SEGMENTS,
   OCEAN_PLANE_SIZE,
+  OCEAN_POSITION_Y,
   OCEAN_SHIP_MAX,
   OCEAN_SIM_EXTENT,
   OCEAN_SIM_SIZE,
   OCEAN_SIM_STEPS,
   OCEAN_TELEPORT_THRESHOLD,
   OCEAN_WAKE_DISTORT,
+  OCEAN_WAKE_FOAM,
   OCEAN_WAKE_MIN_SCALE,
   OCEAN_WAKE_STRENGTH,
 } from "@/constants/ocean";
@@ -43,6 +45,7 @@ type WaterMaterial = ThreeWater["material"] & {
     uHeightScale: { value: number };
     uSimExtent: { value: number };
     uWakeDistort: { value: number };
+    uWakeFoam: { value: number };
   };
   vertexShader: string;
   fragmentShader: string;
@@ -78,9 +81,10 @@ export default function Water({ size = 5 }: WaterProps) {
       textureWidth: 512,
       textureHeight: 512,
       waterNormals,
-      sunDirection: new Vector3(0.50707, 0.30707, 0),
+      sunDirection: new Vector3(0.50707, 0.20707, 0),
       sunColor: 0xffffff,
       waterColor: 0x001e4f,
+      // distortionScale: OCEAN_CALM_DISTORT,
       distortionScale: 0,
       fog: false,
     });
@@ -92,16 +96,19 @@ export default function Water({ size = 5 }: WaterProps) {
     );
     material.uniforms.size.value = size;
     material.uniforms.time.value = 0;
+    // material.uniforms.distortionScale.value = OCEAN_CALM_DISTORT;
     material.uniforms.distortionScale.value = 0;
     material.uniforms.tHeight = { value: sim.texture };
     material.uniforms.tLand = waterSimUniforms.tLand;
     material.uniforms.uHeightScale = { value: OCEAN_HEIGHT_SCALE };
     material.uniforms.uSimExtent = { value: OCEAN_SIM_EXTENT };
     material.uniforms.uWakeDistort = { value: OCEAN_WAKE_DISTORT };
+    material.uniforms.uWakeFoam = { value: OCEAN_WAKE_FOAM };
     material.vertexShader = injected.vertex;
     material.fragmentShader = injected.fragment;
     material.needsUpdate = true;
     instance.rotation.x = -Math.PI / 2;
+    instance.position.y = OCEAN_POSITION_Y;
     instance.userData.sim = sim;
     return instance;
   }, [gl, loadedNormals, size]);
@@ -153,8 +160,7 @@ export default function Water({ size = 5 }: WaterProps) {
       newPos[ship.index]?.set(simX, simZ);
       fwd[ship.index]?.set(yawFwdX, yawFwdZ);
       halfLen[ship.index] = (OCEAN_HULL_HALF_LEN * hull) / OCEAN_SIM_EXTENT;
-      halfWidth[ship.index] =
-        (OCEAN_HULL_HALF_WIDTH * hull) / OCEAN_SIM_EXTENT;
+      halfWidth[ship.index] = (OCEAN_HULL_HALF_WIDTH * hull) / OCEAN_SIM_EXTENT;
       centerY[ship.index] = OCEAN_HULL_Y / OCEAN_SIM_EXTENT;
       halfH[ship.index] = OCEAN_HULL_HALF_HEIGHT / OCEAN_SIM_EXTENT;
 
@@ -193,6 +199,7 @@ export default function Water({ size = 5 }: WaterProps) {
     material.uniforms.uHeightScale.value = OCEAN_HEIGHT_SCALE;
     material.uniforms.uSimExtent.value = OCEAN_SIM_EXTENT;
     material.uniforms.uWakeDistort.value = OCEAN_WAKE_DISTORT;
+    material.uniforms.uWakeFoam.value = OCEAN_WAKE_FOAM;
   });
 
   return <primitive ref={meshRef} object={water} />;

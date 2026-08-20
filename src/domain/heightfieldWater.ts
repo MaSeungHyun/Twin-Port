@@ -20,6 +20,7 @@ import {
   OCEAN_SHIP_MAX,
   OCEAN_WALL_BOUNCE,
   OCEAN_WAVE_DAMPING,
+  OCEAN_WAVE_SPEED,
 } from "@/constants/ocean";
 import { waterSimUniforms } from "./waterSim";
 import {
@@ -94,6 +95,7 @@ export class HeightfieldWater {
         poolLength: { value: 1 },
         uWallBounce: { value: OCEAN_WALL_BOUNCE },
         uDamping: { value: OCEAN_WAVE_DAMPING },
+        uWaveSpeed: { value: OCEAN_WAVE_SPEED },
       },
     });
 

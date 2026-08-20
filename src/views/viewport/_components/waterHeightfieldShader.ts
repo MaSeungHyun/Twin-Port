@@ -29,7 +29,8 @@ export function injectHeightfield(
 				uniform sampler2D tHeight;
 				uniform sampler2D tLand;
 				uniform float uSimExtent;
-				uniform float uWakeDistort;`,
+				uniform float uWakeDistort;
+				uniform float uWakeFoam;`,
     )
     .replace(
       `vec4 noise = getNoise( worldPosition.xz * size );
@@ -43,18 +44,25 @@ export function injectHeightfield(
 						vec4 info = texture2D( tHeight, huv );
 						vec2 n2 = info.ba;
 						float ny = sqrt( max( 0.0, 1.0 - dot( n2, n2 ) ) );
-						surfaceNormal = normalize( vec3( n2.x, ny, n2.y ) );
-						wakeFoam = clamp( abs( info.r ) * 2.4, 0.0, 0.7 );
+						vec3 wakeNormal = normalize( vec3( n2.x, ny, n2.y ) );
+						float chop = clamp( abs( info.r ) * 3.4 + length( n2 ) * 2.2, 0.0, 1.0 );
+						surfaceNormal = normalize( mix( surfaceNormal, wakeNormal, chop ) );
+						wakeFoam = clamp( abs( info.r ) * 3.8 + length( n2 ) * 1.8, 0.0, 1.0 ) * uWakeFoam;
 					}`,
     )
     .replace(
       "vec2 distortion = surfaceNormal.xz * ( 0.001 + 1.0 / distance ) * distortionScale;",
-      "vec2 distortion = surfaceNormal.xz * ( 0.001 + 1.0 / distance ) * ( distortionScale + uWakeDistort * wakeMask );",
+      "vec2 distortion = surfaceNormal.xz * ( 0.001 + 1.0 / distance ) * ( distortionScale + uWakeDistort * wakeFoam );",
     )
     .replace(
       "vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * waterColor;",
       `vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * waterColor;
-					scatter = mix( scatter, vec3( 0.88, 0.95, 1.0 ), wakeFoam );`,
+					scatter = mix( scatter, vec3( 0.78, 0.88, 0.94 ), wakeFoam );`,
+    )
+    .replace(
+      "vec3 albedo = mix( ( sunColor * diffuseLight * 0.3 + scatter ) * getShadowMask(), reflectionSample + specularLight, reflectance );",
+      `vec3 albedo = mix( ( sunColor * diffuseLight * 0.3 + scatter ) * getShadowMask(), reflectionSample + specularLight, reflectance );
+					albedo = mix( albedo, vec3( 0.84, 0.92, 0.97 ), wakeFoam * 0.82 );`,
     );
 
   return { vertex, fragment };
