@@ -1,26 +1,32 @@
 import { Accordion } from "@/components/Accordion";
 import Button from "@/components/Button";
 import Icon from "@/components/Icon";
-import SearchBar from "@/components/SearchBar";
 import { searchContainers } from "@/domain/containerSearch";
 import type { Container } from "@/types/container";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { companyAccent } from "../../util/containerAccent";
 import ContainerDetailCard from "./ContainerDetailCard";
 import ContainerPreviewRow from "./ContainerPreviewRow";
 
 const MAX_PER_COMPANY_PREVIEW = 12;
 
-export default function ContainerAccordion() {
+type ContainerAccordionProps = {
+  query: string;
+  onQueryChange: (query: string) => void;
+};
+
+export default function ContainerAccordion({
+  query,
+  onQueryChange,
+}: ContainerAccordionProps) {
   const selectContainer = useViewportStore((s) => s.selectContainer);
   const clearContainerSelection = useViewportStore(
     (s) => s.clearContainerSelection,
   );
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
 
-  const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const containers = useYardStore((s) => s.containers);
 
@@ -44,25 +50,13 @@ export default function ContainerAccordion() {
   const searching = deferredQuery.trim().length > 0;
 
   function focusContainer(container: Container) {
-    setQuery(container.id);
+    onQueryChange(container.id);
   }
 
   return (
     <div className="flex flex-col">
-      <div className="sticky top-0 z-10 -mx-1 space-y-1.5 bg-background/90 px-1 pb-2 backdrop-blur-sm">
-        <SearchBar
-          size="sm"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            clearContainerSelection();
-          }}
-          placeholder="ID · 선사 · 슬롯 검색"
-          className="border-white/15 bg-black/35"
-          aria-label="컨테이너 검색"
-        />
-
-        {selectedContainerId ? (
+      {selectedContainerId ? (
+        <div className="sticky top-0 z-10 -mx-1 space-y-1.5 bg-background/90 px-1 pb-2 backdrop-blur-sm">
           <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/15 px-2 py-1.5">
             <Icon icon="Focus" className="size-3.5 shrink-0 stroke-primary" />
             <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white">
@@ -77,8 +71,8 @@ export default function ContainerAccordion() {
               Cancel
             </Button>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {searching ? (
         results.length === 0 ? (

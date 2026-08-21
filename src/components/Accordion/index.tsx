@@ -46,8 +46,11 @@ function Header({
 function Trigger({
   className,
   children,
+  hideIcon = false,
   ...props
-}: ComponentProps<typeof AccordionPrimitive.Trigger>) {
+}: ComponentProps<typeof AccordionPrimitive.Trigger> & {
+  hideIcon?: boolean;
+}) {
   return (
     <AccordionPrimitive.Trigger
       data-slot="accordion-trigger"
@@ -60,10 +63,12 @@ function Trigger({
       {...props}
     >
       {children}
-      <Icon
-        icon="ChevronDown"
-        className="size-4 shrink-0 stroke-white/60 transition-transform duration-200 group-data-[state=open]:rotate-180"
-      />
+      {!hideIcon && (
+        <Icon
+          icon="ChevronDown"
+          className="size-4 shrink-0 stroke-white/60 transition-transform duration-200 group-data-[state=open]:rotate-180"
+        />
+      )}
     </AccordionPrimitive.Trigger>
   );
 }
