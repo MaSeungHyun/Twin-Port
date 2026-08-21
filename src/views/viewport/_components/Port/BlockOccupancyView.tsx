@@ -6,7 +6,6 @@ import {
   computeBlockOccupancies,
   type BlockOccupancy,
 } from "@/domain/occupancy";
-import { Html } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import { BoxGeometry, EdgesGeometry, type Mesh } from "three";
 import gsap from "gsap";
@@ -136,37 +135,6 @@ function BlockOccupancyBar({
           depthWrite={false}
         />
       </mesh>
-
-      <Html
-        position={[0, dims.fullHeight + 1.2, 0]}
-        center
-        zIndexRange={[20, 1]}
-        style={{
-          userSelect: "none",
-          pointerEvents: visible ? "auto" : "none",
-          display: visible ? "block" : "none",
-        }}
-      >
-        <div className="rounded-md bg-black/55 px-2 py-1 text-center whitespace-nowrap text-white shadow transition-transform duration-50 hover:z-10 hover:scale-125">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-base font-semibold tracking-wide text-white">
-              {occupancy.blockCode}
-            </span>
-
-            <span
-              className="text-base font-bold brightness-150"
-              style={{ color }}
-            >
-              {occupancy.percent}%
-            </span>
-          </div>
-          <div>
-            <span className="ml-1 text-md text-white/70">
-              ({occupancy.occupied}/{occupancy.capacity})
-            </span>
-          </div>
-        </div>
-      </Html>
     </group>
   );
 }
