@@ -1,5 +1,6 @@
 import { useYardStore } from "@/stores/yard";
 import { useOccupancyStore } from "@/stores/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import {
   computeBlockOccupancies,
   type BlockOccupancy,
@@ -30,6 +31,14 @@ export default function BlockFootprints({
       ) as Record<string, BlockOccupancy>,
     [occupancies],
   );
+  const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
+  const trackedBlockCode = useMemo(() => {
+    if (!selectedContainerId) return null;
+    return (
+      containers.find((item) => item.id === selectedContainerId)?.location
+        .block ?? null
+    );
+  }, [containers, selectedContainerId]);
 
   return (
     <group position={[...yardOffset]} visible={visible}>
@@ -43,6 +52,7 @@ export default function BlockFootprints({
             block={block}
             occupancy={occupancy}
             statusVisible={false}
+            tracked={trackedBlockCode === block.code}
             hitEnabled={!occupancyLook}
           />
         );

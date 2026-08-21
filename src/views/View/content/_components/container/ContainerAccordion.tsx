@@ -5,14 +5,15 @@ import { searchContainers } from "@/domain/containerSearch";
 import type { Container } from "@/types/container";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { companyAccent } from "../../util/containerAccent";
 import { useContainerQueryStore } from "./containerQueryStore";
 import ContainerDetailCard from "./ContainerDetailCard";
 import ContainerPreviewRow from "./ContainerPreviewRow";
 
 const MAX_PER_COMPANY_PREVIEW = 12;
-const MAX_SEARCH_RESULTS = 40;
+const SEARCH_PAGE_SIZE = 10;
+const SEARCH_MAX_RESULTS = 100;
 
 type ContainerAccordionProps = {
   query: string;
@@ -27,11 +28,31 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
   const setQuery = useContainerQueryStore((s) => s.setQuery);
 
   const containers = useYardStore((s) => s.containers);
+  const [visibleCount, setVisibleCount] = useState(SEARCH_PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(SEARCH_PAGE_SIZE);
+  }, [query]);
 
   const results = useMemo(
-    () => searchContainers(containers, query, MAX_SEARCH_RESULTS),
-    [containers, query],
+    () =>
+      searchContainers(
+        containers,
+        query,
+        Math.min(visibleCount, SEARCH_MAX_RESULTS) + 1,
+      ),
+    [containers, query, visibleCount],
   );
+
+  const shownCount = Math.min(visibleCount, SEARCH_MAX_RESULTS);
+  const shown = results.slice(0, shownCount);
+  const hasMore = results.length > shownCount && shownCount < SEARCH_MAX_RESULTS;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((count) =>
+      Math.min(count + SEARCH_PAGE_SIZE, SEARCH_MAX_RESULTS),
+    );
+  }, []);
 
   const companyGroups = useMemo(() => {
     const groups = new Map<string, Container[]>();
@@ -77,7 +98,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
           <p className="px-2 py-3 text-xs text-white/45">검색 결과 없음</p>
         ) : (
           <ul className="flex flex-col gap-2 px-1 pb-2">
-            {results.map((container) => (
+            {shown.map((container) => (
               <li key={container.id}>
                 <ContainerDetailCard
                   container={container}
@@ -87,9 +108,16 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
                 />
               </li>
             ))}
-            {results.length >= MAX_SEARCH_RESULTS ? (
+            {hasMore ? (
+              <li>
+                <LoadMoreSentinel
+                  onVisible={loadMore}
+                  resetKey={`${query}:${shownCount}`}
+                />
+              </li>
+            ) : shownCount >= SEARCH_MAX_RESULTS ? (
               <li className="px-2 py-1 text-[11px] text-white/35">
-                상위 {MAX_SEARCH_RESULTS}개만 표시 — 검색어를 더 입력해 주세요
+                상위 {SEARCH_MAX_RESULTS}개만 표시 — 검색어를 더 입력해 주세요
               </li>
             ) : null}
           </ul>
@@ -144,4 +172,34 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
       )}
     </div>
   );
+}
+
+function LoadMoreSentinel({
+  onVisible,
+  resetKey,
+}: {
+  onVisible: () => void;
+  resetKey: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const target = ref.current;
+    if (!target) return;
+
+    const root = target.closest(
+      "[data-slot='accordion-content']",
+    ) as HTMLElement | null;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) onVisible();
+      },
+      { root, rootMargin: "80px 0px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [onVisible, resetKey]);
+
+  return <div ref={ref} className="h-3" aria-hidden />;
 }

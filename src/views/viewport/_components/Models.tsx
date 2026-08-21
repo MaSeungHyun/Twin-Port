@@ -1,5 +1,6 @@
 import { useObjectStore } from "@/stores/object";
 import { useOccupancyStore } from "@/stores/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import BlockFootprints from "./Port/Block";
 import BlockOccupancyView from "./Port/BlockOccupancyView";
 import ContainerYard from "./Port/ContainerYard";
@@ -11,12 +12,13 @@ import ShipFleet from "./Port/ShipFleet";
 function YardLayer() {
   const containerVisible = useObjectStore((s) => s.containerVisible);
   const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
+  const tracking = useViewportStore((s) => Boolean(s.selectedContainerId));
 
   return (
     <>
-      <ContainerYard visible={containerVisible && !occupancyLook} />
+      <ContainerYard visible={containerVisible} />
       <BlockFootprints />
-      <BlockOccupancyView visible={occupancyLook} />
+      <BlockOccupancyView visible={occupancyLook && !tracking} />
     </>
   );
 }

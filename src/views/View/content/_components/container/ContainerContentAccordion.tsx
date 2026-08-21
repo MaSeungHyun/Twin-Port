@@ -1,5 +1,6 @@
 import { Accordion } from "@/components/Accordion";
 import SearchBar from "@/components/SearchBar";
+import Icon from "@/components/Icon";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
 import { memo, useDeferredValue } from "react";
@@ -28,6 +29,8 @@ function PanelSearchBar({
 }) {
   const query = useContainerQueryStore((s) => s.query);
   const setQuery = useContainerQueryStore((s) => s.setQuery);
+  const deferredQuery = useDeferredValue(query);
+  const isSearching = query.trim() !== deferredQuery.trim();
 
   return (
     <div className="shrink-0 px-2 pb-2">
@@ -47,6 +50,19 @@ function PanelSearchBar({
         className="border-white/15 bg-black/35"
         aria-label="컨테이너 검색"
       />
+      <p
+        className={cn(
+          "mt-1 flex h-4 items-center gap-1 text-[11px]",
+          isSearching ? "text-white/50" : "text-transparent",
+        )}
+        aria-live="polite"
+      >
+        <Icon
+          icon="LoaderCircle"
+          className={cn("size-3 stroke-current", isSearching && "animate-spin")}
+        />
+        검색 중
+      </p>
     </div>
   );
 }

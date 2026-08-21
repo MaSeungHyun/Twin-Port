@@ -21,11 +21,13 @@ export default function BlockHoverArea({
   occupancy,
   statusVisible,
   hitEnabled = true,
+  tracked = false,
 }: {
   block: BlockDefinition;
   occupancy: BlockOccupancy;
   statusVisible: boolean;
   hitEnabled?: boolean;
+  tracked?: boolean;
 }) {
   const deckY = useYardStore((s) => s.deckY);
   const hoveredBlockCode = useOccupancyStore((s) => s.hoveredBlockCode);
@@ -34,7 +36,7 @@ export default function BlockHoverArea({
   const { width, depth } = getBlockFootprintSize(block);
   const color = occupancyColor(occupancy.ratio);
   const showInfo =
-    statusVisible || hovered || hoveredBlockCode === block.code;
+    statusVisible || hovered || tracked || hoveredBlockCode === block.code;
 
   const handleOver = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();

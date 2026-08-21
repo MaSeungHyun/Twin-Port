@@ -11,6 +11,7 @@ import { composeContainerMatrix } from "@/domain/container";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import { useYardStore } from "@/stores/yard";
 import type { Container } from "@/types/container";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -73,6 +74,7 @@ export default function ContainerYard({
   const containers = useYardStore((s) => s.containers);
   const { scene } = useGLTF(containersUrl);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
+  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
 
   const solidRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>>(
     {},
@@ -162,6 +164,17 @@ export default function ContainerYard({
       const colorKey = COMPANY_COLOR[container.company];
       const matched = matchedIds?.has(container.id) ?? false;
 
+      if (occupancyLook) {
+        if (!matched) continue;
+        const mesh = highlightRefs.current[colorKey];
+        const idx = highlightCounts[colorKey];
+        if (!mesh || idx >= MAX_PER_COLOR) continue;
+        mesh.setMatrixAt(idx, matrix);
+        highlightCounts[colorKey] = idx + 1;
+        mesh.count = idx + 1;
+        continue;
+      }
+
       if (matchedIds && matched) {
         const mesh = highlightRefs.current[colorKey];
         const idx = highlightCounts[colorKey];
@@ -198,7 +211,7 @@ export default function ContainerYard({
       if (highlight) highlight.instanceMatrix.needsUpdate = true;
       if (wire) wire.instanceMatrix.needsUpdate = true;
     });
-  }, [containers, meshesReady, matchedIds, blockByCode, deckY]);
+  }, [containers, meshesReady, matchedIds, blockByCode, deckY, occupancyLook]);
 
   function tryMarkReady() {
     if (meshesReady) return;

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { useOccupancyStore } from "./occupancy";
 
 type ViewportState = {
   /** 관제모드 — Block 전체 마크 + 탑뷰 */
@@ -19,11 +18,9 @@ export const useViewportStore = create<ViewportState>((set) => ({
   selectedContainerId: null,
   focusNonce: 0,
   selectContainer: (id) => {
-    useOccupancyStore.getState().exitOccupancy();
     set((state) => ({
       selectedContainerId: id,
       focusNonce: state.focusNonce + 1,
-      monitorMode: false,
     }));
   },
   clearContainerSelection: () => set({ selectedContainerId: null }),

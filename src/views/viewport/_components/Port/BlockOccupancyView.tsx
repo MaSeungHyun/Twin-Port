@@ -8,6 +8,7 @@ import {
 } from "@/domain/occupancy";
 import { type ThreeEvent } from "@react-three/fiber";
 import { useOccupancyStore } from "@/stores/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BoxGeometry, EdgesGeometry, type Mesh } from "three";
 import gsap from "gsap";
@@ -40,15 +41,18 @@ function BlockOccupancyBar({
   occupancy,
   index,
   visible,
+  tracked,
 }: {
   occupancy: BlockOccupancy;
   index: number;
   visible: boolean;
+  tracked: boolean;
 }) {
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
   const setHoveredBlockCode = useOccupancyStore((s) => s.setHoveredBlockCode);
   const [hovered, setHovered] = useState(false);
+  const active = hovered || tracked;
   const block = useMemo(
     () => blocks.find((b) => b.code === occupancy.blockCode),
     [occupancy.blockCode, blocks],
@@ -146,7 +150,7 @@ function BlockOccupancyBar({
         <meshStandardMaterial
           color="#3b82f6"
           transparent
-          opacity={hovered ? SHELL_HOVER_OPACITY : SHELL_OPACITY}
+          opacity={active ? SHELL_HOVER_OPACITY : SHELL_OPACITY}
           depthWrite={false}
         />
       </mesh>
@@ -158,7 +162,7 @@ function BlockOccupancyBar({
         <lineBasicMaterial
           color="#60a5fa"
           transparent
-          opacity={hovered ? LINE_HOVER_OPACITY : LINE_OPACITY}
+          opacity={active ? LINE_HOVER_OPACITY : LINE_OPACITY}
         />
       </lineSegments>
 
@@ -171,9 +175,9 @@ function BlockOccupancyBar({
         <boxGeometry args={[dims.width, dims.fillHeight, dims.depth]} />
         <meshBasicMaterial
           color={color}
-          transparent={!hovered}
-          opacity={hovered ? FILL_HOVER_OPACITY : FILL_OPACITY}
-          depthWrite={hovered}
+          transparent={!active}
+          opacity={active ? FILL_HOVER_OPACITY : FILL_OPACITY}
+          depthWrite={active}
           toneMapped={false}
         />
       </mesh>
@@ -193,6 +197,14 @@ export default function BlockOccupancyView({
     () => computeBlockOccupancies(containers, blocks),
     [blocks, containers],
   );
+  const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
+  const trackedBlockCode = useMemo(() => {
+    if (!selectedContainerId) return null;
+    return (
+      containers.find((item) => item.id === selectedContainerId)?.location
+        .block ?? null
+    );
+  }, [containers, selectedContainerId]);
 
   return (
     <group position={[...yardOffset]} visible={visible}>
@@ -202,6 +214,7 @@ export default function BlockOccupancyView({
           occupancy={occupancy}
           index={index}
           visible={visible}
+          tracked={occupancy.blockCode === trackedBlockCode}
         />
       ))}
     </group>
