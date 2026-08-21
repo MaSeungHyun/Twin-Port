@@ -1,6 +1,7 @@
 import { SHIP_INSTANCES } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { bindShipPoses } from "@/domain/shipWake";
+import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import Ship, { type ShipInstance } from "./Ship";
@@ -18,6 +19,7 @@ function cloneShipPoses(list: readonly ShipInstance[]): ShipInstance[] {
 
 /** 선체 + 화물 적재/출항을 같은 pose로 묶음 */
 export default function ShipFleet() {
+  const occupancyMode = useViewportStore((s) => s.occupancyMode);
   const modelShips = useYardStore((s) => s.ships);
   const berths = modelShips.length > 0 ? modelShips : SHIP_INSTANCES;
   const poses = useMemo(() => cloneShipPoses(berths), [berths]);
@@ -34,11 +36,13 @@ export default function ShipFleet() {
     <>
       <Ship key={berths.length} instances={poses} posesRef={posesRef} />
       {SHIP_TWEEN.enabled ? (
-        <ShipCargo
-          key={`cargo-${berths.length}`}
-          posesRef={posesRef}
-          berths={berths}
-        />
+        <group visible={!occupancyMode}>
+          <ShipCargo
+            key={`cargo-${berths.length}`}
+            posesRef={posesRef}
+            berths={berths}
+          />
+        </group>
       ) : null}
     </>
   );

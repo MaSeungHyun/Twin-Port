@@ -9,11 +9,19 @@ import { bakeLandMask } from "@/domain/bakeLandMask";
 import { enableGroundWaveResponse } from "@/domain/groundWaveMaterial";
 import { bindLandTexture, resetLandTexture } from "@/domain/waterSim";
 import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
+import { createOccupancySurfaceMaterial } from "@/domain/occupancyLook";
 import { useYardStore } from "@/stores/yard";
+import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { useLayoutEffect, useMemo } from "react";
-import { Material, Mesh, type Object3D, type Vector3Tuple } from "three";
+import {
+  Material,
+  Mesh,
+  MeshStandardMaterial,
+  type Object3D,
+  type Vector3Tuple,
+} from "three";
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
 function enableGroundAlpha(root: Object3D) {
@@ -45,6 +53,47 @@ function enableGroundAlpha(root: Object3D) {
   });
 }
 
+function namesOf(mesh: Mesh) {
+  return [mesh.name, mesh.parent?.name ?? "", mesh.geometry?.name ?? ""];
+}
+
+function isGroundMesh(mesh: Mesh) {
+  return namesOf(mesh).some(
+    (name) => /^ground$/i.test(name) || /cube\.002/i.test(name),
+  );
+}
+
+function applyOccupancyGroundLook(
+  root: Object3D,
+  enabled: boolean,
+  occupancyMaterial: MeshStandardMaterial,
+) {
+  root.traverse((child) => {
+    if (!(child instanceof Mesh)) return;
+    if (!enabled) {
+      const original = child.userData.occupancyOriginal as
+        | { material: Mesh["material"]; visible: boolean }
+        | undefined;
+      if (!original) return;
+      child.material = original.material;
+      child.visible = original.visible;
+      return;
+    }
+    if (!child.userData.occupancyOriginal) {
+      child.userData.occupancyOriginal = {
+        material: child.material,
+        visible: child.visible,
+      };
+    }
+    if (isGroundMesh(child)) {
+      child.visible = true;
+      child.material = occupancyMaterial;
+    } else {
+      child.visible = false;
+    }
+  });
+}
+
 type GroundProps = {
   position?: Vector3Tuple;
   rotation?: Vector3Tuple;
@@ -60,7 +109,10 @@ export default function Ground({
   const setModelShips = useYardStore((s) => s.setModelShips);
   const resetBlocks = useYardStore((s) => s.resetBlocks);
   const gl = useThree((state) => state.gl);
+  const occupancyMode = useViewportStore((s) => s.occupancyMode);
   const { scene } = useGLTF(groundUrl);
+
+  const occupancyMaterial = useMemo(() => createOccupancySurfaceMaterial(), []);
 
   const model = useMemo(() => {
     const cloned = scene.clone(true);
@@ -112,6 +164,19 @@ export default function Ground({
     resetBlocks,
     gl,
   ]);
+
+  useLayoutEffect(() => {
+    applyOccupancyGroundLook(model, occupancyMode, occupancyMaterial);
+    return () => {
+      applyOccupancyGroundLook(model, false, occupancyMaterial);
+    };
+  }, [model, occupancyMode, occupancyMaterial]);
+
+  useLayoutEffect(() => {
+    return () => {
+      occupancyMaterial.dispose();
+    };
+  }, [occupancyMaterial]);
 
   return (
     <primitive

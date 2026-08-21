@@ -1,8 +1,10 @@
 import shipUrl from "@/assets/model/ship_empty.glb";
 import { enableGlbShadows } from "@/domain/glb";
+import { createOccupancySurfaceMaterial } from "@/domain/occupancyLook";
+import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import {
   type BufferGeometry,
   type InstancedMesh,
@@ -32,6 +34,8 @@ type ShipProps = {
 };
 
 export default function Ship({ instances, posesRef }: ShipProps) {
+  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const occupancyMaterial = useMemo(() => createOccupancySurfaceMaterial(), []);
   const { scene } = useGLTF(shipUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
@@ -88,6 +92,24 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     if (!list || list.length === 0) return;
     writeMatrices(list);
   });
+
+  useLayoutEffect(() => {
+    for (const instanced of meshRefs.current) {
+      if (!instanced) continue;
+      if (!instanced.userData.occupancyOriginal) {
+        instanced.userData.occupancyOriginal = instanced.material;
+      }
+      instanced.material = occupancyMode
+        ? occupancyMaterial
+        : instanced.userData.occupancyOriginal;
+    }
+  }, [occupancyMaterial, occupancyMode, parts]);
+
+  useLayoutEffect(() => {
+    return () => {
+      occupancyMaterial.dispose();
+    };
+  }, [occupancyMaterial]);
 
   const count = instances?.length ?? 0;
   if (count === 0) return null;

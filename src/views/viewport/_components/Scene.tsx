@@ -22,14 +22,15 @@ import { useViewportStore } from "@/stores/viewport";
 export default function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const monitorMode = useViewportStore((s) => s.monitorMode);
+  const occupancyMode = useViewportStore((s) => s.occupancyMode);
   const pauseRender = monitorMode;
 
   return (
     <R3FCanvas
       className="h-full w-full touch-none"
-      style={{ display: "block", overflow: "hidden" }}
+      style={{ display: "block", overflow: "hidden", backgroundColor: "#000" }}
       shadows={{ enabled: true }}
-      gl={{ antialias: true }}
+      gl={{ antialias: true, alpha: false }}
       frameloop={pauseRender ? "never" : "always"}
       scene={{ fog: new FogExp2(0x00000000, 0.0005) }}
       camera={{
@@ -42,19 +43,22 @@ export default function Scene() {
     >
       {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}
       <Suspense fallback={null}>
-        <Environment
-          files={skybox}
-          background
-          backgroundBlurriness={0.2}
-          backgroundIntensity={0.7}
-          environmentIntensity={0.7}
-        />
+        {!occupancyMode && (
+          <Environment
+            files={skybox}
+            background
+            backgroundBlurriness={0.2}
+            backgroundIntensity={0.7}
+            environmentIntensity={0.7}
+          />
+        )}
+        {occupancyMode && <color attach="background" args={[0x000000]} />}
         <Controls controlsRef={controlsRef} />
         <CameraFlight controlsRef={controlsRef} />
 
         <ambientLight intensity={0.5} />
         <SunLight />
-        <Water />
+        {!occupancyMode && <Water />}
         <Models />
 
         {/* 월드 확인용 원점 축: X=빨강, Y=초록, Z=파랑 */}

@@ -14,10 +14,19 @@ function YardLayer() {
 
   return (
     <>
-      <ContainerYard visible={containerVisible} />
+      <ContainerYard visible={containerVisible && !occupancyMode} />
       <BlockFootprints />
       <BlockOccupancyView visible={occupancyMode} />
     </>
+  );
+}
+
+function OverheadCraneLayer() {
+  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  return (
+    <group visible={!occupancyMode}>
+      <OverHeadCrane />
+    </group>
   );
 }
 
@@ -33,7 +42,7 @@ function Models() {
       {/* <Crane /> */}
 
       <ShipFleet />
-      <OverHeadCrane />
+      <OverheadCraneLayer />
 
       <YardLayer />
       <Ground />

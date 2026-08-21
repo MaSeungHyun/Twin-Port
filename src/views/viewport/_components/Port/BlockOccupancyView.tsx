@@ -107,7 +107,7 @@ function BlockOccupancyBar({
     >
       <mesh position={[0, dims.fullHeight / 2, 0]} geometry={shellGeometry}>
         <meshStandardMaterial
-          color="#cbd5e1"
+          color="#3b82f6"
           transparent
           opacity={0.14}
           depthWrite={false}
@@ -118,7 +118,7 @@ function BlockOccupancyBar({
         geometry={shellEdges}
         raycast={() => null}
       >
-        <lineBasicMaterial color="#e2e8f0" transparent opacity={0.55} />
+        <lineBasicMaterial color="#60a5fa" transparent opacity={0.4} />
       </lineSegments>
 
       <mesh
@@ -131,7 +131,7 @@ function BlockOccupancyBar({
         <meshStandardMaterial
           color={color}
           transparent
-          opacity={0.9}
+          opacity={0.8}
           depthWrite={false}
         />
       </mesh>
