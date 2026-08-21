@@ -1,12 +1,25 @@
 import Toaster from "@/components/Toaster";
 import ToasterTestTrigger from "@/components/Toaster/ToasterTestTrigger";
 import { occupancyDimRef } from "@/constants/occupancyTransition";
+import { useOccupancyStore } from "@/stores/occupancy";
 import ContentsLayer from "./_components/ContentsLayer";
 import Scene from "./_components/Scene";
-import { useOccupancyStore } from "@/stores/occupancy";
+
+function OccupancyRim() {
+  const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-10 bg-transparent"
+      style={{
+        boxShadow: occupancyMode
+          ? "inset 0 0 50px rgba(0,30,150,0.55)"
+          : "inset 0 0 50px rgba(0,0,0,0.9)",
+      }}
+    />
+  );
+}
 
 export default function Viewport() {
-  const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   return (
     <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden border border-primary">
       <div className="absolute inset-0 z-0">
@@ -20,14 +33,7 @@ export default function Viewport() {
         aria-hidden
       />
       <ContentsLayer />
-      <div
-        className="pointer-events-none absolute inset-0 z-10 bg-transparent shadow-[inset_0_0_50px_rgba(0,0,0,0.9)]"
-        style={{
-          boxShadow: !occupancyMode
-            ? "inset 0 0 50px rgba(0,0,0,0.9)"
-            : "inset 0 0 50px rgba(0,30,150,0.55)",
-        }}
-      />
+      <OccupancyRim />
       <Toaster />
       <ToasterTestTrigger />
     </div>

@@ -186,6 +186,17 @@ export default function ShipCargo({
     }
   });
 
+  const fleetKey = useMemo(
+    () =>
+      berths
+        .map(
+          (berth, index) =>
+            `${locatorIndexOf(berth, index)}:${berth.position.join(",")}`,
+        )
+        .join("|"),
+    [berths],
+  );
+
   useEffect(() => {
     if (!meshesReady || slots.length === 0) return;
     const poses = posesRef.current;
@@ -519,15 +530,9 @@ export default function ShipCargo({
       for (const tl of timelines) tl.kill();
       timelines.clear();
     };
-  }, [
-    meshesReady,
-    slots,
-    countsByShipColor,
-    slotsByShip,
-    shipCount,
-    posesRef,
-    berths,
-  ]);
+    // 부두 구성이 같을 때는 occupancy 리렌더로 사이클을 다시 시작하지 않음
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fleetKey가 슬롯/부두 변경을 대표
+  }, [meshesReady, fleetKey]);
 
   if (slots.length === 0) return null;
 

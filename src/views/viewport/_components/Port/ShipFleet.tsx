@@ -3,7 +3,8 @@ import { SHIP_TWEEN } from "@/constants/tween";
 import { bindShipPoses } from "@/domain/shipWake";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useYardStore } from "@/stores/yard";
-import { memo, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
+import { Group } from "three";
 import Ship, { type ShipInstance } from "./Ship";
 import ShipCargo from "./ShipCargo";
 
@@ -17,8 +18,6 @@ function cloneShipPoses(list: readonly ShipInstance[]): ShipInstance[] {
   }));
 }
 
-const ShipCargoMemo = memo(ShipCargo);
-
 function OccupancyHiddenCargo({
   posesRef,
   berths,
@@ -26,10 +25,22 @@ function OccupancyHiddenCargo({
   posesRef: RefObject<ShipInstance[]>;
   berths: readonly ShipInstance[];
 }) {
-  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
+  const groupRef = useRef<Group>(null);
+
+  useLayoutEffect(() => {
+    const apply = (look: boolean) => {
+      if (groupRef.current) groupRef.current.visible = !look;
+    };
+    apply(useOccupancyStore.getState().occupancyLook);
+    return useOccupancyStore.subscribe((state, prev) => {
+      if (state.occupancyLook === prev.occupancyLook) return;
+      apply(state.occupancyLook);
+    });
+  }, []);
+
   return (
-    <group visible={!occupancyLook}>
-      <ShipCargoMemo posesRef={posesRef} berths={berths} />
+    <group ref={groupRef}>
+      <ShipCargo posesRef={posesRef} berths={berths} />
     </group>
   );
 }
