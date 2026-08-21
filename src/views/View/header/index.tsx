@@ -2,7 +2,7 @@ import title from "@/assets/image/wordmark.png";
 import Status from "./Status";
 import Alarm from "./Alarm";
 
-import OccupnacyMode from "./OccupnacyMode";
+import OccupancyMode from "./OccupancyMode";
 import ViewOption from "./ViewOption";
 import Monitoring from "./Monitoring";
 
@@ -15,7 +15,7 @@ export default function Header() {
       </div>
       <div className="flex items-center gap-5">
         <Monitoring />
-        <OccupnacyMode />
+        <OccupancyMode />
         <ViewOption />
         <Alarm />
       </div>

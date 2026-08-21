@@ -3,7 +3,7 @@ import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
 import Button from "@/components/Button";
 
-export default function OccupnacyMode() {
+export default function OccupancyMode() {
   const occupancyMode = useViewportStore((s) => s.occupancyMode);
   const monitorMode = useViewportStore((s) => s.monitorMode);
   const toggleOccupancyMode = useViewportStore((s) => s.toggleOccupancyMode);

@@ -21,9 +21,8 @@ import { useViewportStore } from "@/stores/viewport";
 
 export default function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
   const monitorMode = useViewportStore((s) => s.monitorMode);
-  const pauseRender = occupancyMode || monitorMode;
+  const pauseRender = monitorMode;
 
   return (
     <R3FCanvas

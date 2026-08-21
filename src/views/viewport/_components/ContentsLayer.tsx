@@ -7,8 +7,7 @@ import { useViewportStore } from "@/stores/viewport";
  */
 export default function ContentsLayer() {
   const monitorMode = useViewportStore((s) => s.monitorMode);
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
-  const hidden = monitorMode || occupancyMode;
+  const hidden = monitorMode;
 
   return (
     <div
