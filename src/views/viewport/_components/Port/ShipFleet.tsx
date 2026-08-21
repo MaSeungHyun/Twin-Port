@@ -1,8 +1,9 @@
 import { SHIP_INSTANCES } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { bindShipPoses } from "@/domain/shipWake";
+import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import Ship, { type ShipInstance } from "./Ship";
 import ShipCargo from "./ShipCargo";
 
@@ -14,6 +15,23 @@ function cloneShipPoses(list: readonly ShipInstance[]): ShipInstance[] {
       : undefined,
     scale: ship.scale,
   }));
+}
+
+const ShipCargoMemo = memo(ShipCargo);
+
+function OccupancyHiddenCargo({
+  posesRef,
+  berths,
+}: {
+  posesRef: RefObject<ShipInstance[]>;
+  berths: readonly ShipInstance[];
+}) {
+  const occupancyLook = useViewportStore((s) => s.occupancyLook);
+  return (
+    <group visible={!occupancyLook}>
+      <ShipCargoMemo posesRef={posesRef} berths={berths} />
+    </group>
+  );
 }
 
 /** 선체 + 화물 적재/출항을 같은 pose로 묶음 */
@@ -38,7 +56,7 @@ export default function ShipFleet() {
     <>
       <Ship key={berths.length} instances={poses} posesRef={posesRef} />
       {SHIP_TWEEN.enabled ? (
-        <ShipCargo
+        <OccupancyHiddenCargo
           key={`cargo-${berths.length}`}
           posesRef={posesRef}
           berths={berths}

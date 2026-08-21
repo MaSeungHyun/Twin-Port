@@ -34,7 +34,6 @@ type ShipProps = {
 };
 
 export default function Ship({ instances, posesRef }: ShipProps) {
-  const occupancyLook = useViewportStore((s) => s.occupancyLook);
   const occupancyMaterial = useMemo(() => getOccupancySurfaceMaterial(), []);
   const { scene } = useGLTF(shipUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
@@ -94,16 +93,24 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   });
 
   useLayoutEffect(() => {
-    for (const instanced of meshRefs.current) {
-      if (!instanced) continue;
-      if (!instanced.userData.occupancyOriginal) {
-        instanced.userData.occupancyOriginal = instanced.material;
+    const apply = (look: boolean) => {
+      for (const instanced of meshRefs.current) {
+        if (!instanced) continue;
+        if (!instanced.userData.occupancyOriginal) {
+          instanced.userData.occupancyOriginal = instanced.material;
+        }
+        instanced.material = look
+          ? occupancyMaterial
+          : instanced.userData.occupancyOriginal;
       }
-      instanced.material = occupancyLook
-        ? occupancyMaterial
-        : instanced.userData.occupancyOriginal;
-    }
-  }, [occupancyMaterial, occupancyLook, parts]);
+    };
+
+    apply(useViewportStore.getState().occupancyLook);
+    return useViewportStore.subscribe((state, prev) => {
+      if (state.occupancyLook === prev.occupancyLook) return;
+      apply(state.occupancyLook);
+    });
+  }, [occupancyMaterial, parts]);
 
   const count = instances?.length ?? 0;
   if (count === 0) return null;

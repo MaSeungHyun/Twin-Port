@@ -5,7 +5,7 @@ export const OCCUPANCY_TRANSITION = {
   lookAt: 0.42,
   overlayPeak: 0.62,
   backgroundFrom: 0.7,
-  backgroundTo: 0,
+  backgroundTo: 0.08,
   environmentFrom: 0.7,
   environmentTo: 0.32,
   sunFrom: 1.6,
