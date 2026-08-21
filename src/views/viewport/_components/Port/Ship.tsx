@@ -1,6 +1,6 @@
 import shipUrl from "@/assets/model/ship_empty.glb";
 import { enableGlbShadows } from "@/domain/glb";
-import { getOccupancySurfaceMaterial } from "@/domain/occupancyLook";
+import { getOccupancyShipMaterial } from "@/domain/occupancyLook";
 import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -34,7 +34,7 @@ type ShipProps = {
 };
 
 export default function Ship({ instances, posesRef }: ShipProps) {
-  const occupancyMaterial = useMemo(() => getOccupancySurfaceMaterial(), []);
+  const occupancyMaterial = useMemo(() => getOccupancyShipMaterial(), []);
   const { scene } = useGLTF(shipUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);

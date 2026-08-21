@@ -33,7 +33,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   toggleOccupancyMode: () =>
     set((state) => {
       // 모니터모드 중에는 occupancy 전환 불가
-      if (state.monitorMode) return state;
+      // if (state.monitorMode) return state;
       return { occupancyMode: !state.occupancyMode };
     }),
   monitorMode: false,
@@ -41,9 +41,9 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set({
       monitorMode: enabled,
       // 모니터모드 켜면 occupancy 강제 해제
-      ...(enabled
-        ? { occupancyMode: false, occupancyLook: false, hoveredBlockCode: null }
-        : {}),
+      // ...(enabled
+      //   ? { occupancyMode: false, occupancyLook: false, hoveredBlockCode: null }
+      //   : {}),
     }),
   selectedContainerId: null,
   focusNonce: 0,

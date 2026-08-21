@@ -14,9 +14,9 @@ export default function OccupancyMode() {
       disabled={monitorMode}
       aria-disabled={monitorMode}
       className={cn(
-        !occupancyMode && !monitorMode && "hover:bg-primary/40",
+        !occupancyMode && "hover:bg-primary/40",
         occupancyMode && "bg-primary/60",
-        monitorMode && "cursor-not-allowed opacity-40",
+        // monitorMode && "cursor-not-allowed opacity-40",
       )}
       onClick={() => toggleOccupancyMode()}
     >

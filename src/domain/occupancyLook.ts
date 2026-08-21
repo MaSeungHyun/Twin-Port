@@ -12,22 +12,42 @@ import {
   type WebGLRenderer,
 } from "three";
 
-export const OCCUPANCY_SURFACE_OPACITY = 0.28;
+export const OCCUPANCY_SURFACE_OPACITY = 0.25;
+export const OCCUPANCY_SHIP_OPACITY = 0.58;
+export const OCCUPANCY_SURFACE_COLOR = 0x3b82f6;
+export const OCCUPANCY_SHIP_COLOR = 0x3ba2f6;
 
 let occupancySurface: MeshStandardMaterial | null = null;
+let occupancyShip: MeshStandardMaterial | null = null;
 let programsWarmed = false;
 
-/** occupancy 지형·선체 공통 표면 — 앱 수명 동안 1개만 유지 */
-export function getOccupancySurfaceMaterial() {
-  occupancySurface ??= new MeshStandardMaterial({
-    color: 0x3b82f6,
+function occupancyMaterial(color: number, opacity: number) {
+  return new MeshStandardMaterial({
+    color,
     transparent: true,
-    opacity: OCCUPANCY_SURFACE_OPACITY,
+    opacity,
     depthWrite: false,
     roughness: 0.9,
     metalness: 0.05,
   });
+}
+
+/** occupancy 지형 표면 — 앱 수명 동안 1개만 유지 */
+export function getOccupancySurfaceMaterial() {
+  occupancySurface ??= occupancyMaterial(
+    OCCUPANCY_SURFACE_COLOR,
+    OCCUPANCY_SURFACE_OPACITY,
+  );
   return occupancySurface;
+}
+
+/** occupancy 선체 표면 — 지형과 별도 인스턴스 */
+export function getOccupancyShipMaterial() {
+  occupancyShip ??= occupancyMaterial(
+    OCCUPANCY_SHIP_COLOR,
+    OCCUPANCY_SHIP_OPACITY,
+  );
+  return occupancyShip;
 }
 
 export function createOccupancySurfaceMaterial() {
@@ -47,9 +67,13 @@ export function warmupOccupancyPrograms(
 
   const geo = new BoxGeometry(1, 1, 1);
   const surface = getOccupancySurfaceMaterial();
+  const ship = getOccupancyShipMaterial();
   const instanced = new InstancedMesh(geo, surface, 1);
   instanced.count = 1;
   instanced.frustumCulled = false;
+  const shipInstanced = new InstancedMesh(geo, ship, 1);
+  shipInstanced.count = 1;
+  shipInstanced.frustumCulled = false;
 
   const shell = new Mesh(
     geo,
@@ -79,15 +103,16 @@ export function warmupOccupancyPrograms(
     }),
   );
 
-  scene.add(instanced, shell, fill, line);
+  scene.add(instanced, shipInstanced, shell, fill, line);
   gl.compile(scene, camera);
-  scene.remove(instanced, shell, fill, line);
+  scene.remove(instanced, shipInstanced, shell, fill, line);
 
   shell.material.dispose();
   fill.material.dispose();
   line.material.dispose();
   line.geometry.dispose();
   instanced.dispose();
+  shipInstanced.dispose();
   geo.dispose();
   programsWarmed = true;
 }
