@@ -1,7 +1,7 @@
 import shipUrl from "@/assets/model/ship_empty.glb";
 import { enableGlbShadows } from "@/domain/glb";
 import { getOccupancyShipMaterial } from "@/domain/occupancyLook";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
@@ -105,8 +105,8 @@ export default function Ship({ instances, posesRef }: ShipProps) {
       }
     };
 
-    apply(useViewportStore.getState().occupancyLook);
-    return useViewportStore.subscribe((state, prev) => {
+    apply(useOccupancyStore.getState().occupancyLook);
+    return useOccupancyStore.subscribe((state, prev) => {
       if (state.occupancyLook === prev.occupancyLook) return;
       apply(state.occupancyLook);
     });

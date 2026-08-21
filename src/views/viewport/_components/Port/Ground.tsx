@@ -14,7 +14,7 @@ import {
   warmupOccupancyPrograms,
 } from "@/domain/occupancyLook";
 import { useYardStore } from "@/stores/yard";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
@@ -142,7 +142,7 @@ export default function Ground({
   const gl = useThree((state) => state.gl);
   const threeScene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
-  const occupancyLook = useViewportStore((s) => s.occupancyLook);
+  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
   const { scene } = useGLTF(groundUrl);
 
   const occupancyMaterial = useMemo(() => getOccupancySurfaceMaterial(), []);

@@ -1,5 +1,5 @@
 import { useObjectStore } from "@/stores/object";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 import BlockFootprints from "./Port/Block";
 import BlockOccupancyView from "./Port/BlockOccupancyView";
 import ContainerYard from "./Port/ContainerYard";
@@ -10,7 +10,7 @@ import ShipFleet from "./Port/ShipFleet";
 /** occupancy/container 가시성만 구독 — Ship/Crane 등과 리렌더 분리 */
 function YardLayer() {
   const containerVisible = useObjectStore((s) => s.containerVisible);
-  const occupancyLook = useViewportStore((s) => s.occupancyLook);
+  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
 
   return (
     <>
@@ -22,7 +22,7 @@ function YardLayer() {
 }
 
 function OverheadCraneLayer() {
-  const occupancyLook = useViewportStore((s) => s.occupancyLook);
+  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
   return (
     <group visible={!occupancyLook}>
       <OverHeadCrane />

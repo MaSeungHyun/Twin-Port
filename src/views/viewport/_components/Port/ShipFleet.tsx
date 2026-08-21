@@ -1,7 +1,7 @@
 import { SHIP_INSTANCES } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { bindShipPoses } from "@/domain/shipWake";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useYardStore } from "@/stores/yard";
 import { memo, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import Ship, { type ShipInstance } from "./Ship";
@@ -26,7 +26,7 @@ function OccupancyHiddenCargo({
   posesRef: RefObject<ShipInstance[]>;
   berths: readonly ShipInstance[];
 }) {
-  const occupancyLook = useViewportStore((s) => s.occupancyLook);
+  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
   return (
     <group visible={!occupancyLook}>
       <ShipCargoMemo posesRef={posesRef} berths={berths} />

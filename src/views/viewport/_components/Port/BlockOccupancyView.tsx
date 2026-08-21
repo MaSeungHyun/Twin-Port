@@ -7,7 +7,7 @@ import {
   type BlockOccupancy,
 } from "@/domain/occupancy";
 import { type ThreeEvent } from "@react-three/fiber";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BoxGeometry, EdgesGeometry, type Mesh } from "three";
 import gsap from "gsap";
@@ -47,7 +47,7 @@ function BlockOccupancyBar({
 }) {
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
-  const setHoveredBlockCode = useViewportStore((s) => s.setHoveredBlockCode);
+  const setHoveredBlockCode = useOccupancyStore((s) => s.setHoveredBlockCode);
   const [hovered, setHovered] = useState(false);
   const block = useMemo(
     () => blocks.find((b) => b.code === occupancy.blockCode),
@@ -127,7 +127,7 @@ function BlockOccupancyBar({
   const handleOut = () => {
     setHovered(false);
     if (
-      useViewportStore.getState().hoveredBlockCode === occupancy.blockCode
+      useOccupancyStore.getState().hoveredBlockCode === occupancy.blockCode
     ) {
       setHoveredBlockCode(null);
     }

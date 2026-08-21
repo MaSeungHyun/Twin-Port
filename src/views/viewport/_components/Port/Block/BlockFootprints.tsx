@@ -1,5 +1,5 @@
 import { useYardStore } from "@/stores/yard";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 import {
   computeBlockOccupancies,
   type BlockOccupancy,
@@ -13,7 +13,7 @@ export default function BlockFootprints({
 }: {
   visible?: boolean;
 }) {
-  const occupancyLook = useViewportStore((s) => s.occupancyLook);
+  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
   const blocks = useYardStore((s) => s.blocks);
   const yardOffset = useYardStore((s) => s.yardOffset);
 

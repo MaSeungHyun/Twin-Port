@@ -5,34 +5,32 @@ import { searchContainers } from "@/domain/containerSearch";
 import type { Container } from "@/types/container";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
-import { useDeferredValue, useMemo } from "react";
+import { useMemo } from "react";
 import { companyAccent } from "../../util/containerAccent";
+import { useContainerQueryStore } from "./containerQueryStore";
 import ContainerDetailCard from "./ContainerDetailCard";
 import ContainerPreviewRow from "./ContainerPreviewRow";
 
 const MAX_PER_COMPANY_PREVIEW = 12;
+const MAX_SEARCH_RESULTS = 40;
 
 type ContainerAccordionProps = {
   query: string;
-  onQueryChange: (query: string) => void;
 };
 
-export default function ContainerAccordion({
-  query,
-  onQueryChange,
-}: ContainerAccordionProps) {
+export default function ContainerAccordion({ query }: ContainerAccordionProps) {
   const selectContainer = useViewportStore((s) => s.selectContainer);
   const clearContainerSelection = useViewportStore(
     (s) => s.clearContainerSelection,
   );
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
+  const setQuery = useContainerQueryStore((s) => s.setQuery);
 
-  const deferredQuery = useDeferredValue(query);
   const containers = useYardStore((s) => s.containers);
 
   const results = useMemo(
-    () => searchContainers(containers, deferredQuery),
-    [containers, deferredQuery],
+    () => searchContainers(containers, query, MAX_SEARCH_RESULTS),
+    [containers, query],
   );
 
   const companyGroups = useMemo(() => {
@@ -47,10 +45,10 @@ export default function ContainerAccordion({
       .sort((a, b) => b.count - a.count);
   }, [containers]);
 
-  const searching = deferredQuery.trim().length > 0;
+  const searching = query.trim().length > 0;
 
   function focusContainer(container: Container) {
-    onQueryChange(container.id);
+    setQuery(container.id);
   }
 
   return (
@@ -89,6 +87,11 @@ export default function ContainerAccordion({
                 />
               </li>
             ))}
+            {results.length >= MAX_SEARCH_RESULTS ? (
+              <li className="px-2 py-1 text-[11px] text-white/35">
+                상위 {MAX_SEARCH_RESULTS}개만 표시 — 검색어를 더 입력해 주세요
+              </li>
+            ) : null}
           </ul>
         )
       ) : (

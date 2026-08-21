@@ -6,7 +6,7 @@ import {
   getBlockFootprintSize,
 } from "@/domain/blockFootprint";
 import type { BlockOccupancy } from "@/domain/occupancy";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useYardStore } from "@/stores/yard";
 import { Html } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
@@ -28,7 +28,7 @@ export default function BlockHoverArea({
   hitEnabled?: boolean;
 }) {
   const deckY = useYardStore((s) => s.deckY);
-  const hoveredBlockCode = useViewportStore((s) => s.hoveredBlockCode);
+  const hoveredBlockCode = useOccupancyStore((s) => s.hoveredBlockCode);
   const [hovered, setHovered] = useState(false);
   const center = getBlockFootprintCenter(block);
   const { width, depth } = getBlockFootprintSize(block);

@@ -2,32 +2,67 @@ import { Accordion } from "@/components/Accordion";
 import SearchBar from "@/components/SearchBar";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
-import { useState } from "react";
+import { memo, useDeferredValue } from "react";
 import ContainerAccordion from "./ContainerAccordion";
+import { useContainerQueryStore } from "./containerQueryStore";
+import { useContainerPanel } from "./useContainerPanel";
 
 type ContainerContentAccordionProps = {
   onOpenChange?: (open: boolean) => void;
 };
 
+const ContainerList = memo(ContainerAccordion);
+
+function DeferredContainerList() {
+  const query = useContainerQueryStore((s) => s.query);
+  const deferredQuery = useDeferredValue(query);
+  return <ContainerList query={deferredQuery} />;
+}
+
+function PanelSearchBar({
+  panelOpen,
+  onNeedOpen,
+}: {
+  panelOpen: boolean;
+  onNeedOpen: () => void;
+}) {
+  const query = useContainerQueryStore((s) => s.query);
+  const setQuery = useContainerQueryStore((s) => s.setQuery);
+
+  return (
+    <div className="shrink-0 px-2 pb-2">
+      <SearchBar
+        size="sm"
+        value={query}
+        onChange={(event) => {
+          const next = event.target.value;
+          setQuery(next);
+          const selectedId = useViewportStore.getState().selectedContainerId;
+          if (selectedId) {
+            useViewportStore.getState().clearContainerSelection();
+          }
+          if (next.trim() && !panelOpen) onNeedOpen();
+        }}
+        placeholder="ID · 선사 · 슬롯 검색"
+        className="border-white/15 bg-black/35"
+        aria-label="컨테이너 검색"
+      />
+    </div>
+  );
+}
+
 export default function ContainerContentAccordion({
   onOpenChange,
 }: ContainerContentAccordionProps) {
-  const [value, setValue] = useState("containers");
-  const [query, setQuery] = useState("");
-  const open = value === "containers";
-  const clearContainerSelection = useViewportStore(
-    (s) => s.clearContainerSelection,
-  );
+  const { value, open, onValueChange, openPanel } =
+    useContainerPanel(onOpenChange);
 
   return (
     <Accordion
       type="single"
       collapsible
       value={value}
-      onValueChange={(next) => {
-        setValue(next);
-        onOpenChange?.(next === "containers");
-      }}
+      onValueChange={onValueChange}
       className={cn(
         "flex flex-col overflow-hidden rounded-md bg-background/70 backdrop-blur-sm",
         open ? "min-h-0 flex-1" : "shrink-0",
@@ -45,26 +80,9 @@ export default function ContainerContentAccordion({
             Containers
           </Accordion.Trigger>
         </Accordion.Header>
-        <div className="shrink-0 px-2 pb-2">
-          <SearchBar
-            size="sm"
-            value={query}
-            onChange={(event) => {
-              const next = event.target.value;
-              setQuery(next);
-              clearContainerSelection();
-              if (next.trim() && !open) {
-                setValue("containers");
-                onOpenChange?.(true);
-              }
-            }}
-            placeholder="ID · 선사 · 슬롯 검색"
-            className="border-white/15 bg-black/35"
-            aria-label="컨테이너 검색"
-          />
-        </div>
+        <PanelSearchBar panelOpen={open} onNeedOpen={openPanel} />
         <Accordion.Content className="min-h-0 overflow-y-auto overscroll-contain px-1 data-[state=open]:flex data-[state=open]:flex-1 data-[state=open]:flex-col">
-          <ContainerAccordion query={query} onQueryChange={setQuery} />
+          <DeferredContainerList />
         </Accordion.Content>
       </Accordion.Item>
     </Accordion>

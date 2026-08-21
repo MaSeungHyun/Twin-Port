@@ -3,10 +3,10 @@ import ToasterTestTrigger from "@/components/Toaster/ToasterTestTrigger";
 import { occupancyDimRef } from "@/constants/occupancyTransition";
 import ContentsLayer from "./_components/ContentsLayer";
 import Scene from "./_components/Scene";
-import { useViewportStore } from "@/stores/viewport";
+import { useOccupancyStore } from "@/stores/occupancy";
 
 export default function Viewport() {
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   return (
     <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden border border-primary">
       <div className="absolute inset-0 z-0">

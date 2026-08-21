@@ -2,6 +2,7 @@ import {
   OCCUPANCY_TRANSITION as T,
   occupancyDimRef,
 } from "@/constants/occupancyTransition";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useFrame, useThree } from "@react-three/fiber";
 import gsap from "gsap";
@@ -60,7 +61,7 @@ function applyAtmosphere(
 
 /** occupancy 전환 — HDRI/조명 페이드 + 중간 딤 오버레이 */
 export default function OccupancyTransition() {
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   const scene = useThree((state) => state.scene);
   const progress = useRef({ t: occupancyMode ? 1 : 0 });
   const tweenRef = useRef<gsap.core.Tween | null>(null);
@@ -75,19 +76,19 @@ export default function OccupancyTransition() {
     const t = progress.current.t;
     applyAtmosphere(scene, cache.current, t);
 
-    const { occupancyLook, monitorMode, occupancyMode: mode } =
-      useViewportStore.getState();
+    const { occupancyLook, occupancyMode: mode } = useOccupancyStore.getState();
+    const monitorMode = useViewportStore.getState().monitorMode;
     const nextLook = !monitorMode && (mode ? t >= T.lookAt : t > T.lookAt);
     if (nextLook !== occupancyLook) {
       queueMicrotask(() => {
-        const latest = useViewportStore.getState();
+        const occupancy = useOccupancyStore.getState();
         const look =
-          !latest.monitorMode &&
-          (latest.occupancyMode
+          !useViewportStore.getState().monitorMode &&
+          (occupancy.occupancyMode
             ? progress.current.t >= T.lookAt
             : progress.current.t > T.lookAt);
-        if (look !== latest.occupancyLook) {
-          latest.setOccupancyLook(look);
+        if (look !== occupancy.occupancyLook) {
+          occupancy.setOccupancyLook(look);
         }
       });
     }
