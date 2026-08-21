@@ -52,7 +52,7 @@ function PanelSearchBar({
       />
       <p
         className={cn(
-          "mt-1 flex h-4 items-center gap-1 text-[11px]",
+          "mt-1.5 flex h-4 items-center gap-1 text-[11px]",
           isSearching ? "text-white/50" : "text-transparent",
         )}
         aria-live="polite"
