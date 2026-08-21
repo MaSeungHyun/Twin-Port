@@ -22,6 +22,7 @@ import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
 import { composeCargoSlotLocal, shipWorldScale } from "@/domain/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
+import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import gsap from "gsap";
@@ -127,6 +128,7 @@ export default function ShipCargo({
   posesRef: RefObject<ShipInstance[]>;
   berths: readonly ShipInstance[] | readonly QuayBerth[];
 }) {
+  const occupancyLook = useViewportStore((s) => s.occupancyLook);
   const { scene } = useGLTF(containersUrl);
   const groupRefs = useRef<(Object3D | null)[]>([]);
   const meshRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>[]>(
@@ -532,7 +534,7 @@ export default function ShipCargo({
   if (slots.length === 0) return null;
 
   return (
-    <group>
+    <group visible={!occupancyLook}>
       {Array.from({ length: shipCount }, (_, shipIndex) => (
         <group
           key={shipIndex}

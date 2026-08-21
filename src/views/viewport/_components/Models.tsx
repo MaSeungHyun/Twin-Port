@@ -10,37 +10,29 @@ import ShipFleet from "./Port/ShipFleet";
 /** occupancy/container 가시성만 구독 — Ship/Crane 등과 리렌더 분리 */
 function YardLayer() {
   const containerVisible = useObjectStore((s) => s.containerVisible);
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const occupancyLook = useViewportStore((s) => s.occupancyLook);
 
   return (
     <>
-      <ContainerYard visible={containerVisible && !occupancyMode} />
+      <ContainerYard visible={containerVisible && !occupancyLook} />
       <BlockFootprints />
-      <BlockOccupancyView visible={occupancyMode} />
+      <BlockOccupancyView visible={occupancyLook} />
     </>
   );
 }
 
 function OverheadCraneLayer() {
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const occupancyLook = useViewportStore((s) => s.occupancyLook);
   return (
-    <group visible={!occupancyMode}>
+    <group visible={!occupancyLook}>
       <OverHeadCrane />
     </group>
   );
 }
 
 function Models() {
-  // const terrainVisible = useObjectStore((s) => s.terrainVisible);
-
   return (
     <>
-      {/* <Terrain visible={terrainVisible} /> */}
-      {/* <Ground /> */}
-
-      {/* <SeaTraffic /> */}
-      {/* <Crane /> */}
-
       <ShipFleet />
       <OverheadCraneLayer />
 

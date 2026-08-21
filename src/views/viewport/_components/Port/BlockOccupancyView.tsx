@@ -6,7 +6,9 @@ import {
   computeBlockOccupancies,
   type BlockOccupancy,
 } from "@/domain/occupancy";
-import { useEffect, useMemo, useRef } from "react";
+import { type ThreeEvent } from "@react-three/fiber";
+import { useViewportStore } from "@/stores/viewport";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BoxGeometry, EdgesGeometry, type Mesh } from "three";
 import gsap from "gsap";
 
@@ -20,6 +22,13 @@ const HEIGHT_SCALE = 5;
 const FILL_DELAY = 0.15;
 const FILL_DURATION = 1;
 const FILL_STAGGER = 0.0;
+
+const SHELL_OPACITY = 0.08;
+const SHELL_HOVER_OPACITY = 0.32;
+const LINE_OPACITY = 0.4;
+const LINE_HOVER_OPACITY = 0.9;
+const FILL_OPACITY = 0.8;
+const FILL_HOVER_OPACITY = 1;
 
 function occupancyColor(ratio: number): string {
   if (ratio < 0.6) return COLOR_MAP.low;
@@ -38,6 +47,8 @@ function BlockOccupancyBar({
 }) {
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
+  const setHoveredBlockCode = useViewportStore((s) => s.setHoveredBlockCode);
+  const [hovered, setHovered] = useState(false);
   const block = useMemo(
     () => blocks.find((b) => b.code === occupancy.blockCode),
     [occupancy.blockCode, blocks],
@@ -93,23 +104,49 @@ function BlockOccupancyBar({
     };
   }, [dims, index, visible, deckY, block]);
 
+  useEffect(() => {
+    return () => {
+      setHoveredBlockCode(null);
+      document.body.style.cursor = "auto";
+    };
+  }, [setHoveredBlockCode]);
+
   if (!block) return null;
 
   const center = getBlockFootprintCenter(block);
   const color = occupancyColor(occupancy.ratio);
   const baseY = deckY + block.origin[1];
 
+  const handleOver = (event: ThreeEvent<PointerEvent>) => {
+    event.stopPropagation();
+    setHovered(true);
+    setHoveredBlockCode(occupancy.blockCode);
+    document.body.style.cursor = "pointer";
+  };
+
+  const handleOut = () => {
+    setHovered(false);
+    if (
+      useViewportStore.getState().hoveredBlockCode === occupancy.blockCode
+    ) {
+      setHoveredBlockCode(null);
+    }
+    document.body.style.cursor = "auto";
+  };
+
   return (
     <group
       visible={visible}
       position={[center[0], baseY, center[2]]}
       rotation={[0, block.yaw ?? 0, 0]}
+      onPointerOver={handleOver}
+      onPointerOut={handleOut}
     >
       <mesh position={[0, dims.fullHeight / 2, 0]} geometry={shellGeometry}>
         <meshStandardMaterial
           color="#3b82f6"
           transparent
-          opacity={0.14}
+          opacity={hovered ? SHELL_HOVER_OPACITY : SHELL_OPACITY}
           depthWrite={false}
         />
       </mesh>
@@ -118,7 +155,11 @@ function BlockOccupancyBar({
         geometry={shellEdges}
         raycast={() => null}
       >
-        <lineBasicMaterial color="#60a5fa" transparent opacity={0.4} />
+        <lineBasicMaterial
+          color="#60a5fa"
+          transparent
+          opacity={hovered ? LINE_HOVER_OPACITY : LINE_OPACITY}
+        />
       </lineSegments>
 
       <mesh
@@ -128,11 +169,12 @@ function BlockOccupancyBar({
         raycast={() => null}
       >
         <boxGeometry args={[dims.width, dims.fillHeight, dims.depth]} />
-        <meshStandardMaterial
+        <meshBasicMaterial
           color={color}
-          transparent
-          opacity={0.8}
-          depthWrite={false}
+          transparent={!hovered}
+          opacity={hovered ? FILL_HOVER_OPACITY : FILL_OPACITY}
+          depthWrite={hovered}
+          toneMapped={false}
         />
       </mesh>
     </group>

@@ -11,7 +11,6 @@ import {
   ShaderMaterial,
   UnsignedByteType,
   Vector2,
-  Vector3,
   Vector4,
   WebGLRenderTarget,
   type Object3D,

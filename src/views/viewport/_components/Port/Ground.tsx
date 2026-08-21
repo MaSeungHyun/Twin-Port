@@ -9,12 +9,15 @@ import { bakeLandMask } from "@/domain/bakeLandMask";
 import { enableGroundWaveResponse } from "@/domain/groundWaveMaterial";
 import { bindLandTexture, resetLandTexture } from "@/domain/waterSim";
 import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
-import { createOccupancySurfaceMaterial } from "@/domain/occupancyLook";
+import {
+  getOccupancySurfaceMaterial,
+  warmupOccupancyPrograms,
+} from "@/domain/occupancyLook";
 import { useYardStore } from "@/stores/yard";
 import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { useLayoutEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   Material,
   Mesh,
@@ -63,35 +66,63 @@ function isGroundMesh(mesh: Mesh) {
   );
 }
 
+type OccupancyMeshCache = {
+  ground: Mesh[];
+  others: Mesh[];
+};
+
+function collectOccupancyMeshes(root: Object3D): OccupancyMeshCache {
+  const ground: Mesh[] = [];
+  const others: Mesh[] = [];
+  root.traverse((child) => {
+    if (!(child instanceof Mesh)) return;
+    if (isGroundMesh(child)) ground.push(child);
+    else others.push(child);
+  });
+  return { ground, others };
+}
+
+function rememberOriginal(mesh: Mesh) {
+  if (mesh.userData.occupancyOriginal) return;
+  mesh.userData.occupancyOriginal = {
+    material: mesh.material,
+    visible: mesh.visible,
+  };
+}
+
 function applyOccupancyGroundLook(
-  root: Object3D,
+  cache: OccupancyMeshCache,
   enabled: boolean,
   occupancyMaterial: MeshStandardMaterial,
 ) {
-  root.traverse((child) => {
-    if (!(child instanceof Mesh)) return;
-    if (!enabled) {
-      const original = child.userData.occupancyOriginal as
-        | { material: Mesh["material"]; visible: boolean }
-        | undefined;
-      if (!original) return;
-      child.material = original.material;
-      child.visible = original.visible;
-      return;
+  if (enabled) {
+    for (const mesh of cache.ground) {
+      rememberOriginal(mesh);
+      mesh.visible = true;
+      mesh.material = occupancyMaterial;
     }
-    if (!child.userData.occupancyOriginal) {
-      child.userData.occupancyOriginal = {
-        material: child.material,
-        visible: child.visible,
-      };
+    for (const mesh of cache.others) {
+      rememberOriginal(mesh);
+      mesh.visible = false;
     }
-    if (isGroundMesh(child)) {
-      child.visible = true;
-      child.material = occupancyMaterial;
-    } else {
-      child.visible = false;
-    }
-  });
+    return;
+  }
+  for (const mesh of cache.ground) {
+    const original = mesh.userData.occupancyOriginal as
+      | { material: Mesh["material"]; visible: boolean }
+      | undefined;
+    if (!original) continue;
+    mesh.material = original.material;
+    mesh.visible = original.visible;
+  }
+  for (const mesh of cache.others) {
+    const original = mesh.userData.occupancyOriginal as
+      | { material: Mesh["material"]; visible: boolean }
+      | undefined;
+    if (!original) continue;
+    mesh.material = original.material;
+    mesh.visible = original.visible;
+  }
 }
 
 type GroundProps = {
@@ -109,10 +140,13 @@ export default function Ground({
   const setModelShips = useYardStore((s) => s.setModelShips);
   const resetBlocks = useYardStore((s) => s.resetBlocks);
   const gl = useThree((state) => state.gl);
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
+  const threeScene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
+  const occupancyLook = useViewportStore((s) => s.occupancyLook);
   const { scene } = useGLTF(groundUrl);
 
-  const occupancyMaterial = useMemo(() => createOccupancySurfaceMaterial(), []);
+  const occupancyMaterial = useMemo(() => getOccupancySurfaceMaterial(), []);
+  const occupancyWarmed = useRef(false);
 
   const model = useMemo(() => {
     const cloned = scene.clone(true);
@@ -122,6 +156,11 @@ export default function Ground({
     enableGroundWaveResponse(cloned);
     return cloned;
   }, [scene]);
+
+  const occupancyMeshes = useMemo(
+    () => collectOccupancyMeshes(model),
+    [model],
+  );
 
   useLayoutEffect(() => {
     model.position.set(...position);
@@ -166,17 +205,24 @@ export default function Ground({
   ]);
 
   useLayoutEffect(() => {
-    applyOccupancyGroundLook(model, occupancyMode, occupancyMaterial);
-    return () => {
-      applyOccupancyGroundLook(model, false, occupancyMaterial);
-    };
-  }, [model, occupancyMode, occupancyMaterial]);
-
-  useLayoutEffect(() => {
-    return () => {
-      occupancyMaterial.dispose();
-    };
-  }, [occupancyMaterial]);
+    if (!occupancyWarmed.current) {
+      applyOccupancyGroundLook(occupancyMeshes, true, occupancyMaterial);
+      warmupOccupancyPrograms(gl, threeScene, camera);
+      occupancyWarmed.current = true;
+      if (!occupancyLook) {
+        applyOccupancyGroundLook(occupancyMeshes, false, occupancyMaterial);
+      }
+    } else {
+      applyOccupancyGroundLook(occupancyMeshes, occupancyLook, occupancyMaterial);
+    }
+  }, [
+    occupancyMeshes,
+    occupancyLook,
+    occupancyMaterial,
+    gl,
+    threeScene,
+    camera,
+  ]);
 
   return (
     <primitive

@@ -3,6 +3,12 @@ import { create } from "zustand";
 type ViewportState = {
   occupancyMode: boolean;
   toggleOccupancyMode: () => void;
+  /** occupancy 3D 룩 — 전환 중간 시점에 적용 (하늘이 어두워진 뒤) */
+  occupancyLook: boolean;
+  setOccupancyLook: (look: boolean) => void;
+  /** 3D 블록 호버 — occupancy 그래프와 바닥 마크 카드 공유 */
+  hoveredBlockCode: string | null;
+  setHoveredBlockCode: (code: string | null) => void;
   /** 관제모드 — Block 전체 마크 + 탑뷰 */
   monitorMode: boolean;
   setMonitorMode: (enabled: boolean) => void;
@@ -16,6 +22,14 @@ type ViewportState = {
 
 export const useViewportStore = create<ViewportState>((set) => ({
   occupancyMode: false,
+  occupancyLook: false,
+  setOccupancyLook: (occupancyLook) =>
+    set({
+      occupancyLook,
+      ...(!occupancyLook ? { hoveredBlockCode: null } : {}),
+    }),
+  hoveredBlockCode: null,
+  setHoveredBlockCode: (hoveredBlockCode) => set({ hoveredBlockCode }),
   toggleOccupancyMode: () =>
     set((state) => {
       // 모니터모드 중에는 occupancy 전환 불가
@@ -27,7 +41,9 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set({
       monitorMode: enabled,
       // 모니터모드 켜면 occupancy 강제 해제
-      ...(enabled ? { occupancyMode: false } : {}),
+      ...(enabled
+        ? { occupancyMode: false, occupancyLook: false, hoveredBlockCode: null }
+        : {}),
     }),
   selectedContainerId: null,
   focusNonce: 0,
@@ -36,6 +52,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedContainerId: id,
       focusNonce: state.focusNonce + 1,
       occupancyMode: false,
+      occupancyLook: false,
+      hoveredBlockCode: null,
       monitorMode: false,
     })),
   clearContainerSelection: () => set({ selectedContainerId: null }),

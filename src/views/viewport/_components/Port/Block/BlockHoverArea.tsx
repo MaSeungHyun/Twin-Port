@@ -6,32 +6,35 @@ import {
   getBlockFootprintSize,
 } from "@/domain/blockFootprint";
 import type { BlockOccupancy } from "@/domain/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { Html } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useState } from "react";
 import { occupancyColor } from "./constants";
 
+/** BlockOccupancyView HEIGHT_SCALE와 맞춤 — occupancy 그래프 위로 카드 띄움 */
+const OCCUPANCY_BAR_HEIGHT_SCALE = 5;
+
 export default function BlockHoverArea({
   block,
   occupancy,
   statusVisible,
+  hitEnabled = true,
 }: {
   block: BlockDefinition;
   occupancy: BlockOccupancy;
   statusVisible: boolean;
+  hitEnabled?: boolean;
 }) {
   const deckY = useYardStore((s) => s.deckY);
+  const hoveredBlockCode = useViewportStore((s) => s.hoveredBlockCode);
   const [hovered, setHovered] = useState(false);
-  // 한 번 마운트한 뒤엔 unmount하지 않고 visible만 토글 (재생성 비용 제거)
-  const [infoMounted, setInfoMounted] = useState(false);
   const center = getBlockFootprintCenter(block);
   const { width, depth } = getBlockFootprintSize(block);
   const color = occupancyColor(occupancy.ratio);
-  const showInfo = statusVisible || hovered;
-  if (showInfo && !infoMounted) {
-    setInfoMounted(true);
-  }
+  const showInfo =
+    statusVisible || hovered || hoveredBlockCode === block.code;
 
   const handleOver = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
@@ -50,39 +53,44 @@ export default function BlockHoverArea({
     };
   }, []);
 
-  const hitHeight = Math.max(
-    getBlockSlotGrid(block).tiers * CONTAINER_H * 3,
-    0.4,
-  );
+  const grid = getBlockSlotGrid(block);
+  const hitHeight = Math.max(grid.tiers * CONTAINER_H * 3, 0.4);
+  const occupancyLift =
+    grid.tiers * CONTAINER_H * (OCCUPANCY_BAR_HEIGHT_SCALE - 3) + 10;
 
   return (
     <group
       position={[center[0], deckY + block.origin[1] + hitHeight / 2, center[2]]}
-      onPointerOver={handleOver}
-      onPointerOut={handleOut}
+      onPointerOver={hitEnabled ? handleOver : undefined}
+      onPointerOut={hitEnabled ? handleOut : undefined}
     >
-      <mesh rotation={[0, block.yaw ?? 0, 0]}>
+      <mesh
+        rotation={[0, block.yaw ?? 0, 0]}
+        raycast={hitEnabled ? undefined : () => null}
+      >
         <boxGeometry args={[width, hitHeight, depth]} />
         <meshBasicMaterial
           color={color}
           transparent
-          opacity={hovered ? 0.5 : 0}
+          opacity={hitEnabled && hovered ? 0.5 : 0}
           depthWrite={false}
         />
       </mesh>
 
-      {infoMounted ? (
-        <Html
-          position={[0, hitHeight / 2 + 0.35, 0]}
-          center
-          zIndexRange={[20, 1]}
-          style={{
-            userSelect: "none",
-            pointerEvents: "none",
-            // drei Html은 Object3D.visible을 DOM에 반영하지 않음
-            display: showInfo ? "block" : "none",
-          }}
-        >
+      <Html
+        position={[
+          0,
+          hitHeight / 2 + 0.35 + (hitEnabled ? 0 : occupancyLift),
+          0,
+        ]}
+        center
+        zIndexRange={[20, 1]}
+        style={{
+          userSelect: "none",
+          pointerEvents: "none",
+          visibility: showInfo ? "visible" : "hidden",
+        }}
+      >
           <div className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border border-background">
             <span className="text-base font-semibold tracking-wide">
               {block.code}
@@ -97,8 +105,7 @@ export default function BlockHoverArea({
               {occupancy.occupied} / {occupancy.capacity}
             </span>
           </div>
-        </Html>
-      ) : null}
+      </Html>
     </group>
   );
 }

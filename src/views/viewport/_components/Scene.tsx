@@ -10,6 +10,7 @@ import Water from "./Water";
 import Models from "./Models";
 import SunLight from "./SunLight";
 import CameraFlight from "./CameraFlight";
+import OccupancyTransition from "./OccupancyTransition";
 
 import skybox from "@/assets/image/sky.hdr";
 
@@ -22,7 +23,6 @@ import { useViewportStore } from "@/stores/viewport";
 export default function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const monitorMode = useViewportStore((s) => s.monitorMode);
-  const occupancyMode = useViewportStore((s) => s.occupancyMode);
   const pauseRender = monitorMode;
 
   return (
@@ -32,7 +32,7 @@ export default function Scene() {
       shadows={{ enabled: true }}
       gl={{ antialias: true, alpha: false }}
       frameloop={pauseRender ? "never" : "always"}
-      scene={{ fog: new FogExp2(0x00000000, 0.0005) }}
+      // scene={{ fog: new FogExp2(0x00000000, 0.0005) }}
       camera={{
         position: INITIAL_CAMERA_POSITION,
         quaternion: INITIAL_CAMERA_QUATERNION,
@@ -43,22 +43,20 @@ export default function Scene() {
     >
       {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}
       <Suspense fallback={null}>
-        {!occupancyMode && (
-          <Environment
-            files={skybox}
-            background
-            backgroundBlurriness={0.2}
-            backgroundIntensity={0.7}
-            environmentIntensity={0.7}
-          />
-        )}
-        {occupancyMode && <color attach="background" args={[0x000000]} />}
+        <Environment
+          files={skybox}
+          background
+          backgroundBlurriness={0.2}
+          backgroundIntensity={0.7}
+          environmentIntensity={0.7}
+        />
+        <OccupancyTransition />
         <Controls controlsRef={controlsRef} />
         <CameraFlight controlsRef={controlsRef} />
 
         <ambientLight intensity={0.5} />
         <SunLight />
-        {!occupancyMode && <Water />}
+        <Water />
         <Models />
 
         {/* 월드 확인용 원점 축: X=빨강, Y=초록, Z=파랑 */}

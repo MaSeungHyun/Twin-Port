@@ -124,7 +124,7 @@ export default function Water({ size = 5 }: WaterProps) {
 
   useFrame(() => {
     const mesh = meshRef.current;
-    if (!mesh) return;
+    if (!mesh?.visible) return;
     const sim = (mesh.userData as WaterUserData).sim;
     const material = mesh.material as WaterMaterial;
 
