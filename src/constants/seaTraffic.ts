@@ -32,11 +32,11 @@ export function createSeaTrafficShips(count = 7): SeaTrafficShip[] {
     const c = hash01(i + 41);
     const d = hash01(i + 73);
     const dir: 1 | -1 = c > 0.5 ? 1 : -1;
-    const xMin = -260;
-    const xMax = 260;
+    const xMin = -52;
+    const xMax = 52;
     const x = xMin + a * (xMax - xMin);
-    const z = 210 + b * 140; // +Z 먼 바다
-    const speed = 3.5 + d * 5.5;
+    const z = 42 + b * 28;
+    const speed = 0.7 + d * 1.1;
 
     ships.push({
       z,

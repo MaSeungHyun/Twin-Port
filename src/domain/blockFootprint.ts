@@ -68,13 +68,13 @@ function localToWorld(
 export function getBlockMarkThickness(block: BlockDefinition) {
   const { width, depth } = getBlockFootprintSize(block);
   const minSide = Math.min(width, depth);
-  return Math.min(Math.max(minSide * 0.02, 0.012), 0.07);
+  return Math.min(Math.max(minSide * 0.02, 0.0024), 0.014);
 }
 
 export function getBlockLabelSize(block: BlockDefinition) {
   const { width, depth } = getBlockFootprintSize(block);
   const minSide = Math.min(width, depth);
-  return Math.min(Math.max(minSide * 3.16, 0.11), 0.9);
+  return Math.min(Math.max(minSide * 3.16, 0.022), 0.18);
 }
 
 /** 바닥·라인 공통 바깥 여백 기준의 외곽 크기 */

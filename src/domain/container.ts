@@ -69,7 +69,7 @@ export function composeContainerMatrix(
 }
 
 /** ContainerYard group offset과 동일한 월드 좌표 */
-export const CONTAINER_YARD_OFFSET: Vec3 = [5, 0, 0];
+export const CONTAINER_YARD_OFFSET: Vec3 = [1, 0, 0];
 
 export function getContainerWorldPosition(
   blockOrigin: Vec3,

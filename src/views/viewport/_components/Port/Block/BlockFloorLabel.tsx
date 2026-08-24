@@ -52,7 +52,7 @@ export default function BlockFloorLabel({
 
   return (
     <group
-      position={[center[0], deckY + block.origin[1] + 0.03, center[2]]}
+      position={[center[0], deckY + block.origin[1] + 0.006, center[2]]}
       rotation={[
         -Math.PI / 2,
         0,

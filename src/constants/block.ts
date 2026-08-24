@@ -68,12 +68,12 @@ export function getBlockSlotGrid(block: BlockDefinition) {
  *   B24 B20 B16 B12 B08 B04
  */
 /** CONTAINER_YARD_OFFSET.x — 월드 대칭을 위해 origin에서 미리 뺌 */
-const YARD_OFFSET_X = 5;
+const YARD_OFFSET_X = 1;
 const COL_COUNT = 6;
 const ROW_COUNT = 4;
 const COL_ORIGIN_X =
   -((COL_COUNT - 1) * BLOCK_PITCH_X + BLOCK_SIZE_X) / 2 - YARD_OFFSET_X;
-const ROW_ORIGIN_Z = -92;
+const ROW_ORIGIN_Z = -18.4;
 const COL_X = Array.from(
   { length: COL_COUNT },
   (_, i) => COL_ORIGIN_X + i * BLOCK_PITCH_X,

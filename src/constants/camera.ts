@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "three";
 
-export const INITIAL_CAMERA_POSITION = new Vector3(120.657, 91.759, -73.167);
+export const INITIAL_CAMERA_POSITION = new Vector3(24.131, 18.352, -14.633);
 
 export const INITIAL_CAMERA_QUATERNION = new Quaternion(
   0.142,
@@ -11,7 +11,7 @@ export const INITIAL_CAMERA_QUATERNION = new Quaternion(
 
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
-export const OCCUPANCY_CAMERA_POSITION = new Vector3(0, 130, -5);
+export const OCCUPANCY_CAMERA_POSITION = new Vector3(0, 26, -1);
 
 export const OCCUPANCY_CAMERA_QUATERNION = new Quaternion(
   -0.5005234916311332,
@@ -27,15 +27,15 @@ export const CONTROL_MODE_CAMERA_QUATERNION = OCCUPANCY_CAMERA_QUATERNION;
 export const CAMERA_FLIGHT_DURATION = 1;
 
 /** OrbitControls maxDistance */
-export const ORBIT_MAX_DISTANCE = 280;
+export const ORBIT_MAX_DISTANCE = 56;
 
 /**
  * 컨테이너 검색 포커스 — 카메라가 목표에서 얼마나 떨어져 볼지
  * - DISTANCE: 수평 거리 (클수록 멀리)
  * - HEIGHT: 목표 대비 카메라 높이
  */
-export const CONTAINER_FOCUS_DISTANCE = 56;
-export const CONTAINER_FOCUS_HEIGHT = 28;
+export const CONTAINER_FOCUS_DISTANCE = 11.2;
+export const CONTAINER_FOCUS_HEIGHT = 5.6;
 
 /** position + quaternion → 지면(y=0) 교차점으로 lookAt 타겟 계산 */
 export function cameraLookAtTarget(

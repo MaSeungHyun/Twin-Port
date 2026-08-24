@@ -57,8 +57,8 @@ export default function BlockHoverArea({
 
   const grid = getBlockSlotGrid(block);
   const hitHeight = Math.max(grid.tiers * CONTAINER_H * 3, 0.4);
-  const occupancyLift =
-    grid.tiers * CONTAINER_H * (OCCUPANCY_BAR_HEIGHT_SCALE - 3) + 10;
+    const occupancyLift =
+    grid.tiers * CONTAINER_H * (OCCUPANCY_BAR_HEIGHT_SCALE - 3) + 2;
 
   return (
     <group

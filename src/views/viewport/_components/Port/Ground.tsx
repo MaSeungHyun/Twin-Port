@@ -8,6 +8,11 @@ import { shipsFromPlacements } from "@/domain/extractShipCubes";
 import { bakeLandMask } from "@/domain/bakeLandMask";
 import { enableGroundWaveResponse } from "@/domain/groundWaveMaterial";
 import { bindLandTexture, resetLandTexture } from "@/domain/waterSim";
+import {
+  GROUND_POSITION,
+  GROUND_ROTATION,
+  GROUND_SCALE,
+} from "@/constants/ground";
 import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
 import {
   getOccupancySurfaceMaterial,
@@ -136,9 +141,9 @@ type GroundProps = {
 };
 
 export default function Ground({
-  position = [0, -4.1, 0],
-  rotation = [0, Math.PI / 2, 0],
-  scale = [5, 5, 5],
+  position = GROUND_POSITION,
+  rotation = GROUND_ROTATION,
+  scale = [GROUND_SCALE, GROUND_SCALE, GROUND_SCALE],
 }: GroundProps) {
   const setModelBlocks = useYardStore((s) => s.setModelBlocks);
   const setModelShips = useYardStore((s) => s.setModelShips);
@@ -160,10 +165,7 @@ export default function Ground({
     return cloned;
   }, [scene]);
 
-  const occupancyMeshes = useMemo(
-    () => collectOccupancyMeshes(model),
-    [model],
-  );
+  const occupancyMeshes = useMemo(() => collectOccupancyMeshes(model), [model]);
 
   useLayoutEffect(() => {
     model.position.set(...position);
