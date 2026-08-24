@@ -10,7 +10,7 @@ import {
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import Controls from "./Controls";
-import Water from "./Water";
+// import Water from "./Water";
 import Models from "./Models";
 import SunLight from "./SunLight";
 import CameraFlight from "./CameraFlight";
