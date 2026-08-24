@@ -76,52 +76,56 @@ function collectOccupancyMeshes(root: Object3D): OccupancyMeshCache {
   const others: Mesh[] = [];
   root.traverse((child) => {
     if (!(child instanceof Mesh)) return;
+    if (child.name.endsWith("-occupancy")) return;
     if (isGroundMesh(child)) ground.push(child);
     else others.push(child);
   });
   return { ground, others };
 }
 
-function rememberOriginal(mesh: Mesh) {
-  if (mesh.userData.occupancyOriginal) return;
-  mesh.userData.occupancyOriginal = {
-    material: mesh.material,
-    visible: mesh.visible,
-  };
+function rememberOriginalVisible(mesh: Mesh) {
+  if (mesh.userData.occupancyOriginalVisible !== undefined) return;
+  mesh.userData.occupancyOriginalVisible = mesh.visible;
+}
+
+function attachOccupancyClones(
+  ground: Mesh[],
+  occupancyMaterial: MeshStandardMaterial,
+) {
+  const clones: Mesh[] = [];
+  for (const mesh of ground) {
+    const clone = new Mesh(mesh.geometry, occupancyMaterial);
+    clone.name = `${mesh.name || "ground"}-occupancy`;
+    clone.visible = false;
+    clone.castShadow = mesh.castShadow;
+    clone.receiveShadow = mesh.receiveShadow;
+    clone.frustumCulled = mesh.frustumCulled;
+    clone.matrixAutoUpdate = mesh.matrixAutoUpdate;
+    clone.position.copy(mesh.position);
+    clone.quaternion.copy(mesh.quaternion);
+    clone.scale.copy(mesh.scale);
+    if (!mesh.matrixAutoUpdate) clone.matrix.copy(mesh.matrix);
+    mesh.parent?.add(clone);
+    clones.push(clone);
+  }
+  return clones;
 }
 
 function applyOccupancyGroundLook(
   cache: OccupancyMeshCache,
+  clones: Mesh[],
   enabled: boolean,
-  occupancyMaterial: MeshStandardMaterial,
 ) {
-  if (enabled) {
-    for (const mesh of cache.ground) {
-      rememberOriginal(mesh);
-      mesh.visible = true;
-      mesh.material = occupancyMaterial;
-    }
-    for (const mesh of cache.others) {
-      rememberOriginal(mesh);
-      mesh.visible = false;
-    }
-    return;
-  }
   for (const mesh of cache.ground) {
-    const original = mesh.userData.occupancyOriginal as
-      | { material: Mesh["material"]; visible: boolean }
-      | undefined;
-    if (!original) continue;
-    mesh.material = original.material;
-    mesh.visible = original.visible;
+    rememberOriginalVisible(mesh);
+    mesh.visible = enabled ? false : mesh.userData.occupancyOriginalVisible;
+  }
+  for (const clone of clones) {
+    clone.visible = enabled;
   }
   for (const mesh of cache.others) {
-    const original = mesh.userData.occupancyOriginal as
-      | { material: Mesh["material"]; visible: boolean }
-      | undefined;
-    if (!original) continue;
-    mesh.material = original.material;
-    mesh.visible = original.visible;
+    rememberOriginalVisible(mesh);
+    mesh.visible = enabled ? false : mesh.userData.occupancyOriginalVisible;
   }
 }
 
@@ -142,7 +146,6 @@ export default function Ground({
   const gl = useThree((state) => state.gl);
   const threeScene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
-  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
   const { scene } = useGLTF(groundUrl);
 
   const occupancyMaterial = useMemo(() => getOccupancySurfaceMaterial(), []);
@@ -205,24 +208,35 @@ export default function Ground({
   ]);
 
   useLayoutEffect(() => {
+    const clones = attachOccupancyClones(
+      occupancyMeshes.ground,
+      occupancyMaterial,
+    );
+
+    const apply = (look: boolean) => {
+      applyOccupancyGroundLook(occupancyMeshes, clones, look);
+    };
+
     if (!occupancyWarmed.current) {
-      applyOccupancyGroundLook(occupancyMeshes, true, occupancyMaterial);
+      apply(true);
       warmupOccupancyPrograms(gl, threeScene, camera);
+      gl.compile(threeScene, camera);
       occupancyWarmed.current = true;
-      if (!occupancyLook) {
-        applyOccupancyGroundLook(occupancyMeshes, false, occupancyMaterial);
-      }
-    } else {
-      applyOccupancyGroundLook(occupancyMeshes, occupancyLook, occupancyMaterial);
     }
-  }, [
-    occupancyMeshes,
-    occupancyLook,
-    occupancyMaterial,
-    gl,
-    threeScene,
-    camera,
-  ]);
+    apply(useOccupancyStore.getState().occupancyLook);
+
+    const unsub = useOccupancyStore.subscribe((state, prev) => {
+      if (state.occupancyLook === prev.occupancyLook) return;
+      apply(state.occupancyLook);
+    });
+
+    return () => {
+      unsub();
+      for (const clone of clones) {
+        clone.removeFromParent();
+      }
+    };
+  }, [occupancyMeshes, occupancyMaterial, gl, threeScene, camera]);
 
   return (
     <primitive

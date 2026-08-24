@@ -68,6 +68,7 @@ function namesOf(mesh: Mesh) {
 }
 
 function skipLandBake(mesh: Mesh) {
+  if (mesh.name.endsWith("-occupancy")) return true;
   const names = namesOf(mesh);
   if (names.some((name) => /water|sea|ocean/i.test(name))) return true;
   if (names.some((name) => /^ship/i.test(name))) return true;

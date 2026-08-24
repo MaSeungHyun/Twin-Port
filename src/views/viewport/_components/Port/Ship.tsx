@@ -37,6 +37,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   const occupancyMaterial = useMemo(() => getOccupancyShipMaterial(), []);
   const { scene } = useGLTF(shipUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
+  const occupancyRefs = useRef<(InstancedMesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
   const matrix = useMemo(() => new Matrix4(), []);
 
@@ -63,7 +64,8 @@ export default function Ship({ instances, posesRef }: ShipProps) {
 
     parts.forEach((part, partIndex) => {
       const instanced = meshRefs.current[partIndex];
-      if (!instanced) return;
+      const occupancy = occupancyRefs.current[partIndex];
+      if (!instanced && !occupancy) return;
 
       list.forEach((instance, index) => {
         dummy.position.set(...instance.position);
@@ -78,11 +80,18 @@ export default function Ship({ instances, posesRef }: ShipProps) {
 
         dummy.updateMatrix();
         matrix.multiplyMatrices(dummy.matrix, part.localMatrix);
-        instanced.setMatrixAt(index, matrix);
+        instanced?.setMatrixAt(index, matrix);
+        occupancy?.setMatrixAt(index, matrix);
       });
 
-      instanced.count = list.length;
-      instanced.instanceMatrix.needsUpdate = true;
+      if (instanced) {
+        instanced.count = list.length;
+        instanced.instanceMatrix.needsUpdate = true;
+      }
+      if (occupancy) {
+        occupancy.count = list.length;
+        occupancy.instanceMatrix.needsUpdate = true;
+      }
     });
   }
 
@@ -95,13 +104,10 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   useLayoutEffect(() => {
     const apply = (look: boolean) => {
       for (const instanced of meshRefs.current) {
-        if (!instanced) continue;
-        if (!instanced.userData.occupancyOriginal) {
-          instanced.userData.occupancyOriginal = instanced.material;
-        }
-        instanced.material = look
-          ? occupancyMaterial
-          : instanced.userData.occupancyOriginal;
+        if (instanced) instanced.visible = !look;
+      }
+      for (const occupancy of occupancyRefs.current) {
+        if (occupancy) occupancy.visible = look;
       }
     };
 
@@ -110,7 +116,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
       if (state.occupancyLook === prev.occupancyLook) return;
       apply(state.occupancyLook);
     });
-  }, [occupancyMaterial, parts]);
+  }, [parts]);
 
   const count = instances?.length ?? 0;
   if (count === 0) return null;
@@ -118,16 +124,27 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   return (
     <group>
       {parts.map((part, index) => (
-        <instancedMesh
-          key={index}
-          ref={(node) => {
-            meshRefs.current[index] = node;
-          }}
-          args={[part.geometry, part.material, count]}
-          castShadow
-          receiveShadow
-          frustumCulled={false}
-        />
+        <group key={index}>
+          <instancedMesh
+            ref={(node) => {
+              meshRefs.current[index] = node;
+            }}
+            args={[part.geometry, part.material, count]}
+            castShadow
+            receiveShadow
+            frustumCulled={false}
+          />
+          <instancedMesh
+            ref={(node) => {
+              occupancyRefs.current[index] = node;
+            }}
+            args={[part.geometry, occupancyMaterial, count]}
+            visible={false}
+            frustumCulled={false}
+            castShadow
+            receiveShadow
+          />
+        </group>
       ))}
     </group>
   );

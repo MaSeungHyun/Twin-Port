@@ -164,17 +164,6 @@ export default function ContainerYard({
       const colorKey = COMPANY_COLOR[container.company];
       const matched = matchedIds?.has(container.id) ?? false;
 
-      if (occupancyLook) {
-        if (!matched) continue;
-        const mesh = highlightRefs.current[colorKey];
-        const idx = highlightCounts[colorKey];
-        if (!mesh || idx >= MAX_PER_COLOR) continue;
-        mesh.setMatrixAt(idx, matrix);
-        highlightCounts[colorKey] = idx + 1;
-        mesh.count = idx + 1;
-        continue;
-      }
-
       if (matchedIds && matched) {
         const mesh = highlightRefs.current[colorKey];
         const idx = highlightCounts[colorKey];
@@ -211,7 +200,7 @@ export default function ContainerYard({
       if (highlight) highlight.instanceMatrix.needsUpdate = true;
       if (wire) wire.instanceMatrix.needsUpdate = true;
     });
-  }, [containers, meshesReady, matchedIds, blockByCode, deckY, occupancyLook]);
+  }, [containers, meshesReady, matchedIds, blockByCode, deckY]);
 
   function tryMarkReady() {
     if (meshesReady) return;
@@ -231,25 +220,46 @@ export default function ContainerYard({
 
   return (
     <group position={[...yardOffset]} visible={visible}>
-      {CONTAINER_COLORS.map((c) => (
-        <instancedMesh
-          key={`solid-${c.key}`}
-          ref={(node) => {
-            if (!node) return;
-            node.instanceMatrix.setUsage(DynamicDrawUsage);
-            solidRefs.current[c.key] = node;
-            tryMarkReady();
-          }}
-          args={[
-            prototypes[c.key].geometry,
-            prototypes[c.key].material,
-            MAX_PER_COLOR,
-          ]}
-          frustumCulled={false}
-          castShadow
-          receiveShadow
-        />
-      ))}
+      <group visible={!occupancyLook}>
+        {CONTAINER_COLORS.map((c) => (
+          <instancedMesh
+            key={`solid-${c.key}`}
+            ref={(node) => {
+              if (!node) return;
+              node.instanceMatrix.setUsage(DynamicDrawUsage);
+              solidRefs.current[c.key] = node;
+              tryMarkReady();
+            }}
+            args={[
+              prototypes[c.key].geometry,
+              prototypes[c.key].material,
+              MAX_PER_COLOR,
+            ]}
+            frustumCulled={false}
+            castShadow
+            receiveShadow
+          />
+        ))}
+        {CONTAINER_COLORS.map((c) => (
+          <instancedMesh
+            key={`wire-${c.key}`}
+            ref={(node) => {
+              if (!node) return;
+              node.instanceMatrix.setUsage(DynamicDrawUsage);
+              enableInstancedEdges(node);
+              wireframeRefs.current[c.key] = node;
+              tryMarkReady();
+            }}
+            args={[
+              prototypes[c.key].edgeGeometry,
+              wireframeMaterials[c.key],
+              MAX_PER_COLOR,
+            ]}
+            frustumCulled={false}
+            raycast={() => null}
+          />
+        ))}
+      </group>
       {CONTAINER_COLORS.map((c) => (
         <instancedMesh
           key={`highlight-${c.key}`}
@@ -267,25 +277,6 @@ export default function ContainerYard({
           frustumCulled={false}
           castShadow
           receiveShadow
-        />
-      ))}
-      {CONTAINER_COLORS.map((c) => (
-        <instancedMesh
-          key={`wire-${c.key}`}
-          ref={(node) => {
-            if (!node) return;
-            node.instanceMatrix.setUsage(DynamicDrawUsage);
-            enableInstancedEdges(node);
-            wireframeRefs.current[c.key] = node;
-            tryMarkReady();
-          }}
-          args={[
-            prototypes[c.key].edgeGeometry,
-            wireframeMaterials[c.key],
-            MAX_PER_COLOR,
-          ]}
-          frustumCulled={false}
-          raycast={() => null}
         />
       ))}
     </group>
