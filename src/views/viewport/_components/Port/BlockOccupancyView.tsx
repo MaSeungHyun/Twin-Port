@@ -9,8 +9,15 @@ import {
 import { type ThreeEvent } from "@react-three/fiber";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BoxGeometry, EdgesGeometry, type Mesh } from "three";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import {
+  BoxGeometry,
+  EdgesGeometry,
+  type LineBasicMaterial,
+  type Mesh,
+  type MeshBasicMaterial,
+  type MeshStandardMaterial,
+} from "three";
 import gsap from "gsap";
 
 const COLOR_MAP = {
@@ -52,8 +59,10 @@ function BlockOccupancyBar({
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
   const setHoveredBlockCode = useOccupancyStore((s) => s.setHoveredBlockCode);
-  const [hovered, setHovered] = useState(false);
-  const active = hovered || tracked;
+  const hoveredRef = useRef(false);
+  const shellMatRef = useRef<MeshStandardMaterial>(null);
+  const lineMatRef = useRef<LineBasicMaterial>(null);
+  const fillMatRef = useRef<MeshBasicMaterial>(null);
   const block = useMemo(
     () => blocks.find((b) => b.code === occupancy.blockCode),
     [occupancy.blockCode, blocks],
@@ -81,6 +90,22 @@ function BlockOccupancyBar({
   );
 
   const fillRef = useRef<Mesh>(null);
+  const trackedRef = useRef(tracked);
+
+  const applyHover = () => {
+    const active = hoveredRef.current || trackedRef.current;
+    const shell = shellMatRef.current;
+    const line = lineMatRef.current;
+    const fill = fillMatRef.current;
+    if (shell) shell.opacity = active ? SHELL_HOVER_OPACITY : SHELL_OPACITY;
+    if (line) line.opacity = active ? LINE_HOVER_OPACITY : LINE_OPACITY;
+    if (fill) fill.opacity = active ? FILL_HOVER_OPACITY : FILL_OPACITY;
+  };
+
+  useLayoutEffect(() => {
+    trackedRef.current = tracked;
+    applyHover();
+  }, [tracked]);
 
   useEffect(() => {
     const mesh = fillRef.current;
@@ -124,17 +149,19 @@ function BlockOccupancyBar({
 
   const handleOver = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
-    setHovered(true);
+    hoveredRef.current = true;
     setHoveredBlockCode(occupancy.blockCode);
     document.body.style.cursor = "pointer";
+    applyHover();
   };
 
   const handleOut = () => {
-    setHovered(false);
+    hoveredRef.current = false;
     if (useOccupancyStore.getState().hoveredBlockCode === occupancy.blockCode) {
       setHoveredBlockCode(null);
     }
     document.body.style.cursor = "auto";
+    applyHover();
   };
 
   return (
@@ -147,9 +174,10 @@ function BlockOccupancyBar({
     >
       <mesh position={[0, dims.fullHeight / 2, 0]} geometry={shellGeometry}>
         <meshStandardMaterial
+          ref={shellMatRef}
           color="#3b82f6"
           transparent
-          opacity={active ? SHELL_HOVER_OPACITY : SHELL_OPACITY}
+          opacity={tracked ? SHELL_HOVER_OPACITY : SHELL_OPACITY}
           depthWrite={false}
         />
       </mesh>
@@ -159,9 +187,10 @@ function BlockOccupancyBar({
         raycast={() => null}
       >
         <lineBasicMaterial
+          ref={lineMatRef}
           color="#60a5fa"
           transparent
-          opacity={active ? LINE_HOVER_OPACITY : LINE_OPACITY}
+          opacity={tracked ? LINE_HOVER_OPACITY : LINE_OPACITY}
         />
       </lineSegments>
 
@@ -173,10 +202,11 @@ function BlockOccupancyBar({
       >
         <boxGeometry args={[dims.width, dims.fillHeight, dims.depth]} />
         <meshBasicMaterial
+          ref={fillMatRef}
           color={color}
-          transparent={!active}
-          opacity={active ? FILL_HOVER_OPACITY : FILL_OPACITY}
-          depthWrite={active}
+          transparent
+          opacity={tracked ? FILL_HOVER_OPACITY : FILL_OPACITY}
+          depthWrite={false}
           toneMapped={false}
         />
       </mesh>

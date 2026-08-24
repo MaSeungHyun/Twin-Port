@@ -1,13 +1,25 @@
 import { Quaternion, Vector3 } from "three";
 
-export const INITIAL_CAMERA_POSITION = new Vector3(24.131, 18.352, -14.633);
+/** BUSAN.glb CAMERA — Ground yaw(π/2) 반영. 런타임에 GLB에서 다시 적용 */
+export const INITIAL_CAMERA_POSITION = new Vector3(
+  42.2996,
+  32.038,
+  -11.8288,
+);
+
+export const INITIAL_CAMERA_TARGET = new Vector3(0, 0, 0);
 
 export const INITIAL_CAMERA_QUATERNION = new Quaternion(
-  0.142,
-  0.836,
-  0.257,
-  -0.462,
+  -0.187322,
+  0.75743,
+  0.246892,
+  0.574678,
 );
+
+/** BUSAN CAMERA yfov (deg). near/far도 GLB 값 */
+export const INITIAL_CAMERA_FOV = 22.895;
+export const INITIAL_CAMERA_NEAR = 0.1;
+export const INITIAL_CAMERA_FAR = 1000;
 
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
@@ -27,7 +39,7 @@ export const CONTROL_MODE_CAMERA_QUATERNION = OCCUPANCY_CAMERA_QUATERNION;
 export const CAMERA_FLIGHT_DURATION = 1;
 
 /** OrbitControls maxDistance */
-export const ORBIT_MAX_DISTANCE = 56;
+export const ORBIT_MAX_DISTANCE = 80;
 
 /**
  * 컨테이너 검색 포커스 — 카메라가 목표에서 얼마나 떨어져 볼지

@@ -19,6 +19,9 @@ import OccupancyTransition from "./OccupancyTransition";
 import skybox from "@/assets/image/sky.hdr";
 
 import {
+  INITIAL_CAMERA_FAR,
+  INITIAL_CAMERA_FOV,
+  INITIAL_CAMERA_NEAR,
   INITIAL_CAMERA_POSITION,
   INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
@@ -40,9 +43,9 @@ export default function Scene() {
       camera={{
         position: INITIAL_CAMERA_POSITION,
         quaternion: INITIAL_CAMERA_QUATERNION,
-        fov: 35,
-        near: 0.2,
-        far: 20000,
+        fov: INITIAL_CAMERA_FOV,
+        near: INITIAL_CAMERA_NEAR,
+        far: INITIAL_CAMERA_FAR,
       }}
     >
       {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}

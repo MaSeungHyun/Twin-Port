@@ -4,7 +4,7 @@ import {
   OCCUPANCY_SHIP_COLOR,
   getOccupancyShipMaterial,
 } from "@/domain/occupancyLook";
-import { SHIP_TWEEN } from "@/constants/tween";
+import { SHIP_TWEEN, WATERWAY_FULL_SPEED } from "@/constants/tween";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -47,7 +47,9 @@ function isWaterwayObject(object: Object3D) {
 }
 
 function clonePartMaterial(source: Material | Material[]) {
-  return Array.isArray(source) ? source.map((mat) => mat.clone()) : source.clone();
+  return Array.isArray(source)
+    ? source.map((mat) => mat.clone())
+    : source.clone();
 }
 
 function setWaterwayOccupancyEmissive(
@@ -72,21 +74,36 @@ function instanceScale(instance: ShipInstance) {
   return typeof scale === "number" ? scale : scale[0];
 }
 
-/** 선수(+X 로컬) 방향으로 실제로 직진 중인지 */
-function isGoingStraight(
+const WATERWAY_MIN_MOVE = 0.0004;
+const WATERWAY_MIN_SCALE = 0.4;
+const WATERWAY_HOLD = 0.22;
+const WATERWAY_GROW = 2.2;
+const WATERWAY_SHRINK = 3.4;
+
+function straightSpeedRatio(
   instance: ShipInstance,
   prev: [number, number] | undefined,
   next: [number, number],
+  dt: number,
 ) {
-  if (instanceScale(instance) <= SHIP_TWEEN.hiddenScale * 2) return false;
-  if (!prev) return false;
+  if (instanceScale(instance) <= SHIP_TWEEN.hiddenScale * 2) return 0;
+  if (!prev || dt <= 1e-4) return 0;
   const dx = next[0] - prev[0];
   const dz = next[1] - prev[1];
   const moved = Math.hypot(dx, dz);
-  if (moved < 0.0004) return false;
+  if (moved < WATERWAY_MIN_MOVE) return 0;
   const yaw = instance.rotation?.[1] ?? 0;
   const along = dx * Math.cos(yaw) + dz * -Math.sin(yaw);
-  return Math.abs(along) >= moved * 0.75;
+  if (Math.abs(along) < moved * 0.75) return 0;
+  return Math.min(1, moved / dt / WATERWAY_FULL_SPEED);
+}
+
+function followWaterway(current: number, target: number, dt: number) {
+  if (target <= 0 && current < 0.01) return 0;
+  if (target >= WATERWAY_MIN_SCALE && current <= 0)
+    current = WATERWAY_MIN_SCALE;
+  const rate = target >= current ? WATERWAY_GROW : WATERWAY_SHRINK;
+  return current + (target - current) * (1 - Math.exp(-rate * dt));
 }
 
 type ShipProps = {
@@ -103,8 +120,10 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   const occupancyRefs = useRef<(InstancedMesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
   const matrix = useMemo(() => new Matrix4(), []);
-  const lastPos = useRef<( [number, number] | undefined)[]>([]);
+  const lastPos = useRef<([number, number] | undefined)[]>([]);
   const waterwayOn = useRef<number[]>([]);
+  const waterwayHold = useRef<number[]>([]);
+  const waterwaySpeed = useRef<number[]>([]);
 
   const parts = useMemo<ShipPart[]>(() => {
     scene.updateMatrixWorld(true);
@@ -126,23 +145,61 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     return collected;
   }, [scene]);
 
-  function writeMatrices(list: ShipInstance[]) {
+  function writeMatrices(list: ShipInstance[], dt: number) {
     if (list.length === 0) return;
 
     if (waterwayOn.current.length !== list.length) {
       waterwayOn.current = new Array(list.length).fill(0);
+      waterwayHold.current = new Array(list.length).fill(0);
+      waterwaySpeed.current = new Array(list.length).fill(0);
       lastPos.current = new Array(list.length);
     }
 
+    const step = Math.min(Math.max(dt, 1 / 120), 0.05);
+
     list.forEach((instance, index) => {
-      const next: [number, number] = [instance.position[0], instance.position[2]];
-      waterwayOn.current[index] = isGoingStraight(
+      const next: [number, number] = [
+        instance.position[0],
+        instance.position[2],
+      ];
+      if (instanceScale(instance) <= SHIP_TWEEN.hiddenScale * 2) {
+        waterwayHold.current[index] = 0;
+        waterwaySpeed.current[index] = 0;
+        waterwayOn.current[index] = 0;
+        lastPos.current[index] = next;
+        return;
+      }
+
+      const ratio = straightSpeedRatio(
         instance,
         lastPos.current[index],
         next,
-      )
-        ? 1
+        step,
+      );
+
+      if (ratio > 0) {
+        waterwayHold.current[index] = WATERWAY_HOLD;
+        const prevSpeed = waterwaySpeed.current[index] ?? 0;
+        waterwaySpeed.current[index] =
+          prevSpeed + (ratio - prevSpeed) * (1 - Math.exp(-5 * step));
+      } else {
+        waterwayHold.current[index] = Math.max(
+          0,
+          (waterwayHold.current[index] ?? 0) - step,
+        );
+      }
+
+      const holding = (waterwayHold.current[index] ?? 0) > 0;
+      const speed = waterwaySpeed.current[index] ?? 0;
+      const target = holding
+        ? WATERWAY_MIN_SCALE + (1 - WATERWAY_MIN_SCALE) * speed
         : 0;
+
+      waterwayOn.current[index] = followWaterway(
+        waterwayOn.current[index] ?? 0,
+        target,
+        step,
+      );
       lastPos.current[index] = next;
     });
 
@@ -180,10 +237,10 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     });
   }
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const list = posesRef?.current ?? instances;
     if (!list || list.length === 0) return;
-    writeMatrices(list);
+    writeMatrices(list, delta);
   });
 
   useLayoutEffect(() => {

@@ -10,7 +10,8 @@ import { useOccupancyStore } from "@/stores/occupancy";
 import { useYardStore } from "@/stores/yard";
 import { Html } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
+import { type MeshBasicMaterial } from "three";
 import { occupancyColor } from "./constants";
 
 /** BlockOccupancyView HEIGHT_SCALE와 맞춤 — occupancy 그래프 위로 카드 띄움 */
@@ -33,30 +34,58 @@ export default function BlockHoverArea({
   tracked?: boolean;
 }) {
   const deckY = useYardStore((s) => s.deckY);
-  const hoveredBlockCode = useOccupancyStore((s) => s.hoveredBlockCode);
-  const [hovered, setHovered] = useState(false);
+  const materialRef = useRef<MeshBasicMaterial>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const hoveredRef = useRef(false);
   const center = getBlockFootprintCenter(block);
   const { width, depth } = getBlockFootprintSize(block);
   const color = occupancyColor(occupancy.ratio);
-  const showInfo =
-    statusVisible || hovered || tracked || hoveredBlockCode === block.code;
 
-  const handleOver = (event: ThreeEvent<PointerEvent>) => {
-    event.stopPropagation();
-    setHovered(true);
-    document.body.style.cursor = "pointer";
+  const applyVisual = () => {
+    const fromStore =
+      useOccupancyStore.getState().hoveredBlockCode === block.code;
+    const show = statusVisible || tracked || hoveredRef.current || fromStore;
+    const material = materialRef.current;
+    if (material) {
+      material.opacity = hitEnabled && hoveredRef.current ? 0.5 : 0;
+    }
+    if (cardRef.current) {
+      cardRef.current.style.visibility = show ? "visible" : "hidden";
+    }
   };
 
-  const handleOut = () => {
-    setHovered(false);
-    document.body.style.cursor = "auto";
-  };
+  useLayoutEffect(() => {
+    applyVisual();
+    return useOccupancyStore.subscribe((state, prev) => {
+      if (state.hoveredBlockCode === prev.hoveredBlockCode) return;
+      if (
+        state.hoveredBlockCode !== block.code &&
+        prev.hoveredBlockCode !== block.code
+      ) {
+        return;
+      }
+      applyVisual();
+    });
+  }, [block.code, statusVisible, tracked, hitEnabled]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
       document.body.style.cursor = "auto";
     };
   }, []);
+
+  const handleOver = (event: ThreeEvent<PointerEvent>) => {
+    event.stopPropagation();
+    hoveredRef.current = true;
+    document.body.style.cursor = "pointer";
+    applyVisual();
+  };
+
+  const handleOut = () => {
+    hoveredRef.current = false;
+    document.body.style.cursor = "auto";
+    applyVisual();
+  };
 
   const grid = getBlockSlotGrid(block);
   const hitHeight = Math.max(grid.tiers * CONTAINER_H * 3, HIT_HEIGHT_MIN);
@@ -76,9 +105,10 @@ export default function BlockHoverArea({
       >
         <boxGeometry args={[width, hitHeight, depth]} />
         <meshBasicMaterial
+          ref={materialRef}
           color={color}
           transparent
-          opacity={hitEnabled && hovered ? 0.5 : 0}
+          opacity={0}
           depthWrite={false}
         />
       </mesh>
@@ -94,10 +124,13 @@ export default function BlockHoverArea({
         style={{
           userSelect: "none",
           pointerEvents: "none",
-          visibility: showInfo ? "visible" : "hidden",
         }}
       >
-        <div className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border border-background">
+        <div
+          ref={cardRef}
+          className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border border-background"
+          style={{ visibility: "hidden" }}
+        >
           <span className="text-base font-semibold tracking-wide">
             {block.code}
           </span>

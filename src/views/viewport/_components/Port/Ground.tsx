@@ -5,6 +5,10 @@ import {
   listObjectNames,
 } from "@/domain/extractGroundBlocks";
 import { shipsFromPlacements } from "@/domain/extractShipCubes";
+import {
+  applyGlbViewCamera,
+  extractGlbViewCamera,
+} from "@/domain/extractGlbCamera";
 import { bakeLandMask } from "@/domain/bakeLandMask";
 import { enableGroundWaveResponse } from "@/domain/groundWaveMaterial";
 import { bindLandTexture, resetLandTexture } from "@/domain/waterSim";
@@ -30,6 +34,7 @@ import {
   type Object3D,
   type Vector3Tuple,
 } from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
 function enableGroundAlpha(root: Object3D) {
@@ -156,6 +161,9 @@ export default function Ground({
   const gl = useThree((state) => state.gl);
   const threeScene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
+  const controls = useThree((state) => state.controls) as
+    | OrbitControlsImpl
+    | undefined;
   const { scene } = useGLTF(groundUrl);
 
   const occupancyMaterial = useMemo(() => getOccupancySurfaceMaterial(), []);
@@ -213,6 +221,13 @@ export default function Ground({
     resetBlocks,
     gl,
   ]);
+
+  useLayoutEffect(() => {
+    model.updateMatrixWorld(true);
+    const view = extractGlbViewCamera(model);
+    if (!view) return;
+    applyGlbViewCamera(camera, view, controls ?? null);
+  }, [model, position, rotation, scale, camera, controls]);
 
   useLayoutEffect(() => {
     const clones = attachOccupancyClones(

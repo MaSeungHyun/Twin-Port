@@ -232,6 +232,11 @@ export function getShipTween(locatorIndex: number): ShipTweenConfig {
   );
 }
 
+/** 항적 scale 1 = 기본 출항(power1.in) 피크 속도. 더 빠르면 1로 클램프 */
+export const WATERWAY_FULL_SPEED =
+  (2 * SHIP_TWEENS[0]!.departDistance) /
+  Math.max(SHIP_TWEENS[0]!.departDuration, 1e-6);
+
 export function resolveSidestep(tween: ShipTweenConfig) {
   if (tween.sidestepYawDeg == null) {
     return { x: tween.sidestepX, y: tween.sidestepY, z: tween.sidestepZ };
