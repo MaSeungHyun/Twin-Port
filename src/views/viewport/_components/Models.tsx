@@ -8,8 +8,6 @@ import Ground from "./Port/Ground";
 import OverHeadCrane from "./Port/OverHeadCrane";
 import ShipFleet from "./Port/ShipFleet";
 import Terrain from "./Terrain";
-import { useThree } from "@react-three/fiber";
-import { useEffect } from "react";
 
 /** occupancy/container 가시성만 구독 — Ship/Crane 등과 리렌더 분리 */
 function YardLayer() {
@@ -42,13 +40,6 @@ function TerrainLayer() {
 }
 
 function Models() {
-  // const camera = useThree((state) => state.camera);
-  // useEffect(() => {
-  //   if (camera) {
-  //     console.log(camera.position);
-  //     console.log(camera.quaternion);
-  //   }
-  // }, [camera]);
   return (
     <>
       <TerrainLayer />
