@@ -14,6 +14,6 @@ export const useObjectStore = create<ObjectState>((set) => ({
   setTerrainVisible: (visible) => set({ terrainVisible: visible }),
   containerVisible: true,
   setContainerVisible: (visible) => set({ containerVisible: visible }),
-  heatmapVisible: true,
+  heatmapVisible: false,
   setHeatmapVisible: (visible) => set({ heatmapVisible: visible }),
 }));

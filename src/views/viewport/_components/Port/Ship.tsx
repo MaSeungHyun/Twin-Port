@@ -1,6 +1,9 @@
 import shipUrl from "@/assets/model/ship_empty.glb";
 import { enableGlbShadows } from "@/domain/glb";
-import { getOccupancyShipMaterial } from "@/domain/occupancyLook";
+import {
+  OCCUPANCY_SHIP_COLOR,
+  getOccupancyShipMaterial,
+} from "@/domain/occupancyLook";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
@@ -8,10 +11,12 @@ import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import {
   type BufferGeometry,
+  Color,
   type InstancedMesh,
   type Material,
   Matrix4,
   type Mesh,
+  MeshStandardMaterial,
   Object3D,
 } from "three";
 
@@ -28,10 +33,38 @@ type ShipPart = {
   waterway: boolean;
 };
 
+const WATERWAY_OCCUPANCY_EMISSIVE = new Color(OCCUPANCY_SHIP_COLOR);
+const WATERWAY_OCCUPANCY_EMISSIVE_INTENSITY = 1.15;
+
 function isWaterwayObject(object: Object3D) {
-  if (/waterway/i.test(object.name)) return true;
+  let node: Object3D | null = object;
+  while (node) {
+    if (/waterway/i.test(node.name)) return true;
+    node = node.parent;
+  }
   const mesh = object as Mesh;
   return mesh.isMesh && /waterway/i.test(mesh.geometry?.name ?? "");
+}
+
+function clonePartMaterial(source: Material | Material[]) {
+  return Array.isArray(source) ? source.map((mat) => mat.clone()) : source.clone();
+}
+
+function setWaterwayOccupancyEmissive(
+  material: Material | Material[],
+  look: boolean,
+) {
+  const list = Array.isArray(material) ? material : [material];
+  for (const mat of list) {
+    if (!(mat instanceof MeshStandardMaterial)) continue;
+    if (look) {
+      mat.emissive.copy(WATERWAY_OCCUPANCY_EMISSIVE);
+      mat.emissiveIntensity = WATERWAY_OCCUPANCY_EMISSIVE_INTENSITY;
+    } else {
+      mat.emissive.set(0, 0, 0);
+      mat.emissiveIntensity = 0;
+    }
+  }
 }
 
 function instanceScale(instance: ShipInstance) {
@@ -81,11 +114,12 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     scene.traverse((child) => {
       const mesh = child as Mesh;
       if (!mesh.isMesh) return;
+      const waterway = isWaterwayObject(mesh);
       collected.push({
         geometry: mesh.geometry,
-        material: mesh.material,
+        material: waterway ? clonePartMaterial(mesh.material) : mesh.material,
         localMatrix: mesh.matrixWorld.clone(),
-        waterway: isWaterwayObject(mesh),
+        waterway,
       });
     });
 
@@ -154,12 +188,21 @@ export default function Ship({ instances, posesRef }: ShipProps) {
 
   useLayoutEffect(() => {
     const apply = (look: boolean) => {
-      for (const instanced of meshRefs.current) {
+      parts.forEach((part, index) => {
+        if (part.waterway) {
+          const instanced = meshRefs.current[index];
+          if (instanced) instanced.visible = true;
+          const occupancy = occupancyRefs.current[index];
+          if (occupancy) occupancy.visible = false;
+          setWaterwayOccupancyEmissive(part.material, look);
+          return;
+        }
+
+        const instanced = meshRefs.current[index];
+        const occupancy = occupancyRefs.current[index];
         if (instanced) instanced.visible = !look;
-      }
-      for (const occupancy of occupancyRefs.current) {
         if (occupancy) occupancy.visible = look;
-      }
+      });
     };
 
     apply(useOccupancyStore.getState().occupancyLook);
@@ -185,16 +228,18 @@ export default function Ship({ instances, posesRef }: ShipProps) {
             receiveShadow
             frustumCulled={false}
           />
-          <instancedMesh
-            ref={(node) => {
-              occupancyRefs.current[index] = node;
-            }}
-            args={[part.geometry, occupancyMaterial, count]}
-            visible={false}
-            frustumCulled={false}
-            castShadow
-            receiveShadow
-          />
+          {part.waterway ? null : (
+            <instancedMesh
+              ref={(node) => {
+                occupancyRefs.current[index] = node;
+              }}
+              args={[part.geometry, occupancyMaterial, count]}
+              visible={false}
+              frustumCulled={false}
+              castShadow
+              receiveShadow
+            />
+          )}
         </group>
       ))}
     </group>

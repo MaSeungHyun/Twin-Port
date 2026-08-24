@@ -2,6 +2,7 @@ import Toaster from "@/components/Toaster";
 import ToasterTestTrigger from "@/components/Toaster/ToasterTestTrigger";
 import { occupancyDimRef } from "@/constants/occupancyTransition";
 import { useOccupancyStore } from "@/stores/occupancy";
+import { cn } from "@/utils/style";
 import ContentsLayer from "./_components/ContentsLayer";
 import Scene from "./_components/Scene";
 
@@ -9,12 +10,15 @@ function OccupancyRim() {
   const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-10 bg-transparent"
-      style={{
-        boxShadow: occupancyMode
-          ? "inset 0 0 50px rgba(0,30,150,0.55)"
-          : "inset 0 0 50px rgba(0,0,0,0.9)",
-      }}
+      className={cn(
+        "pointer-events-none absolute inset-0 z-10 bg-transparent",
+        occupancyMode && "occupancy-rim-pulse",
+      )}
+      style={
+        occupancyMode
+          ? undefined
+          : { boxShadow: "inset 0 0 50px rgba(0,0,0,0.9)" }
+      }
     />
   );
 }
