@@ -10,7 +10,7 @@ import { useOccupancyStore } from "@/stores/occupancy";
 import { useYardStore } from "@/stores/yard";
 import { Html } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { type MeshBasicMaterial } from "three";
 import { occupancyColor } from "./constants";
 
@@ -41,7 +41,7 @@ export default function BlockHoverArea({
   const { width, depth } = getBlockFootprintSize(block);
   const color = occupancyColor(occupancy.ratio);
 
-  const applyVisual = () => {
+  const applyVisual = useCallback(() => {
     const fromStore =
       useOccupancyStore.getState().hoveredBlockCode === block.code;
     const show = statusVisible || tracked || hoveredRef.current || fromStore;
@@ -52,7 +52,7 @@ export default function BlockHoverArea({
     if (cardRef.current) {
       cardRef.current.style.visibility = show ? "visible" : "hidden";
     }
-  };
+  }, [block.code, statusVisible, tracked, hitEnabled]);
 
   useLayoutEffect(() => {
     applyVisual();
@@ -66,7 +66,7 @@ export default function BlockHoverArea({
       }
       applyVisual();
     });
-  }, [block.code, statusVisible, tracked, hitEnabled]);
+  }, [applyVisual, block.code]);
 
   useLayoutEffect(() => {
     return () => {

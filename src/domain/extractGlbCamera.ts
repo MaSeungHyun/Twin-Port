@@ -1,9 +1,4 @@
-import {
-  type Camera,
-  type Object3D,
-  PerspectiveCamera,
-  Vector3,
-} from "three";
+import { type Camera, type Object3D, PerspectiveCamera, Vector3 } from "three";
 
 export type GlbViewCamera = {
   position: Vector3;
@@ -23,14 +18,14 @@ function isNamedTarget(object: Object3D) {
 
 /** BUSAN GLB의 CAMERA + camera_target. root는 이미 world 변환이 적용된 상태 */
 export function extractGlbViewCamera(root: Object3D): GlbViewCamera | null {
-  let cameraObject: Object3D | null = null;
-  let targetObject: Object3D | null = null;
+  const found: { camera?: Object3D; target?: Object3D } = {};
 
   root.traverse((child) => {
-    if (!cameraObject && isNamedCamera(child)) cameraObject = child;
-    if (!targetObject && isNamedTarget(child)) targetObject = child;
+    if (!found.camera && isNamedCamera(child)) found.camera = child;
+    if (!found.target && isNamedTarget(child)) found.target = child;
   });
 
+  const cameraObject = found.camera;
   if (!cameraObject) return null;
 
   const position = new Vector3();
@@ -38,9 +33,9 @@ export function extractGlbViewCamera(root: Object3D): GlbViewCamera | null {
   cameraObject.getWorldPosition(position);
 
   const target = new Vector3();
-  if (targetObject) {
-    targetObject.updateWorldMatrix(true, false);
-    targetObject.getWorldPosition(target);
+  if (found.target) {
+    found.target.updateWorldMatrix(true, false);
+    found.target.getWorldPosition(target);
   }
 
   const view: GlbViewCamera = { position, target };
@@ -63,6 +58,7 @@ export function applyGlbViewCamera(
     if (view.fov != null) camera.fov = view.fov;
     if (view.near != null) camera.near = view.near;
     if (view.far != null) camera.far = view.far;
+    camera.aspect = 1920 / 1080;
     camera.updateProjectionMatrix();
   }
   camera.lookAt(view.target);

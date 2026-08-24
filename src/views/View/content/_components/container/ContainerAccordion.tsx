@@ -29,10 +29,11 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
 
   const containers = useYardStore((s) => s.containers);
   const [visibleCount, setVisibleCount] = useState(SEARCH_PAGE_SIZE);
-
-  useEffect(() => {
+  const [countQuery, setCountQuery] = useState(query);
+  if (query !== countQuery) {
+    setCountQuery(query);
     setVisibleCount(SEARCH_PAGE_SIZE);
-  }, [query]);
+  }
 
   const results = useMemo(
     () =>
