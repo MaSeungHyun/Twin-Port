@@ -86,7 +86,7 @@ export default function Water({ size = 5 }: WaterProps) {
       waterColor: 0x001e4f,
       // distortionScale: OCEAN_CALM_DISTORT,
       distortionScale: 0,
-      fog: false,
+      fog: true,
     });
 
     const material = instance.material as WaterMaterial;

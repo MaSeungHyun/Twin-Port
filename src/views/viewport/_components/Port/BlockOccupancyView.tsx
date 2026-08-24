@@ -15,7 +15,7 @@ import gsap from "gsap";
 
 const COLOR_MAP = {
   low: "#22c55e",
-  // low: "#6065fa",
+  // low: "#6065da",
   medium: "#eab308",
   high: "#ef2444",
 };

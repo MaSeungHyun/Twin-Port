@@ -17,6 +17,7 @@ import {
   INITIAL_CAMERA_POSITION,
   INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
+
 import { useViewportStore } from "@/stores/viewport";
 
 export default function Scene() {
@@ -31,7 +32,6 @@ export default function Scene() {
       shadows={{ enabled: true }}
       gl={{ antialias: true, alpha: false }}
       frameloop={pauseRender ? "never" : "always"}
-      // scene={{ fog: new FogExp2(0x00000000, 0.0005) }}
       camera={{
         position: INITIAL_CAMERA_POSITION,
         quaternion: INITIAL_CAMERA_QUATERNION,
@@ -41,6 +41,7 @@ export default function Scene() {
       }}
     >
       {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}
+      {/* <fogExp2 attach="fog" args={["#000000", OCCUPANCY_TRANSITION.fogFrom]} /> */}
       <Suspense fallback={null}>
         <Environment
           files={skybox}

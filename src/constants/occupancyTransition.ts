@@ -12,8 +12,9 @@ export const OCCUPANCY_TRANSITION = {
   sunTo: 0.5,
   ambientFrom: 0.5,
   ambientTo: 0.38,
-  fogFrom: 0.0005,
-  fogTo: 0.0024,
+  /** FogExp2 density. 0.0005는 궤도 거리(~280)에서 거의 안 보임 */
+  fogFrom: 0.003,
+  fogTo: 0.004,
   waterHideAt: 0.46,
 } as const;
 
