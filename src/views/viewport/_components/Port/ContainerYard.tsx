@@ -9,6 +9,7 @@ import {
 import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { composeContainerMatrix } from "@/domain/container";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
+import { getOccupancyShipMaterial } from "@/domain/occupancyLook";
 import { useYardStore } from "@/stores/yard";
 import type { Container } from "@/types/container";
 import { useOccupancyStore } from "@/stores/occupancy";
@@ -75,6 +76,7 @@ export default function ContainerYard({
   const { scene } = useGLTF(containersUrl);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
   const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
+  const occupancyShipMaterial = useMemo(() => getOccupancyShipMaterial(), []);
 
   const solidRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>>(
     {},
@@ -232,7 +234,7 @@ export default function ContainerYard({
             }}
             args={[
               prototypes[c.key].geometry,
-              prototypes[c.key].material,
+              occupancyShipMaterial,
               MAX_PER_COLOR,
             ]}
             frustumCulled={false}

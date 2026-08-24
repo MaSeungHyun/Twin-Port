@@ -15,6 +15,9 @@ import { occupancyColor } from "./constants";
 
 /** BlockOccupancyView HEIGHT_SCALE와 맞춤 — occupancy 그래프 위로 카드 띄움 */
 const OCCUPANCY_BAR_HEIGHT_SCALE = 5;
+const HIT_HEIGHT_MIN = 0.08;
+const CARD_LIFT = 0.07;
+const OCCUPANCY_CARD_EXTRA = 0.4;
 
 export default function BlockHoverArea({
   block,
@@ -56,9 +59,10 @@ export default function BlockHoverArea({
   }, []);
 
   const grid = getBlockSlotGrid(block);
-  const hitHeight = Math.max(grid.tiers * CONTAINER_H * 3, 0.4);
-    const occupancyLift =
-    grid.tiers * CONTAINER_H * (OCCUPANCY_BAR_HEIGHT_SCALE - 3) + 2;
+  const hitHeight = Math.max(grid.tiers * CONTAINER_H * 3, HIT_HEIGHT_MIN);
+  const occupancyLift =
+    grid.tiers * CONTAINER_H * (OCCUPANCY_BAR_HEIGHT_SCALE - 3) +
+    OCCUPANCY_CARD_EXTRA;
 
   return (
     <group
@@ -82,7 +86,7 @@ export default function BlockHoverArea({
       <Html
         position={[
           0,
-          hitHeight / 2 + 0.35 + (hitEnabled ? 0 : occupancyLift),
+          hitHeight / 2 + CARD_LIFT + (hitEnabled ? 0 : occupancyLift),
           0,
         ]}
         center
@@ -93,20 +97,20 @@ export default function BlockHoverArea({
           visibility: showInfo ? "visible" : "hidden",
         }}
       >
-          <div className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border border-background">
-            <span className="text-base font-semibold tracking-wide">
-              {block.code}
-            </span>
-            <div className="flex items-center">
-              <PieChart value={occupancy.percent} color={color} size={42} />
-            </div>
-            <span className="text-base font-bold" style={{ color }}>
-              {occupancy.percent}%
-            </span>
-            <span className="text-sm text-white/80">
-              {occupancy.occupied} / {occupancy.capacity}
-            </span>
+        <div className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border border-background">
+          <span className="text-base font-semibold tracking-wide">
+            {block.code}
+          </span>
+          <div className="flex items-center">
+            <PieChart value={occupancy.percent} color={color} size={42} />
           </div>
+          <span className="text-base font-bold" style={{ color }}>
+            {occupancy.percent}%
+          </span>
+          <span className="text-sm text-white/80">
+            {occupancy.occupied} / {occupancy.capacity}
+          </span>
+        </div>
       </Html>
     </group>
   );

@@ -50,7 +50,7 @@ export default function Scene() {
       <Suspense fallback={null}>
         <Environment
           files={skybox}
-          background
+          // background
           backgroundBlurriness={0.2}
           backgroundIntensity={0.7}
           environmentIntensity={0.7}
@@ -61,7 +61,7 @@ export default function Scene() {
 
         <ambientLight intensity={0.5} />
         <SunLight />
-        <Water />
+        {/* <Water /> */}
         <Models />
 
         {/* 월드 확인용 원점 축: X=빨강, Y=초록, Z=파랑 */}

@@ -71,6 +71,10 @@ function isGroundMesh(mesh: Mesh) {
   );
 }
 
+function isCraneMesh(mesh: Mesh) {
+  return namesOf(mesh).some((name) => /crane/i.test(name));
+}
+
 type OccupancyMeshCache = {
   ground: Mesh[];
   others: Mesh[];
@@ -82,6 +86,7 @@ function collectOccupancyMeshes(root: Object3D): OccupancyMeshCache {
   root.traverse((child) => {
     if (!(child instanceof Mesh)) return;
     if (child.name.endsWith("-occupancy")) return;
+    if (isCraneMesh(child)) return;
     if (isGroundMesh(child)) ground.push(child);
     else others.push(child);
   });

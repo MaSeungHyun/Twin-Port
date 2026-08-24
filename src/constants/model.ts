@@ -13,7 +13,7 @@ export const OVERHEAD_CRANE_SPAN_X = 8.53;
 /** 1이면 크레인 스팬이 블록 폭과 같음 */
 export const OVERHEAD_CRANE_SCALE = 1;
 /** 수면(y=0) 기준. 선체 스케일에 비례 */
-export const SHIP_POSITION_Y = -8.6 * SHIP_SCALE;
+export const SHIP_POSITION_Y = 0 * SHIP_SCALE;
 
 /**
  * 안벽 배 위치 튜닝.

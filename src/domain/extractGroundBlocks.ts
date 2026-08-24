@@ -31,9 +31,9 @@ function isLimitLineName(name: string) {
   return /limitline/i.test(name);
 }
 
-/** Blender에서 오브젝트만 BLOCK으로 바꾸고 메쉬 데이터 이름이 Plane인 경우 */
-function isFallbackBlockMesh(name: string) {
-  return /^plane$/i.test(name);
+/** Blender 기본 바닥. 오브젝트 이름이 Plane이면 야드 블록이 아님 */
+function isFloorPlaneObject(object: Object3D) {
+  return /^plane(\.\d+)?$/i.test(object.name);
 }
 
 function isMesh(object: Object3D): object is Mesh {
@@ -49,11 +49,9 @@ function namesOf(object: Object3D) {
   return [object.name, object.parent?.name ?? "", geometryName ?? ""];
 }
 
-function objectIsBlock(object: Object3D, allowPlaneFallback: boolean) {
-  const names = namesOf(object);
-  if (names.some(isBlockName)) return true;
-  if (allowPlaneFallback && names.some(isFallbackBlockMesh)) return true;
-  return false;
+function objectIsBlock(object: Object3D) {
+  if (isFloorPlaneObject(object)) return false;
+  return namesOf(object).some(isBlockName);
 }
 
 function parseBlockCode(name: string): string | null {
@@ -404,21 +402,19 @@ export function extractGroundBlocks(root: Object3D): BlockDefinition[] {
   root.updateMatrixWorld(true);
 
   const named: Candidate[] = [];
-  const fallback: Candidate[] = [];
   const instancedParents = new Set<Object3D>();
   const world = new Matrix4();
   const instance = new Matrix4();
 
-  const collect = (allowPlaneFallback: boolean, into: Candidate[]) => {
+  const collect = (into: Candidate[]) => {
     instancedParents.clear();
     root.traverse((child) => {
       if (child === root) return;
-      if (!objectIsBlock(child, allowPlaneFallback)) return;
+      if (isFloorPlaneObject(child)) return;
+      if (!objectIsBlock(child)) return;
 
       const label =
-        namesOf(child).find(
-          (name) => name && (isBlockName(name) || isFallbackBlockMesh(name)),
-        ) ||
+        namesOf(child).find((name) => name && isBlockName(name)) ||
         child.name ||
         "BLOCK";
 
@@ -439,7 +435,6 @@ export function extractGroundBlocks(root: Object3D): BlockDefinition[] {
         return;
       }
 
-      if (allowPlaneFallback) return;
       let hasMeshChild = false;
       child.traverse((node) => {
         if (node !== child && isMesh(node)) hasMeshChild = true;
@@ -475,25 +470,24 @@ export function extractGroundBlocks(root: Object3D): BlockDefinition[] {
   };
 
   const paintedRaw = collectLimitLineBlocks(root);
-  collect(false, named);
+  collect(named);
   const namedUsable = named.filter((item) => {
     const area = item.sizeX * item.sizeZ;
     return area > CONTAINER_W * CONTAINER_D * 4;
   });
-  collect(true, fallback);
 
   const painted = filterSimilarFootprints(paintedRaw);
-  const found = isPlausibleBlockSet(fallback)
-    ? fallback
+  const found = isPlausibleBlockSet(namedUsable)
+    ? namedUsable
     : isPlausibleBlockSet(painted)
       ? painted
       : namedUsable.length > 0
         ? namedUsable
-        : fallback;
+        : painted;
 
   if (import.meta.env.DEV) {
-    const source = isPlausibleBlockSet(fallback)
-      ? "Plane"
+    const source = isPlausibleBlockSet(namedUsable)
+      ? "named"
       : isPlausibleBlockSet(painted)
         ? "LimitLine"
         : namedUsable.length > 0
@@ -501,7 +495,7 @@ export function extractGroundBlocks(root: Object3D): BlockDefinition[] {
           : "none";
     console.info(
       `[Ground] blocks source=${source} ` +
-        `limitLine=${paintedRaw.length}→${painted.length} named=${namedUsable.length} plane=${fallback.length}`,
+        `limitLine=${paintedRaw.length}→${painted.length} named=${namedUsable.length}`,
     );
   }
 

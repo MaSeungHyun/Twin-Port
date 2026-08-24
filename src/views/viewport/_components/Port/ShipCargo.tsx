@@ -20,6 +20,7 @@ import {
 } from "@/constants/tween";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
+import { getOccupancyShipMaterial } from "@/domain/occupancyLook";
 import { composeCargoSlotLocal, shipWorldScale } from "@/domain/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import { useGLTF } from "@react-three/drei";
@@ -135,6 +136,7 @@ export default function ShipCargo({
   const [meshesReady, setMeshesReady] = useState(false);
 
   const prototypes = useMemo(() => buildContainerPrototypes(scene), [scene]);
+  const occupancyShipMaterial = useMemo(() => getOccupancyShipMaterial(), []);
   const shipCount = berths.length;
   const slots = useMemo(() => buildCargoSlots(berths), [berths]);
 
@@ -558,7 +560,7 @@ export default function ShipCargo({
                   node.instanceMatrix.setUsage(DynamicDrawUsage);
                   tryMarkReady();
                 }}
-                args={[prototypes[c.key].geometry, prototypes[c.key].material, count]}
+                args={[prototypes[c.key].geometry, occupancyShipMaterial, count]}
                 frustumCulled={false}
               />
             );
