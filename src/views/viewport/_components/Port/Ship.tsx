@@ -1,6 +1,7 @@
 import shipUrl from "@/assets/model/ship_empty.glb";
 import { enableGlbShadows } from "@/domain/glb";
 import {
+  DEBUG_SHIP_OCCUPANCY_MATERIAL,
   OCCUPANCY_SHIP_COLOR,
   getOccupancyShipMaterial,
 } from "@/domain/occupancyLook";
@@ -262,10 +263,13 @@ export default function Ship({ instances, posesRef }: ShipProps) {
       });
     };
 
-    apply(useOccupancyStore.getState().occupancyLook);
+    const look =
+      DEBUG_SHIP_OCCUPANCY_MATERIAL ||
+      useOccupancyStore.getState().occupancyLook;
+    apply(look);
     return useOccupancyStore.subscribe((state, prev) => {
       if (state.occupancyLook === prev.occupancyLook) return;
-      apply(state.occupancyLook);
+      apply(DEBUG_SHIP_OCCUPANCY_MATERIAL || state.occupancyLook);
     });
   }, [parts]);
 
@@ -284,6 +288,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
             castShadow
             receiveShadow
             frustumCulled={false}
+            visible={!DEBUG_SHIP_OCCUPANCY_MATERIAL}
           />
           {part.waterway ? null : (
             <instancedMesh
@@ -291,7 +296,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
                 occupancyRefs.current[index] = node;
               }}
               args={[part.geometry, occupancyMaterial, count]}
-              visible={false}
+              visible={DEBUG_SHIP_OCCUPANCY_MATERIAL}
               frustumCulled={false}
               castShadow
               receiveShadow
