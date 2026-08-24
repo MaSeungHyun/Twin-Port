@@ -1,16 +1,12 @@
 import { Quaternion, Vector3 } from "three";
 
-export const INITIAL_CAMERA_POSITION = new Vector3(
-  89.56326109456616,
-  24.434917598888408,
-  -62.009178821423006,
-);
+export const INITIAL_CAMERA_POSITION = new Vector3(120.657, 91.759, -73.167);
 
 export const INITIAL_CAMERA_QUATERNION = new Quaternion(
-  -0.05394339144900211,
-  0.8845824548563607,
-  0.10580112815617389,
-  0.45101010228170624,
+  0.142,
+  0.836,
+  0.257,
+  -0.462,
 );
 
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */

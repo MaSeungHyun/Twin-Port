@@ -15,6 +15,7 @@ import gsap from "gsap";
 
 const COLOR_MAP = {
   low: "#22c55e",
+  // low: "#6065fa",
   medium: "#eab308",
   high: "#ef2444",
 };
@@ -130,9 +131,7 @@ function BlockOccupancyBar({
 
   const handleOut = () => {
     setHovered(false);
-    if (
-      useOccupancyStore.getState().hoveredBlockCode === occupancy.blockCode
-    ) {
+    if (useOccupancyStore.getState().hoveredBlockCode === occupancy.blockCode) {
       setHoveredBlockCode(null);
     }
     document.body.style.cursor = "auto";
