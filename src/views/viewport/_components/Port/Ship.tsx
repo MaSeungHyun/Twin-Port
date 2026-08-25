@@ -4,7 +4,7 @@ import {
   DEBUG_SHIP_OCCUPANCY_MATERIAL,
   OCCUPANCY_SHIP_COLOR,
   getOccupancyShipMaterial,
-} from "@/domain/occupancyLook";
+} from "@/domain/occupancyLook/occupancyShipMaterial";
 import { SHIP_TWEEN, WATERWAY_FULL_SPEED } from "@/constants/tween";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";

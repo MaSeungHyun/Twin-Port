@@ -18,10 +18,8 @@ import {
   GROUND_SCALE,
 } from "@/constants/ground";
 import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
-import {
-  getOccupancySurfaceMaterial,
-  warmupOccupancyPrograms,
-} from "@/domain/occupancyLook";
+import { getOccupancySurfaceMaterial } from "@/domain/occupancyLook/occupancySurfaceMaterial";
+import { warmupOccupancyPrograms } from "@/domain/occupancyLook/warmupOccupancyPrograms";
 import { useYardStore } from "@/stores/yard";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
