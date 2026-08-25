@@ -1,5 +1,12 @@
 import overheadCraneUrl from "@/assets/model/overhead_crane.glb";
 import { enableGlbShadows } from "@/domain/glb";
+import {
+  hoveredIndexOf,
+  instanceHoverId,
+  portHoverOut,
+  portHoverOver,
+  subscribePortHover,
+} from "@/domain/hoverOutline";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
@@ -11,6 +18,7 @@ import {
   type Mesh,
   Object3D,
 } from "three";
+import HoverOutlineMesh from "./HoverOutlineMesh";
 import {
   createBlockCenterCraneInstances,
   type OverHeadCraneInstance,
@@ -36,6 +44,7 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   );
   const { scene } = useGLTF(overheadCraneUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
+  const outlineRefs = useRef<(Mesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
   const matrix = useMemo(() => new Matrix4(), []);
 
@@ -56,6 +65,22 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
 
     return collected;
   }, [scene]);
+
+  const applyHoverOutline = useCallback(() => {
+    const hoverIndex = hoveredIndexOf("overheadCrane");
+    parts.forEach((_, partIndex) => {
+      const outline = outlineRefs.current[partIndex];
+      const instanced = meshRefs.current[partIndex];
+      if (!outline) return;
+      if (hoverIndex < 0 || !instanced) {
+        outline.visible = false;
+        return;
+      }
+      instanced.getMatrixAt(hoverIndex, outline.matrix);
+      outline.matrixWorldNeedsUpdate = true;
+      outline.visible = true;
+    });
+  }, [parts]);
 
   const writeMatrices = useCallback(
     (elapsed: number) => {
@@ -91,13 +116,17 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
         instanced.count = resolvedInstances.length;
         instanced.instanceMatrix.needsUpdate = true;
       });
+
+      applyHoverOutline();
     },
-    [dummy, matrix, parts, resolvedInstances],
+    [applyHoverOutline, dummy, matrix, parts, resolvedInstances],
   );
 
   useLayoutEffect(() => {
     writeMatrices(0);
   }, [writeMatrices]);
+
+  useLayoutEffect(() => subscribePortHover(applyHoverOutline), [applyHoverOutline]);
 
   useFrame(({ clock }) => {
     writeMatrices(clock.elapsedTime);
@@ -108,16 +137,29 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   return (
     <group>
       {parts.map((part, index) => (
-        <instancedMesh
-          key={index}
-          ref={(node) => {
-            meshRefs.current[index] = node;
-          }}
-          args={[part.geometry, part.material, resolvedInstances.length]}
-          castShadow
-          receiveShadow
-          frustumCulled={false}
-        />
+        <group key={index}>
+          <instancedMesh
+            ref={(node) => {
+              meshRefs.current[index] = node;
+            }}
+            args={[part.geometry, part.material, resolvedInstances.length]}
+            castShadow
+            receiveShadow
+            frustumCulled={false}
+            onPointerOver={(event) =>
+              portHoverOver(event, "overheadCrane", instanceHoverId(event))
+            }
+            onPointerOut={(event) =>
+              portHoverOut(event, "overheadCrane", instanceHoverId(event))
+            }
+          />
+          <HoverOutlineMesh
+            geometry={part.geometry}
+            meshRef={(node) => {
+              outlineRefs.current[index] = node;
+            }}
+          />
+        </group>
       ))}
     </group>
   );

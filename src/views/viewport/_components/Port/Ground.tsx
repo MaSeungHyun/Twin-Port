@@ -20,12 +20,23 @@ import {
 import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
 import { getOccupancySurfaceMaterial } from "@/domain/occupancyLook/occupancySurfaceMaterial";
 import { warmupOccupancyPrograms } from "@/domain/occupancyLook/warmupOccupancyPrograms";
+import {
+  collectQuayHoverTargets,
+  findQuayCraneRoot,
+  getPortHover,
+  portHoverOut,
+  portHoverOver,
+  quayTargetMatches,
+  subscribePortHover,
+  writeQuayOutlineMatrix,
+} from "@/domain/hoverOutline";
 import { useYardStore } from "@/stores/yard";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
+import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
+  InstancedMesh,
   Material,
   Mesh,
   MeshStandardMaterial,
@@ -33,6 +44,7 @@ import {
   type Vector3Tuple,
 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import HoverOutlineMesh from "./HoverOutlineMesh";
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
 function enableGroundAlpha(root: Object3D) {
@@ -259,12 +271,71 @@ export default function Ground({
   }, [occupancyMeshes, occupancyMaterial, gl, threeScene, camera]);
 
   return (
-    <primitive
-      object={model}
-      position={position}
-      rotation={rotation}
-      scale={scale}
-    />
+    <>
+      <primitive
+        object={model}
+        position={position}
+        rotation={rotation}
+        scale={scale}
+        onPointerOver={(event: ThreeEvent<PointerEvent>) => {
+          const root = findQuayCraneRoot(event.object);
+          if (!root) return;
+          const id =
+            event.instanceId != null &&
+            (root as InstancedMesh).isInstancedMesh
+              ? `${root.uuid}:${event.instanceId}`
+              : root.uuid;
+          portHoverOver(event, "quayCrane", id);
+        }}
+        onPointerOut={(event: ThreeEvent<PointerEvent>) => {
+          const root = findQuayCraneRoot(event.object);
+          if (!root) return;
+          const id =
+            event.instanceId != null &&
+            (root as InstancedMesh).isInstancedMesh
+              ? `${root.uuid}:${event.instanceId}`
+              : root.uuid;
+          portHoverOut(event, "quayCrane", id);
+        }}
+      />
+      <QuayCraneHoverOutlines model={model} />
+    </>
+  );
+}
+
+function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
+  const targets = useMemo(() => collectQuayHoverTargets(model), [model]);
+  const outlineRefs = useRef<(Mesh | null)[]>([]);
+
+  useLayoutEffect(() => {
+    const apply = () => {
+      const hover = getPortHover();
+      const hoverId = hover?.kind === "quayCrane" ? hover.id : null;
+      targets.forEach((target, index) => {
+        const outline = outlineRefs.current[index];
+        if (!outline) return;
+        const show = hoverId != null && quayTargetMatches(target, hoverId);
+        outline.visible = show;
+        if (show) writeQuayOutlineMatrix(target, outline);
+      });
+    };
+
+    apply();
+    return subscribePortHover(apply);
+  }, [targets]);
+
+  return (
+    <>
+      {targets.map((target, index) => (
+        <HoverOutlineMesh
+          key={`${target.rootId}-${index}`}
+          geometry={target.geometry}
+          meshRef={(node) => {
+            outlineRefs.current[index] = node;
+          }}
+        />
+      ))}
+    </>
   );
 }
 

@@ -5,11 +5,18 @@ import {
   OCCUPANCY_SHIP_COLOR,
   getOccupancyShipMaterial,
 } from "@/domain/occupancyLook/occupancyShipMaterial";
+import {
+  hoveredIndexOf,
+  instanceHoverId,
+  portHoverOut,
+  portHoverOver,
+  subscribePortHover,
+} from "@/domain/hoverOutline";
 import { SHIP_TWEEN, WATERWAY_FULL_SPEED } from "@/constants/tween";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import {
   type BufferGeometry,
   Color,
@@ -20,6 +27,7 @@ import {
   MeshStandardMaterial,
   Object3D,
 } from "three";
+import HoverOutlineMesh from "./HoverOutlineMesh";
 
 export type ShipInstance = {
   position: [number, number, number];
@@ -119,6 +127,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   const { scene } = useGLTF(shipUrl);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   const occupancyRefs = useRef<(InstancedMesh | null)[]>([]);
+  const outlineRefs = useRef<(Mesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
   const matrix = useMemo(() => new Matrix4(), []);
   const lastPos = useRef<([number, number] | undefined)[]>([]);
@@ -145,6 +154,31 @@ export default function Ship({ instances, posesRef }: ShipProps) {
 
     return collected;
   }, [scene]);
+
+  const applyHoverOutline = useCallback((list: ShipInstance[]) => {
+    const hoverIndex = hoveredIndexOf("ship");
+    const hovered = hoverIndex >= 0 ? list[hoverIndex] : undefined;
+    const showOutline =
+      hovered != null && instanceScale(hovered) > SHIP_TWEEN.hiddenScale * 2;
+
+    parts.forEach((part, partIndex) => {
+      const outline = outlineRefs.current[partIndex];
+      if (!outline) return;
+      if (!showOutline || part.waterway) {
+        outline.visible = false;
+        return;
+      }
+      const source =
+        occupancyRefs.current[partIndex] ?? meshRefs.current[partIndex];
+      if (!source) {
+        outline.visible = false;
+        return;
+      }
+      source.getMatrixAt(hoverIndex, outline.matrix);
+      outline.matrixWorldNeedsUpdate = true;
+      outline.visible = true;
+    });
+  }, [parts]);
 
   function writeMatrices(list: ShipInstance[], dt: number) {
     if (list.length === 0) return;
@@ -236,6 +270,8 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         occupancy.instanceMatrix.needsUpdate = true;
       }
     });
+
+    applyHoverOutline(list);
   }
 
   useFrame((_, delta) => {
@@ -273,6 +309,14 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     });
   }, [parts]);
 
+  useLayoutEffect(() => {
+    return subscribePortHover(() => {
+      const list = posesRef?.current ?? instances;
+      if (!list) return;
+      applyHoverOutline(list);
+    });
+  }, [applyHoverOutline, instances, posesRef]);
+
   const count = instances?.length ?? 0;
   if (count === 0) return null;
 
@@ -289,6 +333,16 @@ export default function Ship({ instances, posesRef }: ShipProps) {
             receiveShadow
             frustumCulled={false}
             visible={!DEBUG_SHIP_OCCUPANCY_MATERIAL}
+            onPointerOver={
+              part.waterway
+                ? undefined
+                : (event) => portHoverOver(event, "ship", instanceHoverId(event))
+            }
+            onPointerOut={
+              part.waterway
+                ? undefined
+                : (event) => portHoverOut(event, "ship", instanceHoverId(event))
+            }
           />
           {part.waterway ? null : (
             <instancedMesh
@@ -300,6 +354,20 @@ export default function Ship({ instances, posesRef }: ShipProps) {
               frustumCulled={false}
               castShadow
               receiveShadow
+              onPointerOver={(event) =>
+                portHoverOver(event, "ship", instanceHoverId(event))
+              }
+              onPointerOut={(event) =>
+                portHoverOut(event, "ship", instanceHoverId(event))
+              }
+            />
+          )}
+          {part.waterway ? null : (
+            <HoverOutlineMesh
+              geometry={part.geometry}
+              meshRef={(node) => {
+                outlineRefs.current[index] = node;
+              }}
             />
           )}
         </group>

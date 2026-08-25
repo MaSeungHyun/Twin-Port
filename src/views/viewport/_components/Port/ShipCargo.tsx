@@ -21,6 +21,7 @@ import {
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
 import { getOccupancyContainerMaterial } from "@/domain/occupancyLook/occupancyContainerMaterial";
+import { portHoverOut, portHoverOver } from "@/domain/hoverOutline";
 import { composeCargoSlotLocal, shipWorldScale } from "@/domain/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import { useGLTF } from "@react-three/drei";
@@ -569,6 +570,12 @@ export default function ShipCargo({
                   count,
                 ]}
                 frustumCulled={false}
+                onPointerOver={(event) =>
+                  portHoverOver(event, "ship", String(shipIndex))
+                }
+                onPointerOut={(event) =>
+                  portHoverOut(event, "ship", String(shipIndex))
+                }
               />
             );
           })}
