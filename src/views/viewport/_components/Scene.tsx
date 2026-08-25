@@ -5,10 +5,8 @@ import { Environment, StatsGl } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import Controls from "./Controls";
-// import Water from "./Water";
 import Models from "./Models";
 import SunLight from "./SunLight";
-// import CameraFlight from "./CameraFlight";
 import OccupancyTransition from "./OccupancyTransition";
 
 import skybox from "@/assets/image/port_hdr.hdr";
@@ -75,7 +73,7 @@ export default function Scene() {
         <Controls controlsRef={controlsRef} />
         {/* <CameraFlight controlsRef={controlsRef} /> */}
 
-        <ambientLight color={0xacaccc} intensity={0.2} />
+        {/* <ambientLight color={0xacaccc} intensity={0.2} /> */}
         <SunLight />
         {/* <Water /> */}
         <Models />

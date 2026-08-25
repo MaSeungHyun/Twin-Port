@@ -7,7 +7,7 @@ import { ACESFilmicToneMapping, Euler } from "three";
  * - Gamma: 1 / Display: sRGB
  */
 export const TONE_MAPPING = ACESFilmicToneMapping;
-export const TONE_MAPPING_EXPOSURE = 6;
+export const TONE_MAPPING_EXPOSURE = 5;
 
 /**
  * World Background Strength = 1.
@@ -19,7 +19,7 @@ export const ENVIRONMENT_BACKGROUND_INTENSITY = 0;
  * 메시가 HDR Environment 조명을 받는 정도.
  * Blender Background Strength와 동일 (1).
  */
-export const ENVIRONMENT_MESH_INTENSITY = 0.1;
+export const ENVIRONMENT_MESH_INTENSITY = 0.12;
 
 /**
  * HDR Light Studio export: customrotation=90°, Mapping=(0,0,0).
@@ -28,9 +28,9 @@ export const ENVIRONMENT_MESH_INTENSITY = 0.1;
  */
 
 export const ENVIRONMENT_ROTATION = new Euler(
-  Math.PI / 2.85,
-  Math.PI / 1.96,
-  Math.PI / -3.1,
+  Math.PI / 2.55,
+  Math.PI / 2.36,
+  Math.PI / -2.1,
 );
 //  Math.PI / 2.85,
 //   Math.PI / 1.96,
