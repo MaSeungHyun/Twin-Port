@@ -12,7 +12,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import Controls from "./Controls";
 // import Water from "./Water";
 import Models from "./Models";
-// import SunLight from "./SunLight";
+import SunLight from "./SunLight";
 // import CameraFlight from "./CameraFlight";
 import OccupancyTransition from "./OccupancyTransition";
 
@@ -79,7 +79,7 @@ export default function Scene() {
         {/* <CameraFlight controlsRef={controlsRef} /> */}
 
         {/* <ambientLight intensity={1} /> */}
-        {/* <SunLight /> */}
+        <SunLight />
         {/* <Water /> */}
         <Models />
 
