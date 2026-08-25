@@ -1,8 +1,5 @@
 import { OrbitControls } from "@react-three/drei";
-import {
-  INITIAL_CAMERA_TARGET,
-  ORBIT_MAX_DISTANCE,
-} from "@/constants/camera";
+import { INITIAL_CAMERA_TARGET, ORBIT_MAX_DISTANCE } from "@/constants/camera";
 import { useViewportStore } from "@/stores/viewport";
 import type { RefObject } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -25,9 +22,9 @@ export default function Controls({ controlsRef }: ControlsProps) {
       enablePan={interactive}
       enableZoom={interactive}
       enableRotate={interactive}
-      maxPolarAngle={Math.PI * 0.475}
+      // maxPolarAngle={Math.PI * 0.475}
       enableDamping={false}
-      maxDistance={ORBIT_MAX_DISTANCE}
+      // maxDistance={ORBIT_MAX_DISTANCE}
     />
   );
 }

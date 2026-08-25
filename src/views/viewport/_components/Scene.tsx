@@ -13,11 +13,17 @@ import Controls from "./Controls";
 // import Water from "./Water";
 import Models from "./Models";
 import SunLight from "./SunLight";
-import CameraFlight from "./CameraFlight";
+// import CameraFlight from "./CameraFlight";
 import OccupancyTransition from "./OccupancyTransition";
 
-import skybox from "@/assets/image/sky.hdr";
+import skybox from "@/assets/image/port_hdr.hdr";
 
+import {
+  BACKGROUND_ROTATION,
+  ENVIRONMENT_BACKGROUND_INTENSITY,
+  ENVIRONMENT_MESH_INTENSITY,
+  ENVIRONMENT_ROTATION,
+} from "@/constants/environment";
 import {
   INITIAL_CAMERA_FAR,
   INITIAL_CAMERA_FOV,
@@ -27,6 +33,7 @@ import {
 } from "@/constants/camera";
 
 import { useViewportStore } from "@/stores/viewport";
+import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
 
 export default function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -38,7 +45,13 @@ export default function Scene() {
       className="h-full w-full touch-none"
       style={{ display: "block", overflow: "hidden", backgroundColor: "#000" }}
       shadows={{ enabled: true }}
-      gl={{ antialias: true, alpha: false }}
+      gl={{
+        antialias: true,
+        alpha: false,
+        toneMapping: ACESFilmicToneMapping,
+        toneMappingExposure: 2,
+        outputColorSpace: SRGBColorSpace,
+      }}
       frameloop={pauseRender ? "never" : "always"}
       camera={{
         position: INITIAL_CAMERA_POSITION,
@@ -53,17 +66,20 @@ export default function Scene() {
       <Suspense fallback={null}>
         <Environment
           files={skybox}
-          // background
-          backgroundBlurriness={0.2}
-          backgroundIntensity={0.7}
-          environmentIntensity={0.7}
+          background
+          blur={0}
+          backgroundRotation={BACKGROUND_ROTATION}
+          backgroundBlurriness={0}
+          backgroundIntensity={ENVIRONMENT_BACKGROUND_INTENSITY}
+          environmentRotation={ENVIRONMENT_ROTATION}
+          environmentIntensity={ENVIRONMENT_MESH_INTENSITY}
         />
         <OccupancyTransition />
         <Controls controlsRef={controlsRef} />
-        <CameraFlight controlsRef={controlsRef} />
+        {/* <CameraFlight controlsRef={controlsRef} /> */}
 
-        <ambientLight intensity={0.5} />
-        <SunLight />
+        {/* <ambientLight intensity={1} /> */}
+        {/* <SunLight /> */}
         {/* <Water /> */}
         <Models />
 

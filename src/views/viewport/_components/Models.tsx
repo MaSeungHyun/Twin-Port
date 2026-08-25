@@ -16,9 +16,9 @@ function YardLayer() {
 
   return (
     <>
-      <ContainerYard visible={containerVisible} />
+      {/* <ContainerYard visible={containerVisible} />
       <BlockFootprints />
-      <BlockOccupancyView visible={occupancyLook && !tracking} />
+      <BlockOccupancyView visible={occupancyLook && !tracking} /> */}
     </>
   );
 }
@@ -28,7 +28,7 @@ function Models() {
     <>
       {/* <TerrainLayer /> */}
       <ShipFleet />
-      <OverHeadCrane />
+      {/* <OverHeadCrane /> */}
 
       <YardLayer />
       <Ground />

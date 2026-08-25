@@ -126,7 +126,10 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
     writeMatrices(0);
   }, [writeMatrices]);
 
-  useLayoutEffect(() => subscribePortHover(applyHoverOutline), [applyHoverOutline]);
+  useLayoutEffect(
+    () => subscribePortHover(applyHoverOutline),
+    [applyHoverOutline],
+  );
 
   useFrame(({ clock }) => {
     writeMatrices(clock.elapsedTime);

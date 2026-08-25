@@ -281,8 +281,7 @@ export default function Ground({
           const root = findQuayCraneRoot(event.object);
           if (!root) return;
           const id =
-            event.instanceId != null &&
-            (root as InstancedMesh).isInstancedMesh
+            event.instanceId != null && (root as InstancedMesh).isInstancedMesh
               ? `${root.uuid}:${event.instanceId}`
               : root.uuid;
           portHoverOver(event, "quayCrane", id);
@@ -291,8 +290,7 @@ export default function Ground({
           const root = findQuayCraneRoot(event.object);
           if (!root) return;
           const id =
-            event.instanceId != null &&
-            (root as InstancedMesh).isInstancedMesh
+            event.instanceId != null && (root as InstancedMesh).isInstancedMesh
               ? `${root.uuid}:${event.instanceId}`
               : root.uuid;
           portHoverOut(event, "quayCrane", id);
