@@ -8,8 +8,16 @@ import type { BlockOccupancy } from "@/domain/occupancy";
 import { Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useRef } from "react";
-import type { Material, Mesh } from "three";
+import type { Group, Material, Mesh } from "three";
+import { Vector3 } from "three";
 import { useYardStore } from "@/stores/yard";
+import {
+  BLOCK_LABEL_MAX_SCALE,
+  BLOCK_LABEL_MIN_SCALE,
+  BLOCK_LABEL_REF_DISTANCE,
+} from "./constants";
+
+const _labelWorld = new Vector3();
 
 function applyAlwaysOnTop(material: Material | Material[] | undefined) {
   if (!material) return;
@@ -24,7 +32,14 @@ function applyAlwaysOnTop(material: Material | Material[] | undefined) {
   }
 }
 
-/** 바닥과 평행한 Block 코드 라벨 — 블록 크기에 비례 */
+function labelScaleForDistance(distance: number) {
+  return Math.min(
+    BLOCK_LABEL_MAX_SCALE,
+    Math.max(BLOCK_LABEL_MIN_SCALE, distance / BLOCK_LABEL_REF_DISTANCE),
+  );
+}
+
+/** 바닥과 평행한 Block 코드 라벨 — 블록 크기 + 카메라 거리에 비례 */
 export default function BlockFloorLabel({
   block,
 }: {
@@ -36,6 +51,7 @@ export default function BlockFloorLabel({
   const { width, depth } = getBlockFootprintSize(block);
   const fontSize = getBlockLabelSize(block);
   const alongBay = depth >= width;
+  const groupRef = useRef<Group>(null);
   const textRef = useRef<Mesh>(null);
 
   const handleSync = useCallback((text: Mesh) => {
@@ -43,8 +59,15 @@ export default function BlockFloorLabel({
     applyAlwaysOnTop(text.material);
   }, []);
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
+    const group = groupRef.current;
     const text = textRef.current;
+    if (!group) return;
+
+    group.getWorldPosition(_labelWorld);
+    const scale = labelScaleForDistance(camera.position.distanceTo(_labelWorld));
+    group.scale.setScalar(scale);
+
     if (!text) return;
     text.renderOrder = 10000;
     applyAlwaysOnTop(text.material);
@@ -52,6 +75,7 @@ export default function BlockFloorLabel({
 
   return (
     <group
+      ref={groupRef}
       position={[center[0], deckY + block.origin[1] + 0.006, center[2]]}
       rotation={[
         -Math.PI / 2,

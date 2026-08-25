@@ -17,4 +17,9 @@ export const BORDER_OUTSET = BLOCK_MARK.pad - BLOCK_MARK.borderThickness;
 export const PADDED_SIZE = getBlockPaddedSize(BLOCK_MARK.pad);
 export const HIT_HEIGHT = SLOT_MAX_SIZE.tiers * CONTAINER_H * 3;
 
+/** 카메라 거리 기준 — 이 거리에서 scale 1 */
+export const BLOCK_LABEL_REF_DISTANCE = 55;
+export const BLOCK_LABEL_MIN_SCALE = 1;
+export const BLOCK_LABEL_MAX_SCALE = 3.5;
+
 export { occupancyColor } from "@/domain/occupancy";

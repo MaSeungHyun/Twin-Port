@@ -1,7 +1,7 @@
 /** Ground GLB 인스턴스 스케일. 블록 추출은 matrixWorld 기준 */
 export const GROUND_SCALE = 1;
 export const GROUND_POSITION: [number, number, number] = [0, 0, 0];
-export const GROUND_ROTATION: [number, number, number] = [0, Math.PI / 2, 0];
+export const GROUND_ROTATION: [number, number, number] = [0, 0, 0];
 
 export const GROUND_X = 24;
 export const GROUND_Y = 0.6;

@@ -53,54 +53,55 @@ export type ShipPlacement = {
   scale: number;
 };
 
+/** Ground Y 90° → 0° 보정: x'=-z, z'=x, yaw-90° */
 export const SHIP_PLACEMENTS: readonly ShipPlacement[] = [
   {
     label: "Ship",
     locators: [0],
-    position: [0.37198, SHIP_POSITION_Y, 8.46598],
-    yawDeg: 70.264,
+    position: [-8.46598, SHIP_POSITION_Y, 0.37198],
+    yawDeg: -19.736,
     scale: SHIP_SCALE,
   },
   {
     label: "001",
     locators: [1],
-    position: [2.00706, SHIP_POSITION_Y, 3.5811],
-    yawDeg: 70.264,
+    position: [-3.5811, SHIP_POSITION_Y, 2.00706],
+    yawDeg: -19.736,
     scale: SHIP_SCALE,
   },
   {
     label: "002",
     locators: [2],
-    position: [-2.11384, SHIP_POSITION_Y, 8.6851],
-    yawDeg: 90,
+    position: [-8.6851, SHIP_POSITION_Y, -2.11384],
+    yawDeg: 0,
     scale: SHIP_SCALE,
   },
   {
     label: "003",
     locators: [3],
-    position: [-2.11384, SHIP_POSITION_Y, 3.25046],
-    yawDeg: 90,
+    position: [-3.25046, SHIP_POSITION_Y, -2.11384],
+    yawDeg: 0,
     scale: SHIP_SCALE,
   },
   {
     label: "005",
     locators: [5],
-    position: [-0.0516, SHIP_POSITION_Y, -3.48168],
-    yawDeg: 0,
+    position: [3.48168, SHIP_POSITION_Y, -0.0516],
+    yawDeg: -90,
     scale: SHIP_SCALE,
   },
   {
     label: "006+007",
     locators: [6, 7],
-    position: [4.59694, SHIP_POSITION_Y, -7.84586],
-    yawDeg: 62,
+    position: [7.84586, SHIP_POSITION_Y, 4.59694],
+    yawDeg: -28,
     scale: MERGED_SHIP_SCALE,
   },
   {
     label: "008+009",
     locators: [8, 9],
-    position: [-1.49624, SHIP_POSITION_Y, -15.20962],
-    yawDeg: 0,
+    position: [15.20962, SHIP_POSITION_Y, -1.49624],
+    yawDeg: -90,
     scale: MERGED_SHIP_SCALE,
   },
 ];

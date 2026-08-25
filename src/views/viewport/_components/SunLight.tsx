@@ -67,8 +67,9 @@ import { useMemo } from "react";
 import { DirectionalLightHelper } from "three";
 
 // const SUN_POSITION: [number, number, number] = [0.89004, 9.637, 0.7129];
-const SUN_POSITION: [number, number, number] = [0.89004, 10.993, 10.869];
-const SUN_TARGET_BLOCK = "B06";
+// const SUN_POSITION: [number, number, number] = [0.89004, 10.993, 10.869];
+const SUN_POSITION: [number, number, number] = [60.59004, 30.993, -50.869];
+const SUN_TARGET_BLOCK = "B34";
 
 function useBlockWorldCenter(code: string): [number, number, number] {
   const blocks = useYardStore((s) => s.blocks);
@@ -91,24 +92,24 @@ export default function SunLight() {
   return (
     <directionalLight
       position={SUN_POSITION}
-      intensity={2}
+      intensity={0.02}
       color={0xffffff}
-      // castShadow
-      // shadow-mapSize={[4096, 4096]}
-      // shadow-bias={-0.00015}
-      // shadow-normalBias={0.04}
-      // shadow-radius={1}
-      // shadow-camera-near={0.2}
-      // shadow-camera-far={80}
-      // // 야드 크기에 맞춘 ortho frustum — 너무 넓으면 그림자가 흐려짐
-      // shadow-camera-left={-18}
-      // shadow-camera-right={18}
-      // shadow-camera-top={28}
-      // shadow-camera-bottom={-28}
+      castShadow
+      shadow-mapSize={[4096, 4096]}
+      shadow-bias={-0.00015}
+      shadow-normalBias={0.04}
+      shadow-radius={1}
+      shadow-camera-near={0.2}
+      shadow-camera-far={80}
+      // 야드 크기에 맞춘 ortho frustum — 너무 넓으면 그림자가 흐려짐
+      shadow-camera-left={-18}
+      shadow-camera-right={18}
+      shadow-camera-top={28}
+      shadow-camera-bottom={-28}
     >
       {/* attach 없으면 light.target이 (0,0,0) 기본값 그대로 */}
       <object3D attach="target" position={target} />
-      <Helper type={DirectionalLightHelper} args={[5, "orange"]} />
+      {/* <Helper type={DirectionalLightHelper} args={[5, "orange"]} /> */}
     </directionalLight>
   );
 }

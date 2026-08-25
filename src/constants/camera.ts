@@ -35,7 +35,7 @@ export const CONTROL_MODE_CAMERA_QUATERNION = OCCUPANCY_CAMERA_QUATERNION;
 export const CAMERA_FLIGHT_DURATION = 1;
 
 /** OrbitControls maxDistance */
-export const ORBIT_MAX_DISTANCE = 80;
+export const ORBIT_MAX_DISTANCE = 70;
 
 /**
  * 컨테이너 검색 포커스 — 카메라가 목표에서 얼마나 떨어져 볼지

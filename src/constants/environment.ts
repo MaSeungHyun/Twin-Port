@@ -1,4 +1,4 @@
-import { ACESFilmicToneMapping, Euler } from "three";
+import { ACESFilmicToneMapping, AgXToneMapping, Euler } from "three";
 
 /**
  * Blender Color Management → Three.js
@@ -6,8 +6,8 @@ import { ACESFilmicToneMapping, Euler } from "three";
  * - Exposure: 0  →  toneMappingExposure = 2^0 = 1
  * - Gamma: 1 / Display: sRGB
  */
-export const TONE_MAPPING = ACESFilmicToneMapping;
-export const TONE_MAPPING_EXPOSURE = 5;
+export const TONE_MAPPING = AgXToneMapping;
+export const TONE_MAPPING_EXPOSURE = 6;
 
 /**
  * World Background Strength = 1.
@@ -27,12 +27,14 @@ export const ENVIRONMENT_MESH_INTENSITY = 0.12;
  * 하늘과 메시 조명은 같은 월드를 쓰므로 회전을 공유한다.
  */
 
-export const ENVIRONMENT_ROTATION = new Euler(
-  Math.PI / 2.55,
-  Math.PI / 2.36,
-  Math.PI / -2.1,
-);
-//  Math.PI / 2.85,
-//   Math.PI / 1.96,
-//   Math.PI / -3.1,
+// ACESFilmicToneMapping;
+// export const ENVIRONMENT_ROTATION = new Euler(-2.6005, 1.7279, 2.5831);
+// export const ENVIRONMENT_ROTATION = new Euler(-2.35, 2.36, -2.1);
+// export const ENVIRONMENT_ROTATION = new Euler(-2.85, 1.96, -3.1);
+// export const ENVIRONMENT_ROTATION = new Euler(0.8552, 0.9425, 1.0821);
+
+// AgXToneMapping
+// export const ENVIRONMENT_ROTATION = new Euler(3.1067, -2.8274, Math.PI);
+// export const ENVIRONMENT_ROTATION = new Euler(-3.002, -3.1067, 2.8274);
+export const ENVIRONMENT_ROTATION =  new Euler(-2.9147, -Math.PI, 2.8274);
 export const BACKGROUND_ROTATION = ENVIRONMENT_ROTATION;
