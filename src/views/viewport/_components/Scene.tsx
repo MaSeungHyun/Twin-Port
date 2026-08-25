@@ -1,11 +1,6 @@
 import { Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
-import {
-  Environment,
-  GizmoHelper,
-  GizmoViewport,
-  StatsGl,
-} from "@react-three/drei";
+import { Environment, StatsGl } from "@react-three/drei";
 
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
@@ -23,6 +18,8 @@ import {
   ENVIRONMENT_BACKGROUND_INTENSITY,
   ENVIRONMENT_MESH_INTENSITY,
   ENVIRONMENT_ROTATION,
+  TONE_MAPPING,
+  TONE_MAPPING_EXPOSURE,
 } from "@/constants/environment";
 import {
   INITIAL_CAMERA_FAR,
@@ -33,7 +30,7 @@ import {
 } from "@/constants/camera";
 
 import { useViewportStore } from "@/stores/viewport";
-import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
+import { SRGBColorSpace } from "three";
 
 export default function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -47,9 +44,9 @@ export default function Scene() {
       shadows={{ enabled: true }}
       gl={{
         antialias: true,
-        alpha: false,
-        toneMapping: ACESFilmicToneMapping,
-        toneMappingExposure: 2,
+        alpha: true,
+        toneMapping: TONE_MAPPING,
+        toneMappingExposure: TONE_MAPPING_EXPOSURE,
         outputColorSpace: SRGBColorSpace,
       }}
       frameloop={pauseRender ? "never" : "always"}
@@ -78,19 +75,19 @@ export default function Scene() {
         <Controls controlsRef={controlsRef} />
         {/* <CameraFlight controlsRef={controlsRef} /> */}
 
-        {/* <ambientLight intensity={1} /> */}
+        <ambientLight color={0xacaccc} intensity={0.2} />
         <SunLight />
         {/* <Water /> */}
         <Models />
 
         {/* 월드 확인용 원점 축: X=빨강, Y=초록, Z=파랑 */}
         {/* <axesHelper args={[100]} /> */}
-        <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
+        {/* <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
           <GizmoViewport
             axisColors={["#ef4444", "#22c55e", "#3b82f6"]}
             labelColor="white"
           />
-        </GizmoHelper>
+        </GizmoHelper> */}
       </Suspense>
       {import.meta.env.DEV && <StatsGl className="absolute top-16 right-2" />}
     </R3FCanvas>

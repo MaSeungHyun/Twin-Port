@@ -58,7 +58,7 @@ export function applyGlbViewCamera(
     if (view.fov != null) camera.fov = view.fov;
     if (view.near != null) camera.near = view.near;
     if (view.far != null) camera.far = view.far;
-    camera.aspect = 1920 / 1080;
+    // camera.aspect = 1920 / 1080;
     camera.updateProjectionMatrix();
   }
   camera.lookAt(view.target);

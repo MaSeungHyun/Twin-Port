@@ -1,23 +1,19 @@
 import { Quaternion, Vector3 } from "three";
 
 /** BUSAN.glb CAMERA — Ground yaw(π/2) 반영. 런타임에 GLB에서 다시 적용 */
-export const INITIAL_CAMERA_POSITION = new Vector3(
-  42.2996,
-  32.038,
-  -11.8288,
-);
+export const INITIAL_CAMERA_POSITION = new Vector3(79.068, 110.51, -123.58);
 
 export const INITIAL_CAMERA_TARGET = new Vector3(0, 0, 0);
 
 export const INITIAL_CAMERA_QUATERNION = new Quaternion(
-  -0.187322,
-  0.75743,
-  0.246892,
-  0.574678,
+  0.457,
+  0.122,
+  0.227,
+  0.852,
 );
 
 /** BUSAN CAMERA yfov (deg). near/far도 GLB 값 */
-export const INITIAL_CAMERA_FOV = 22.895;
+export const INITIAL_CAMERA_FOV = 50;
 export const INITIAL_CAMERA_NEAR = 0.1;
 export const INITIAL_CAMERA_FAR = 1000;
 

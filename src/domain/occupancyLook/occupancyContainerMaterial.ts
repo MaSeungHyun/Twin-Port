@@ -1,7 +1,8 @@
 import { createOccupancyMaterial } from "./occupancyMaterial";
 
-export const OCCUPANCY_CONTAINER_OPACITY = 0.8;
-export const OCCUPANCY_CONTAINER_COLOR = 0x3ba2f6;
+export const OCCUPANCY_CONTAINER_OPACITY = 0.5;
+// export const OCCUPANCY_CONTAINER_COLOR = 0x3ba2f6;
+export const OCCUPANCY_CONTAINER_COLOR = 0x555555;
 
 let occupancyContainer: ReturnType<typeof createOccupancyMaterial> | null =
   null;

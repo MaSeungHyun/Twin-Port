@@ -1,19 +1,14 @@
 import {
   OCCUPANCY_TRANSITION as T,
   occupancyDimRef,
+  occupancyTransitionProgressRef,
 } from "@/constants/occupancyTransition";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useFrame, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 import { useEffect, useRef } from "react";
-import {
-  AmbientLight,
-  DirectionalLight,
-  FogExp2,
-  type Object3D,
-  type Scene,
-} from "three";
+import { AmbientLight, FogExp2, type Object3D, type Scene } from "three";
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
@@ -25,15 +20,13 @@ function overlayOpacity(t: number) {
 }
 
 type AtmosphereTargets = {
-  sun: DirectionalLight | null;
   ambient: AmbientLight | null;
   water: Object3D | null;
 };
 
 function cacheTargets(scene: Scene, cache: AtmosphereTargets) {
-  if (cache.sun && cache.ambient && cache.water) return;
+  if (cache.ambient && cache.water) return;
   scene.traverse((obj) => {
-    if (!cache.sun && obj instanceof DirectionalLight) cache.sun = obj;
     if (!cache.ambient && obj instanceof AmbientLight) cache.ambient = obj;
     if (!cache.water && obj.userData?.sim) cache.water = obj;
   });
@@ -54,7 +47,6 @@ function applyAtmosphere(
   const overlay = occupancyDimRef.current;
   if (overlay) overlay.style.opacity = String(overlayOpacity(t));
 
-  if (cache.sun) cache.sun.intensity = lerp(T.sunFrom, T.sunTo, t);
   if (cache.ambient) cache.ambient.intensity = lerp(T.ambientFrom, T.ambientTo, t);
   if (cache.water) cache.water.visible = t < T.waterHideAt;
 }
@@ -66,7 +58,6 @@ export default function OccupancyTransition() {
   const progress = useRef({ t: occupancyMode ? 1 : 0 });
   const tweenRef = useRef<gsap.core.Tween | null>(null);
   const cache = useRef<AtmosphereTargets>({
-    sun: null,
     ambient: null,
     water: null,
   });
@@ -74,6 +65,7 @@ export default function OccupancyTransition() {
   useFrame(() => {
     cacheTargets(scene, cache.current);
     const t = progress.current.t;
+    occupancyTransitionProgressRef.current.t = t;
     applyAtmosphere(scene, cache.current, t);
 
     const { occupancyLook, occupancyMode: mode } = useOccupancyStore.getState();

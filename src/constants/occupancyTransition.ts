@@ -12,9 +12,7 @@ export const OCCUPANCY_TRANSITION = {
   backgroundFrom: ENVIRONMENT_BACKGROUND_INTENSITY,
   backgroundTo: 0,
   environmentFrom: ENVIRONMENT_MESH_INTENSITY,
-  environmentTo: 0.5,
-  sunFrom: 1.6,
-  sunTo: 0.5,
+  environmentTo: 0.3,
   ambientFrom: 0.5,
   ambientTo: 0.38,
   /** FogExp2 density. 0.0005는 궤도 거리(~280)에서 거의 안 보임 */
@@ -26,3 +24,6 @@ export const OCCUPANCY_TRANSITION = {
 export const occupancyDimRef: { current: HTMLDivElement | null } = {
   current: null,
 };
+
+/** OccupancyTransition gsap 진행도 — SunLight 등이 구독 */
+export const occupancyTransitionProgressRef = { current: { t: 0 } };

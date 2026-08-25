@@ -106,10 +106,7 @@ export default function ContainerYard({
     [blocks],
   );
 
-  const prototypes = useMemo(
-    () => buildContainerPrototypes(scene),
-    [scene],
-  );
+  const prototypes = useMemo(() => buildContainerPrototypes(scene), [scene]);
 
   const wireframeMaterials = useMemo(
     () =>
@@ -241,6 +238,7 @@ export default function ContainerYard({
               MAX_PER_COLOR,
             ]}
             frustumCulled={false}
+            renderOrder={10}
             castShadow
             receiveShadow
           />
@@ -280,6 +278,7 @@ export default function ContainerYard({
             MAX_PER_COLOR,
           ]}
           frustumCulled={false}
+          renderOrder={10}
           castShadow
           receiveShadow
         />

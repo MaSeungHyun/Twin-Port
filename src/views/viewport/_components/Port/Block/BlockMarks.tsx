@@ -56,7 +56,11 @@ export default function BlockMarks({
         metalness: 0.05,
         transparent: true,
         opacity: 0.28,
-        depthWrite: false,
+        depthTest: true,
+        depthWrite: true,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
       }),
     [],
   );
@@ -99,7 +103,7 @@ export default function BlockMarks({
         args={[geometry, floorMaterial, Math.max(blocks.length, 1)]}
         frustumCulled={false}
         visible={heatmapVisible}
-        renderOrder={15}
+        renderOrder={0}
         receiveShadow
         raycast={() => null}
       />
