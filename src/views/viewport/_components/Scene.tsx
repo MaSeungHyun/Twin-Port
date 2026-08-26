@@ -22,7 +22,7 @@ import {
   INITIAL_CAMERA_FOV,
   INITIAL_CAMERA_NEAR,
   INITIAL_CAMERA_POSITION,
-  INITIAL_CAMERA_QUATERNION,
+  INITIAL_CAMERA_ROTATION,
 } from "@/constants/camera";
 
 import { useViewportStore } from "@/stores/viewport";
@@ -32,7 +32,6 @@ import {
 } from "@/stores/environmentDebug";
 import { SRGBColorSpace, VSMShadowMap } from "three";
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
-import SpotlightGlow from "./SpotlightGlow";
 
 export default function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -65,7 +64,8 @@ export default function Scene() {
         frameloop={pauseRender ? "never" : "always"}
         camera={{
           position: INITIAL_CAMERA_POSITION,
-          quaternion: INITIAL_CAMERA_QUATERNION,
+          rotation: INITIAL_CAMERA_ROTATION,
+          // quaternion: INITIAL_CAMERA_QUATERNION,
           fov: INITIAL_CAMERA_FOV,
           near: INITIAL_CAMERA_NEAR,
           far: INITIAL_CAMERA_FAR,
@@ -92,8 +92,6 @@ export default function Scene() {
           <SunLight />
           {/* <Water /> */}
           <Models />
-
-          <SpotlightGlow />
 
           {/* 월드 확인용 원점 축: X=빨강, Y=초록, Z=파랑 */}
           {/* <axesHelper args={[100]} /> */}

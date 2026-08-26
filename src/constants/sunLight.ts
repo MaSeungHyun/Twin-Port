@@ -4,8 +4,25 @@ export const SUN_SHADOW_ANGLE_TO_RADIUS = 0.8;
 /** Blender Sun Angle 슬라이더와 대응하는 기본값(deg) */
 export const SUN_SHADOW_ANGLE_DEG = 5;
 
-export const SUN_INTENSITY = 0.8;
-export const SUN_COLOR = 0xcccccc;
+export function sunShadowRadiusFromAngleDeg(angleDeg: number) {
+  return angleDeg * SUN_SHADOW_ANGLE_TO_RADIUS;
+}
+
+export const SUN_SHADOW_RADIUS =
+  sunShadowRadiusFromAngleDeg(SUN_SHADOW_ANGLE_DEG);
+
+export const SUN_INTENSITY = 3;
+export const SUN_COLOR = 0xffffff;
+
+// export const SUN_POSITION: [number, number, number] = [10, 10, 45];
+export const SUN_POSITION: [number, number, number] = [50, 10, 85];
+export const SUN_TARGET: [number, number, number] = [3.5, -1, 15];
+
+/** 바닥 radial glow — SUN_TARGET.xz 중심, Sun Angle에 비례 */
+export const SUN_GLOW_RADIUS = 6 + SUN_SHADOW_RADIUS * 4.5;
+export const SUN_GLOW_OPACITY = 0.1;
+/** deck 위 z-fighting 방지용 미세 오프셋 */
+export const SUN_GLOW_Y_OFFSET = 0.006;
 
 /** mapSize는 radius를 키우기 전에 충분히 확보 (2048+) */
 export const SUN_SHADOW_MAP_SIZE = 2048;
@@ -23,10 +40,3 @@ export const SUN_SHADOW_CAMERA = {
   top: 28,
   bottom: -28,
 } as const;
-
-export function sunShadowRadiusFromAngleDeg(angleDeg: number) {
-  return angleDeg * SUN_SHADOW_ANGLE_TO_RADIUS;
-}
-
-export const SUN_SHADOW_RADIUS =
-  sunShadowRadiusFromAngleDeg(SUN_SHADOW_ANGLE_DEG);

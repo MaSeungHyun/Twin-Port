@@ -1,4 +1,4 @@
-import { ACESFilmicToneMapping, AgXToneMapping, Euler } from "three";
+import { ACESFilmicToneMapping, Euler } from "three";
 
 /**
  * Blender Color Management → Three.js
@@ -7,7 +7,7 @@ import { ACESFilmicToneMapping, AgXToneMapping, Euler } from "three";
  * - Gamma: 1 / Display: sRGB
  */
 export const TONE_MAPPING = ACESFilmicToneMapping;
-export const TONE_MAPPING_EXPOSURE = 3.6;
+export const TONE_MAPPING_EXPOSURE = 0.8;
 // export const TONE_MAPPING_EXPOSURE = 2;
 
 /**
@@ -20,7 +20,7 @@ export const ENVIRONMENT_BACKGROUND_INTENSITY = 0;
  * 메시가 HDR Environment 조명을 받는 정도.
  * Blender Background Strength와 동일 (1).
  */
-export const ENVIRONMENT_MESH_INTENSITY = 0.25;
+export const ENVIRONMENT_MESH_INTENSITY = 1.25;
 // export const ENVIRONMENT_MESH_INTENSITY = 0.5;
 
 /**
@@ -42,7 +42,9 @@ export const ENVIRONMENT_MESH_INTENSITY = 0.25;
 // export const ENVIRONMENT_ROTATION = new Euler(-3.0543, Math.PI, -3.0892);
 // export const ENVIRONMENT_ROTATION = new Euler(-2.9671, -3.0369, -3.0892);
 // export const ENVIRONMENT_ROTATION = new Euler(-3.0369, -Math.PI, Math.PI);
-export const ENVIRONMENT_ROTATION = new Euler(-Math.PI, -Math.PI, Math.PI);
+// export const ENVIRONMENT_ROTATION = new Euler(-Math.PI, -Math.PI, Math.PI);
+// export const ENVIRONMENT_ROTATION = new Euler(Math.PI, Math.PI, -Math.PI);
+export const ENVIRONMENT_ROTATION = new Euler(-3.0543, Math.PI, -Math.PI);
 // AgXToneMapping
 // export const ENVIRONMENT_ROTATION = new Euler(3.1067, -2.8274, Math.PI);
 // export const ENVIRONMENT_ROTATION = new Euler(-3.002, -3.1067, 2.8274);

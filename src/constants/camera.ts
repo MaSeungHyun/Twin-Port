@@ -1,8 +1,8 @@
-import { Quaternion, Vector3 } from "three";
+import { Euler, Quaternion, Vector3 } from "three";
 
 /** BUSAN.glb CAMERA — Ground yaw(π/2) 반영. 런타임에 GLB에서 다시 적용 */
-export const INITIAL_CAMERA_POSITION = new Vector3(79.068, 110.51, -123.58);
-
+export const INITIAL_CAMERA_POSITION = new Vector3(11.829, 32.038, 42.3);
+export const INITIAL_CAMERA_ROTATION = new Euler(-36.53, 14.47, 10.49);
 export const INITIAL_CAMERA_TARGET = new Vector3(0, 0, 0);
 
 export const INITIAL_CAMERA_QUATERNION = new Quaternion(
