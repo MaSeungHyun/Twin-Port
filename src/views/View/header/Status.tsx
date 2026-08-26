@@ -2,7 +2,7 @@ import Icon from "@/components/Icon";
 import PieChart from "@/components/PieChart";
 import {
   computeYardStatus,
-  DANGEROUS_RATIO,
+  occupancyColor,
   type YardStatus,
   type YardStatusKey,
 } from "@/domain/occupancy";
@@ -36,15 +36,15 @@ function StatusItem({
   className?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-md px-1 py-1">
+    <div className="flex items-center gap-xs rounded-md px-1 py-1">
       <Icon icon={icon} className={cn("size-6 stroke-primary", className)} />
       <div className="flex flex-col leading-tight select-none">
-        <span className="text-xs tracking-semiwide text-neutral-400 uppercase">
+        <span className="text-xs tracking-semiwide text-text-secondary uppercase">
           {label}
         </span>
         <span
           className={cn(
-            "w-full text-right text-sm font-semibold text-white",
+            "w-full text-right text-sm font-semibold text-text-primary",
             className,
           )}
         >
@@ -82,12 +82,6 @@ export default function Status() {
   );
 }
 
-function occupancyFill(ratio: number): string {
-  if (ratio < 0.6) return "#22c55e";
-  if (ratio < DANGEROUS_RATIO) return "#eab308";
-  return "#ef2444";
-}
-
 function formatValue(status: YardStatus, item: StatusItemConfig): ReactNode {
   const value = status[item.key];
 
@@ -95,7 +89,7 @@ function formatValue(status: YardStatus, item: StatusItemConfig): ReactNode {
     return (
       <>
         <span>{value.toLocaleString()}</span>
-        <span className="ml-1 text-[11px] font-medium text-white/35">
+        <span className="ml-1 text-sm font-medium text-text-secondary">
           / {status[item.of].toLocaleString()}
         </span>
       </>
@@ -111,13 +105,13 @@ function OccupancyChart({ status }: { status: YardStatus }) {
   const DEBUG_OCCUPANCY_PERCENT: number | null = null;
 
   const occupancy = DEBUG_OCCUPANCY_PERCENT ?? status.occupancy;
-  const fill = occupancyFill(occupancy / 100);
+  const fill = occupancyColor(occupancy / 100);
 
   return (
-    <div className="flex items-center gap-2 rounded-md px-1 py-1">
+    <div className="flex items-center gap-xs rounded-md px-1 py-1">
       <PieChart value={occupancy} color={fill} size={32} />
       <div className="flex flex-col leading-tight select-none">
-        <span className="text-xs tracking-semiwide text-neutral-400 uppercase">
+        <span className="text-xs tracking-semiwide text-text-secondary uppercase">
           OCCUPANCY
         </span>
         <span
@@ -147,6 +141,6 @@ const STATUS_ITEMS: StatusItemConfig[] = [
     icon: "TriangleAlert",
     label: "DANGEROUS",
     key: "dangerous",
-    className: "stroke-background fill-red-500 text-red-500",
+    className: "stroke-background fill-danger text-danger",
   },
 ];

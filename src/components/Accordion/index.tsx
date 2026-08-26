@@ -55,7 +55,7 @@ function Trigger({
     <AccordionPrimitive.Trigger
       data-slot="accordion-trigger"
       className={cn(
-        "group flex flex-1 cursor-pointer items-center justify-between gap-2 py-3 text-left text-sm font-medium text-white outline-none transition-colors",
+        "group flex flex-1 cursor-pointer items-center justify-between gap-xs py-md text-left text-sm font-medium text-white outline-none transition-colors",
         "hover:text-white/90 focus-visible:ring-2 focus-visible:ring-primary/40",
         "disabled:cursor-not-allowed disabled:opacity-40",
         className,
@@ -66,7 +66,7 @@ function Trigger({
       {!hideIcon && (
         <Icon
           icon="ChevronDown"
-          className="size-4 shrink-0 stroke-white/60 transition-transform duration-200 group-data-[state=open]:rotate-180"
+          className="size-xl shrink-0 stroke-white/60 transition-transform duration-200 group-data-[state=open]:rotate-180"
         />
       )}
     </AccordionPrimitive.Trigger>
@@ -88,7 +88,7 @@ function Content({
       )}
       {...props}
     >
-      <div className="pb-3 pt-0">{children}</div>
+      <div className="pb-md pt-0">{children}</div>
     </AccordionPrimitive.Content>
   );
 }

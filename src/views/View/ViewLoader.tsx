@@ -64,7 +64,7 @@ export default function ViewLoader() {
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background">
-      <p className="mb-3 text-sm font-medium tracking-wide text-white/80">
+      <p className="mb-md text-sm font-medium tracking-wide text-white/80">
         Loading …
       </p>
       <div className="h-1 w-52 overflow-hidden rounded-full bg-white/10">
@@ -73,7 +73,7 @@ export default function ViewLoader() {
           style={{ width: `${displayPercent}%` }}
         />
       </div>
-      <p className="mt-2 tabular-nums text-xs text-white/50">{percent}%</p>
+      <p className="mt-xs tabular-nums text-xs text-white/50">{percent}%</p>
     </div>
   );
 }

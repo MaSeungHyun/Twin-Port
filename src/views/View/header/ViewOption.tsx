@@ -20,7 +20,7 @@ export default function ViewOption() {
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content>
-        <div className="flex flex-col gap-2 px-1 py-1 text-sm text-white">
+        <div className="flex flex-col gap-xs px-1 py-1 text-sm text-white">
           {/* <Checkbox
             id="view-option-terrain"
             label="Terrain"

@@ -13,8 +13,8 @@ export default function Contents() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-      <aside className="pointer-events-auto absolute top-0 left-0 flex h-full w-72 flex-col overflow-hidden px-2 py-2">
-        <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+      <aside className="pointer-events-auto absolute top-0 left-0 flex h-full w-72 flex-col overflow-hidden px-xs py-xs">
+        <div className="flex h-full min-h-0 flex-col gap-xs overflow-hidden">
           <BlockContentAccordion siblingOpen={containersOpen} />
           <ContainerContentAccordion onOpenChange={setContainersOpen} />
         </div>

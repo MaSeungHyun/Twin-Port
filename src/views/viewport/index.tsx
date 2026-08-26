@@ -25,7 +25,7 @@ function OccupancyRim() {
 
 export default function Viewport() {
   return (
-    <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden border border-primary">
+    <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden border border-primary/80">
       <div className="absolute inset-0 z-0">
         <Scene />
       </div>

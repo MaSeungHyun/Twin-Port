@@ -19,22 +19,22 @@ export default function EnvironmentRotationPanel() {
   const eulerSnippet = formatEnvironmentRotationEuler(rotationDeg);
 
   return (
-    <div className="pointer-events-auto absolute bottom-4 right-5 z-20 w-72 rounded-md border border-white/15 bg-black/75 p-3 text-xs text-white backdrop-blur-sm">
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <div className="pointer-events-auto absolute bottom-4 right-5 z-20 w-72 rounded-md border border-white/15 bg-black/75 p-md text-xs text-white backdrop-blur-sm">
+      <div className="mb-xs flex items-center justify-between gap-xs">
         <span className="font-medium text-white/90">HDR Rotation (deg)</span>
         <Button
           type="button"
-          className="h-7 px-2 text-[11px]"
+          className="h-7 px-xs text-sm"
           onClick={resetRotationDeg}
         >
           Reset
         </Button>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-xs">
         {AXES.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2">
-            <span className="w-3 shrink-0 text-white/70">{label}</span>
+          <label key={key} className="flex items-center gap-xs">
+            <span className="w-md shrink-0 text-white/70">{label}</span>
             <input
               type="range"
               min={-180}
@@ -53,7 +53,7 @@ export default function EnvironmentRotationPanel() {
         ))}
       </div>
 
-      <p className="mt-3 break-all rounded bg-white/5 px-2 py-1.5 font-mono text-[10px] leading-relaxed text-white/70">
+      <p className="mt-md break-all rounded bg-white/5 px-xs py-1.5 font-mono text-sm leading-relaxed text-white/70">
         {eulerSnippet}
       </p>
     </div>

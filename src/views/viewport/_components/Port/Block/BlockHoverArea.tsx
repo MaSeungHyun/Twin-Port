@@ -128,15 +128,15 @@ export default function BlockHoverArea({
       >
         <div
           ref={cardRef}
-          className="flex items-center gap-3 rounded-lg border-[2px] bg-[#2a2a2a]/95 py-[23px] pl-[10px] pr-[15.26px] shadow-lg w-[162px] h-[60px] justify-between bg-[#00000080]"
+          className="flex items-center gap-md rounded-lg border-[2px] bg-[#2a2a2a]/95 py-[23px] pl-sm pr-[15.26px] shadow-lg w-[162px] h-[60px] justify-between bg-[#00000080]"
           style={{ visibility: "hidden", borderColor: color }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-xs">
             <span
-              className="size-2 shrink-0 rounded-full w-[14px] h-[14px] aspect-square"
+              className="size-lg shrink-0 rounded-full aspect-square"
               style={{ backgroundColor: color }}
             />
-            <span className="text-sm font-light tracking-wide text-white">
+            <span className="text-sm font-light tracking-wide text-text-primary">
               {block.code}
             </span>
           </div>
@@ -149,11 +149,14 @@ export default function BlockHoverArea({
             />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span
-                className="text-[12px] font-bold leading-none tracking-normal"
+                className="text-md font-bold leading-none tracking-normal"
                 style={{ color }}
               >
                 {occupancy.percent.toString().split(".")[0]}
-                <span className="text-[10px] font-semibold text-white/75">
+                <span
+                  className="text-sm font-semibold text-text-secondary"
+                  style={{ color }}
+                >
                   %
                 </span>
               </span>

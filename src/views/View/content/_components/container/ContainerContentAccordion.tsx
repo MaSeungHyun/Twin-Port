@@ -33,7 +33,7 @@ function PanelSearchBar({
   const isSearching = query.trim() !== deferredQuery.trim();
 
   return (
-    <div className="shrink-0 px-2 pb-2">
+    <div className="shrink-0 px-xs pb-xs">
       <SearchBar
         size="sm"
         value={query}
@@ -52,14 +52,14 @@ function PanelSearchBar({
       />
       <p
         className={cn(
-          "mt-1.5 flex h-4 items-center gap-1 text-[11px]",
+          "mt-1.5 flex h-xl items-center gap-1 text-sm",
           isSearching ? "text-white/50" : "text-transparent",
         )}
         aria-live="polite"
       >
         <Icon
           icon="LoaderCircle"
-          className={cn("size-3 stroke-current", isSearching && "animate-spin")}
+          className={cn("size-md stroke-current", isSearching && "animate-spin")}
         />
         검색 중
       </p>
@@ -92,7 +92,7 @@ export default function ContainerContentAccordion({
         )}
       >
         <Accordion.Header className="flex">
-          <Accordion.Trigger className="shrink-0 px-3 py-2 text-sm">
+          <Accordion.Trigger className="shrink-0 px-md py-xs text-sm">
             Containers
           </Accordion.Trigger>
         </Accordion.Header>

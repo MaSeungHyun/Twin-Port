@@ -76,18 +76,18 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
   return (
     <div className="flex flex-col">
       {selectedContainerId ? (
-        <div className="sticky top-0 z-10 -mx-1 space-y-1.5 bg-background/90 px-1 pb-2 backdrop-blur-sm">
-          <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/15 px-2 py-1.5">
-            <Icon icon="Focus" className="size-3.5 shrink-0 stroke-primary" />
-            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white">
+        <div className="sticky top-0 z-10 -mx-1 space-y-1.5 bg-background/90 px-1 pb-xs backdrop-blur-sm">
+          <div className="flex items-center gap-xs rounded-md border border-primary/30 bg-primary/15 px-xs py-1.5">
+            <Icon icon="Focus" className="size-lg shrink-0 stroke-primary" />
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
               {selectedContainerId}
             </span>
             <Button
               type="button"
               onClick={clearContainerSelection}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-black/30 px-2 py-1 text-[10px] font-semibold text-white hover:bg-white/10"
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-black/30 px-xs py-1 text-sm font-semibold text-white hover:bg-white/10"
             >
-              <Icon icon="CircleX" className="size-3 stroke-white/80" />
+              <Icon icon="CircleX" className="size-md stroke-white/80" />
               Cancel
             </Button>
           </div>
@@ -96,9 +96,9 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
 
       {searching ? (
         results.length === 0 ? (
-          <p className="px-2 py-3 text-xs text-white/45">검색 결과 없음</p>
+          <p className="px-xs py-md text-xs text-white/45">검색 결과 없음</p>
         ) : (
-          <ul className="flex flex-col gap-2 px-1 pb-2">
+          <ul className="flex flex-col gap-xs px-1 pb-xs">
             {shown.map((container) => (
               <li key={container.id}>
                 <ContainerDetailCard
@@ -117,7 +117,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
                 />
               </li>
             ) : shownCount >= SEARCH_MAX_RESULTS ? (
-              <li className="px-2 py-1 text-[11px] text-white/35">
+              <li className="px-xs py-1 text-sm text-white/35">
                 상위 {SEARCH_MAX_RESULTS}개만 표시 — 검색어를 더 입력해 주세요
               </li>
             ) : null}
@@ -132,10 +132,10 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
             return (
               <Accordion.Item key={company} value={company}>
                 <Accordion.Header className="flex">
-                  <Accordion.Trigger className="px-2 py-2.5 text-xs">
-                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <Accordion.Trigger className="px-xs py-sm text-xs">
+                    <span className="flex min-w-0 flex-1 items-center gap-xs">
                       <span
-                        className="size-2 shrink-0 rounded-full"
+                        className="size-xs shrink-0 rounded-full"
                         style={{ backgroundColor: accent }}
                       />
                       <span className="truncate font-semibold">{company}</span>
@@ -160,7 +160,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
                     ))}
                   </ul>
                   {count > MAX_PER_COMPANY_PREVIEW ? (
-                    <p className="px-2 py-1.5 text-[11px] text-white/35">
+                    <p className="px-xs py-1.5 text-sm text-white/35">
                       +{(count - MAX_PER_COMPANY_PREVIEW).toLocaleString()}개 —
                       검색으로 찾기
                     </p>
@@ -202,5 +202,5 @@ function LoadMoreSentinel({
     return () => observer.disconnect();
   }, [onVisible, resetKey]);
 
-  return <div ref={ref} className="h-3" aria-hidden />;
+  return <div ref={ref} className="h-md" aria-hidden />;
 }

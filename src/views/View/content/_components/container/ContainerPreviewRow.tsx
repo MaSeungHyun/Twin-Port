@@ -42,7 +42,7 @@ export default function ContainerPreviewRow({
         }
       }}
       className={cn(
-        "flex cursor-pointer items-center gap-2 border-b border-white/5 px-2.5 py-2 last:border-b-0 hover:bg-primary/15",
+        "flex cursor-pointer items-center gap-xs border-b border-white/5 px-sm py-xs last:border-b-0 hover:bg-primary/15",
         selected && "bg-primary/20",
       )}
     >
@@ -51,7 +51,7 @@ export default function ContainerPreviewRow({
           {container.id}
         </p>
         <p
-          className="mt-0.5 truncate text-[11px] font-semibold"
+          className="mt-0.5 truncate text-sm font-semibold"
           style={{ color: accent }}
         >
           {address}
@@ -65,7 +65,7 @@ export default function ContainerPreviewRow({
           else onTrack();
         }}
         className={cn(
-          "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold text-white",
+          "inline-flex shrink-0 items-center gap-1 rounded-md border px-xs py-1 text-sm font-semibold text-white",
           selected
             ? "border-white/20 bg-white/10 hover:bg-white/20"
             : "border-primary/40 bg-primary/20 hover:bg-primary/35",
@@ -74,7 +74,7 @@ export default function ContainerPreviewRow({
         <Icon
           icon={selected ? "CircleX" : "Focus"}
           className={cn(
-            "size-3",
+            "size-md",
             selected ? "stroke-white/80" : "stroke-primary",
           )}
         />

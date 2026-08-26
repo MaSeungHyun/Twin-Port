@@ -25,8 +25,8 @@ export const TOASTER_TYPE_STYLE: Record<
   }
 > = {
   success: {
-    border: "border-emerald-500/40",
-    iconStyle: "stroke-emerald-400",
+    border: "border-success/40",
+    iconStyle: "stroke-success",
     icon: "CircleCheck",
   },
   info: {
@@ -35,13 +35,13 @@ export const TOASTER_TYPE_STYLE: Record<
     icon: "Info",
   },
   warning: {
-    border: "border-amber-500",
-    iconStyle: "stroke-amber-500",
+    border: "border-warning/40",
+    iconStyle: "stroke-warning",
     icon: "TriangleAlert",
   },
   error: {
-    border: "border-red-500",
-    iconStyle: "stroke-red-400",
+    border: "border-danger/40",
+    iconStyle: "stroke-danger",
     icon: "TriangleAlert",
   },
 };
@@ -56,7 +56,7 @@ function ToastCard({
   return (
     <div
       className={cn(
-        "flex w-64 items-start gap-3 rounded-sm border bg-background/70 px-3 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md",
+        "flex w-64 items-start gap-md rounded-sm border bg-background/70 px-md py-xs shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md",
         border,
       )}
     >

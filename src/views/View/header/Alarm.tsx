@@ -6,10 +6,10 @@ import Button from "@/components/Button";
 import Badge from "@/components/Badge";
 
 const TYPE_ICON_STYLE: Record<ToasterType, string> = {
-  success: "stroke-emerald-400",
+  success: "stroke-success",
   info: "stroke-primary",
-  warning: "stroke-amber-400",
-  error: "stroke-red-400",
+  warning: "stroke-warning",
+  error: "stroke-danger",
 };
 
 function formatAlertDate(iso: string) {
@@ -38,7 +38,7 @@ export default function Alarm() {
         <Button>
           <Icon icon="Bell" className="size-6 stroke-primary" />
           {toastMock.length > 0 ? (
-            <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-red-500" />
+            <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-danger" />
           ) : null}
         </Button>
       </DropdownMenu.Trigger>
@@ -48,16 +48,16 @@ export default function Alarm() {
         align="end"
         className="flex h-120 w-72 min-h-0 flex-col bg-background/80"
       >
-        <DropdownMenu.Label className="shrink-0 text-white flex justify-between">
+        <DropdownMenu.Label className="shrink-0 text-text-primary flex justify-between">
           <div>알림</div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-red-400">
+          <div className="flex items-center gap-xl">
+            <div className="flex items-center gap-xs text-danger">
               <Badge variant="danger" size="sm">
                 위험
               </Badge>
               <span className="text-md font-bold">{dangerCount}</span>
             </div>
-            <div className="flex items-center gap-2 text-amber-400">
+            <div className="flex items-center gap-xs text-warning">
               <Badge variant="warning" size="sm">
                 경고
               </Badge>
@@ -70,7 +70,7 @@ export default function Alarm() {
           {toastMock.length === 0 ? (
             <DropdownMenu.Item
               disabled
-              className="flex flex-col w-full h-full items-center justify-center bg-red-500"
+              className="flex flex-col w-full h-full items-center justify-center text-text-secondary"
             >
               새 알림이 없습니다
             </DropdownMenu.Item>
@@ -78,7 +78,7 @@ export default function Alarm() {
             toastMock.map((item) => (
               <DropdownMenu.Item
                 key={`${item.title}-${item.createdAt}`}
-                className="flex items-start h-12 bg-background/50 border border-neutral-700 gap-4"
+                className="flex items-start h-12 bg-background/50 border border-neutral-700 gap-xl"
               >
                 <div className="flex items-center justify-center h-full">
                   <Icon
@@ -96,7 +96,7 @@ export default function Alarm() {
                         {item.message}
                       </p>
                     ) : null}
-                    <p className="mt-1 text-[10px] text-white/30">
+                    <p className="mt-1 text-sm text-white/30">
                       {formatAlertDate(item.createdAt)}
                     </p>
                   </div>

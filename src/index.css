@@ -20,12 +20,40 @@ body,
   --color-foreground: #0A151D;
   --color-primary: #3575DC;
   --color-danger: #EF2444;
-  --color-warining: #FFB020;
+  --color-warning: #FFB020;
   --color-success: #2ECC71;
-  --color-font-primary: #F5F5F5;
-  --color-font-secondary: #555555;
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #555555;
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  /** 공통 size scale (px) — 8~18, 2px 단위 */
+  --size-xs: 8px;
+  --size-sm: 10px;
+  --size-md: 12px;
+  --size-lg: 14px;
+  --size-xl: 16px;
+  --size-2xl: 18px;
+
+  --text-xs: var(--size-xs);
+  --text-xs--line-height: calc(var(--size-xs) * 1.4);
+  --text-sm: var(--size-sm);
+  --text-sm--line-height: calc(var(--size-sm) * 1.4);
+  --text-md: var(--size-md);
+  --text-md--line-height: calc(var(--size-md) * 1.4);
+  --text-lg: var(--size-lg);
+  --text-lg--line-height: calc(var(--size-lg) * 1.4);
+  --text-xl: var(--size-xl);
+  --text-xl--line-height: calc(var(--size-xl) * 1.4);
+  --text-2xl: var(--size-2xl);
+  --text-2xl--line-height: calc(var(--size-2xl) * 1.4);
+
+  --spacing-xs: var(--size-xs);
+  --spacing-sm: var(--size-sm);
+  --spacing-md: var(--size-md);
+  --spacing-lg: var(--size-lg);
+  --spacing-xl: var(--size-xl);
+  --spacing-2xl: var(--size-2xl);
 }
 
 @keyframes accordion-down {
@@ -59,6 +87,39 @@ body,
 
 .occupancy-rim-pulse {
   animation: occupancy-rim-pulse 2.6s ease-in-out infinite;
+}
+
+.scroll-edge-fade {
+  --scroll-fade-bg: color-mix(in srgb, var(--color-background) 55%, transparent);
+}
+
+.scroll-edge-fade__edge {
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2.75rem;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.scroll-edge-fade__edge[data-visible="true"] {
+  opacity: 1;
+}
+
+.scroll-edge-fade__top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--scroll-fade-bg), transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+}
+
+.scroll-edge-fade__bottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--scroll-fade-bg), transparent);
+  mask-image: linear-gradient(to top, #000, transparent);
 }
 
 /* flex 패널: 열린 Content만 남는 높이를 쓰고 내부 스크롤 (접힘 애니메이션은 유지) */

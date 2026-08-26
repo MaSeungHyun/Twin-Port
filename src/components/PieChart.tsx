@@ -1,3 +1,4 @@
+import { COLORS } from "@/constants/colors";
 import { cn } from "@/utils/style";
 import { useMemo } from "react";
 import { Cell, Pie, PieChart as RechartsPieChart } from "recharts";
@@ -19,7 +20,7 @@ type PieChartProps = {
 export default function PieChart({
   value,
   size = 36,
-  color = "#377cbd",
+  color = COLORS.primary,
   trackColor = "rgba(255,255,255,0.12)",
   innerRatio = 0.65,
   className,

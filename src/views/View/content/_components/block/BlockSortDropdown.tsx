@@ -28,7 +28,7 @@ export default function BlockSortDropdown({
             title="정렬"
             className="rounded p-1 text-white/55 hover:text-white"
           >
-            <Icon icon="ArrowUpDown" className="size-3.5 stroke-current" />
+            <Icon icon="ArrowUpDown" className="size-lg stroke-current" />
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content
@@ -82,8 +82,8 @@ function SortOption({
       onSelect={onSelect}
     >
       {selected ? (
-        <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-          <Icon icon="Check" className="size-3.5 stroke-primary" />
+        <span className="pointer-events-none absolute left-2 flex size-lg items-center justify-center">
+          <Icon icon="Check" className="size-lg stroke-primary" />
         </span>
       ) : null}
       {children}

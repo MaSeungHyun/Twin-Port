@@ -61,9 +61,9 @@ function SubTrigger({
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-white outline-none select-none",
+        "flex cursor-pointer items-center gap-xs rounded-sm px-xs py-1.5 text-sm text-white outline-none select-none",
         "focus:bg-primary/20 data-[state=open]:bg-primary/20",
-        "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+        "[&_svg]:pointer-events-none [&_svg]:size-xl [&_svg]:shrink-0",
         inset && "pl-8",
         className,
       )}
@@ -129,12 +129,12 @@ function Item({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 py-1 rounded-sm px-2 text-sm outline-none select-none",
+        "relative flex cursor-pointer items-center gap-xs py-1 rounded-sm px-xs text-sm outline-none select-none",
         "focus:bg-primary/20 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
-        "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+        "[&_svg]:pointer-events-none [&_svg]:size-xl [&_svg]:shrink-0",
         inset && "pl-8",
         variant === "danger" &&
-          "text-red-400 focus:bg-red-500/15 focus:text-red-300",
+          "text-danger focus:bg-danger/15 focus:text-danger",
         className,
       )}
       {...props}
@@ -152,14 +152,14 @@ function CheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-none select-none",
+        "relative flex cursor-pointer items-center gap-xs rounded-sm py-1.5 pr-xs pl-8 text-sm outline-none select-none",
         "focus:bg-primary/20 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className,
       )}
       checked={checked}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+      <span className="pointer-events-none absolute left-2 flex size-lg items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <span className="size-1.5 rounded-full bg-primary" />
         </DropdownMenuPrimitive.ItemIndicator>
@@ -178,13 +178,13 @@ function RadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-none select-none",
+        "relative flex cursor-pointer items-center gap-xs rounded-sm py-1.5 pr-xs pl-8 text-sm outline-none select-none",
         "focus:bg-primary/20 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className,
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+      <span className="pointer-events-none absolute left-2 flex size-lg items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <span className="size-1.5 rounded-full bg-primary" />
         </DropdownMenuPrimitive.ItemIndicator>
@@ -205,7 +205,7 @@ function Label({
     <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
       className={cn(
-        "px-2 py-1.5 text-xs font-medium text-white/45",
+        "px-xs py-1.5 text-xs font-medium text-white/45",
         inset && "pl-8",
         className,
       )}

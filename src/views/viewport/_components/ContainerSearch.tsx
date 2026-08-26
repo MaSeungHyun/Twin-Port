@@ -59,7 +59,7 @@ export default function ContainerSearch() {
       {showPanel ? (
         <div className="absolute top-full right-0 left-0 z-40 mt-1 overflow-hidden rounded-sm border border-white/10 bg-background/75 shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md">
           {results.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-white/45">검색 결과 없음</p>
+            <p className="px-md py-sm text-xs text-white/45">검색 결과 없음</p>
           ) : (
             <ul className="max-h-72 overflow-y-auto py-1">
               {results.map((container) => {
@@ -77,7 +77,7 @@ export default function ContainerSearch() {
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => selectFromList(container)}
-                      className="w-full border-b border-white/5 px-3 py-2 text-left last:border-b-0 hover:bg-primary/15"
+                      className="w-full border-b border-white/5 px-md py-xs text-left last:border-b-0 hover:bg-primary/15"
                     >
                       <p className="text-sm font-semibold text-white">
                         {container.id}
@@ -85,7 +85,7 @@ export default function ContainerSearch() {
                       <p className="mt-0.5 text-xs text-primary font-semibold">
                         {address}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-white/40">
+                      <p className="mt-0.5 text-sm text-white/40">
                         {container.company} · Bay {slot.bay} · Row {slot.row} ·
                         Tier {slot.tier}
                       </p>

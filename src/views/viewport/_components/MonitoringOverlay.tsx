@@ -1,11 +1,11 @@
 import { useViewportStore } from "@/stores/viewport";
-import OccupancyGrid from "@/views/View/content/_components/block/OccupancyGrid";
+import MonitoringGrid from "@/views/View/content/_components/block/MonitoringGrid";
 import gsap from "gsap";
 import { useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 
 /** 3D Canvas 밖, 화면 위 DOM 그리드. 마운트는 유지하고 표시만 토글 */
-export default function OccupancyOverlay() {
+export default function MonitoringOverlay() {
   const monitorMode = useViewportStore((s) => s.monitorMode);
   const open = monitorMode;
 
@@ -20,7 +20,7 @@ export default function OccupancyOverlay() {
       hidden={!open}
       aria-hidden={!open}
     >
-      <OccupancyGrid />
+      <MonitoringGrid />
     </div>,
     document.body,
   );

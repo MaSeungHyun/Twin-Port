@@ -59,10 +59,10 @@ export default function BlockAccordion({
         return (
           <Accordion.Item key={block.code} value={block.code}>
             <Accordion.Header className="flex">
-              <Accordion.Trigger className="px-2 py-2.5 text-xs">
-                <span className="flex min-w-0 flex-1 items-center gap-2">
+              <Accordion.Trigger className="px-xs py-sm text-xs">
+                <span className="flex min-w-0 flex-1 items-center gap-xs">
                   <span
-                    className="size-2 shrink-0 rounded-full"
+                    className="size-xs shrink-0 rounded-full"
                     style={{ backgroundColor: color }}
                   />
                   <span className="truncate font-semibold tracking-wide">
@@ -74,8 +74,8 @@ export default function BlockAccordion({
                 </span>
               </Accordion.Trigger>
             </Accordion.Header>
-            <Accordion.Content className="px-2">
-              <div className="flex items-center gap-3 rounded-md border border-white/8 bg-black/25 px-2.5 py-2">
+            <Accordion.Content className="px-xs">
+              <div className="flex items-center gap-md rounded-md border border-white/8 bg-black/25 px-sm py-xs">
                 <PieChart value={occupancy.percent} color={color} size={44} />
                 <div className="flex min-w-0 flex-1 flex-col gap-1 text-xs">
                   <Row
@@ -99,7 +99,7 @@ export default function BlockAccordion({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-xs">
       <span className="text-white/45">{label}</span>
       <span className="font-medium text-white tabular-nums">{value}</span>
     </div>

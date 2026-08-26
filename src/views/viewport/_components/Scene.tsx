@@ -1,6 +1,6 @@
 import { Suspense, useMemo, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
-import { Environment, Helper, StatsGl } from "@react-three/drei";
+import { Environment, StatsGl } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import Controls from "./Controls";
 import Models from "./Models";
@@ -31,7 +31,7 @@ import {
   useEnvironmentDebugStore,
 } from "@/stores/environmentDebug";
 
-import { DirectionalLightHelper, SRGBColorSpace, VSMShadowMap } from "three";
+import { SRGBColorSpace, VSMShadowMap } from "three";
 
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 

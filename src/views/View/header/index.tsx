@@ -8,7 +8,7 @@ import Monitoring from "./Monitoring";
 
 export default function Header() {
   return (
-    <div className="relative z-[200] flex w-full min-h-12 items-center justify-between bg-background px-4">
+    <div className="relative z-[200] flex w-full min-h-12 items-center justify-between bg-background px-xl">
       <div className="flex items-center gap-24">
         <img src={title} alt="title" className="h-5" />
         <Status />

@@ -4,6 +4,7 @@ import { CONTAINER_H } from "@/constants/container";
 import { getBlockFootprintCenter } from "@/domain/blockFootprint";
 import {
   computeBlockOccupancies,
+  occupancyColor,
   type BlockOccupancy,
 } from "@/domain/occupancy";
 import { type ThreeEvent } from "@react-three/fiber";
@@ -20,12 +21,6 @@ import {
 } from "three";
 import gsap from "gsap";
 
-const COLOR_MAP = {
-  low: "#22c55e",
-  // low: "#6065da",
-  medium: "#eab308",
-  high: "#ef2444",
-};
 const HEIGHT_SCALE = 5;
 
 const FILL_DELAY = 0.15;
@@ -38,12 +33,6 @@ const LINE_OPACITY = 0.4;
 const LINE_HOVER_OPACITY = 0.9;
 const FILL_OPACITY = 0.8;
 const FILL_HOVER_OPACITY = 1;
-
-function occupancyColor(ratio: number): string {
-  if (ratio < 0.6) return COLOR_MAP.low;
-  if (ratio < 0.8) return COLOR_MAP.medium;
-  return COLOR_MAP.high;
-}
 
 function BlockOccupancyBar({
   occupancy,

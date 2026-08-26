@@ -9,8 +9,8 @@ type SearchBarProps = Omit<ComponentProps<"input">, "size" | "type"> & {
 };
 
 const ICON_SIZE = {
-  sm: "size-3.5",
-  md: "size-4",
+  sm: "size-lg",
+  md: "size-xl",
   lg: "size-5",
 } as const;
 
