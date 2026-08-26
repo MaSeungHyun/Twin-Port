@@ -7,7 +7,7 @@ function App() {
   return (
     <main className="relative flex h-full w-full flex-col overflow-hidden bg-neutral-700">
       <ViewLoader />
-      {/* <Header /> */}
+      <Header />
       <Viewport />
       <OccupancyOverlay />
     </main>

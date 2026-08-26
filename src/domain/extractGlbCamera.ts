@@ -1,8 +1,17 @@
-import { type Camera, type Object3D, PerspectiveCamera, Vector3 } from "three";
+import {
+  type Camera,
+  type Object3D,
+  PerspectiveCamera,
+  Quaternion,
+  Vector3,
+} from "three";
 
 export type GlbViewCamera = {
   position: Vector3;
+  /** OrbitControls pivot — camera_target world 위치 */
   target: Vector3;
+  /** Blender CAMERA world rotation (lookAt보다 정확) */
+  quaternion: Quaternion;
   fov?: number;
   near?: number;
   far?: number;
@@ -38,7 +47,10 @@ export function extractGlbViewCamera(root: Object3D): GlbViewCamera | null {
     found.target.getWorldPosition(target);
   }
 
-  const view: GlbViewCamera = { position, target };
+  const quaternion = new Quaternion();
+  cameraObject.getWorldQuaternion(quaternion);
+
+  const view: GlbViewCamera = { position, target, quaternion };
   if (cameraObject instanceof PerspectiveCamera) {
     view.fov = cameraObject.fov;
     view.near = cameraObject.near;
@@ -61,7 +73,7 @@ export function applyGlbViewCamera(
     // camera.aspect = 1920 / 1080;
     camera.updateProjectionMatrix();
   }
-  camera.lookAt(view.target);
+  camera.quaternion.copy(view.quaternion);
   camera.updateMatrixWorld();
 
   if (controls) {

@@ -1,23 +1,43 @@
-import { Euler, Quaternion, Vector3 } from "three";
+import { Euler, MathUtils, Quaternion, Vector3 } from "three";
 
-/** BUSAN.glb CAMERA — Ground yaw(π/2) 반영. 런타임에 GLB에서 다시 적용 */
+/** BUSAN.glb CAMERA world — GLB 로드 전 Canvas 초기값 */
 export const INITIAL_CAMERA_POSITION = new Vector3(11.829, 32.038, 42.3);
-export const INITIAL_CAMERA_ROTATION = new Euler(-36.53, 14.47, 10.49);
 export const INITIAL_CAMERA_TARGET = new Vector3(0, 0, 0);
 
+/** Blender CAMERA world quaternion (lookAt(0,0,0)과 ~2° 차이) */
 export const INITIAL_CAMERA_QUATERNION = new Quaternion(
-  0.457,
-  0.122,
-  0.227,
-  0.852,
+  -0.2987,
+  0.1475,
+  0.0468,
+  0.9417,
 );
 
-/** BUSAN CAMERA yfov (deg). near/far도 GLB 값 */
-export const INITIAL_CAMERA_FOV = 50;
+/**
+ * Blender FOV 표시 = horizontal(deg).
+ * Three.js PerspectiveCamera.fov = vertical(deg).
+ * 39.6° @ 16:9 ≈ 22.9° vertical — GLB yfov와 동일.
+ */
+export const BLENDER_CAMERA_FOV_HORIZONTAL = 39.6;
+
+export function horizontalFovToVertical(
+  horizontalDeg: number,
+  aspect = 16 / 9,
+): number {
+  return MathUtils.radToDeg(
+    2 * Math.atan(Math.tan(MathUtils.degToRad(horizontalDeg) / 2) / aspect),
+  );
+}
+
+export const INITIAL_CAMERA_FOV = horizontalFovToVertical(
+  BLENDER_CAMERA_FOV_HORIZONTAL,
+);
+
+/** @deprecated OrbitControls/quaternion 사용. degree 값을 radian Euler로 넣으면 안 맞음 */
+export const INITIAL_CAMERA_ROTATION = new Euler(-36.53, 14.47, 10.49);
+
 export const INITIAL_CAMERA_NEAR = 0.1;
 export const INITIAL_CAMERA_FAR = 1000;
 
-/** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
 export const OCCUPANCY_CAMERA_POSITION = new Vector3(0, 26, -1);
 

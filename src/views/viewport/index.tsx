@@ -36,7 +36,7 @@ export default function Viewport() {
         className="pointer-events-none absolute inset-0 z-1 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.2)_0%,rgba(0,0,0,0.88)_72%)]"
         aria-hidden
       />
-      {/* <ContentsLayer /> */}
+      <ContentsLayer />
       <OccupancyRim />
       <Toaster />
       <ToasterTestTrigger />

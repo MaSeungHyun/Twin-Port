@@ -1,14 +1,12 @@
 import { Suspense, useMemo, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
 import { Environment, StatsGl } from "@react-three/drei";
-
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-
 import Controls from "./Controls";
 import Models from "./Models";
 import SunLight from "./SunLight";
 import OccupancyTransition from "./OccupancyTransition";
-
+import PostProcessing from "./PostProcessing";
 import skybox from "@/assets/image/port_hdr.hdr";
 
 import {
@@ -17,20 +15,24 @@ import {
   TONE_MAPPING,
   TONE_MAPPING_EXPOSURE,
 } from "@/constants/environment";
+
 import {
   INITIAL_CAMERA_FAR,
   INITIAL_CAMERA_FOV,
   INITIAL_CAMERA_NEAR,
   INITIAL_CAMERA_POSITION,
-  INITIAL_CAMERA_ROTATION,
+  INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
 
 import { useViewportStore } from "@/stores/viewport";
+
 import {
   environmentRotationRad,
   useEnvironmentDebugStore,
 } from "@/stores/environmentDebug";
+
 import { SRGBColorSpace, VSMShadowMap } from "three";
+
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 
 export default function Scene() {
@@ -64,8 +66,7 @@ export default function Scene() {
         frameloop={pauseRender ? "never" : "always"}
         camera={{
           position: INITIAL_CAMERA_POSITION,
-          rotation: INITIAL_CAMERA_ROTATION,
-          // quaternion: INITIAL_CAMERA_QUATERNION,
+          quaternion: INITIAL_CAMERA_QUATERNION,
           fov: INITIAL_CAMERA_FOV,
           near: INITIAL_CAMERA_NEAR,
           far: INITIAL_CAMERA_FAR,
@@ -87,12 +88,10 @@ export default function Scene() {
           <OccupancyTransition />
           <Controls controlsRef={controlsRef} />
           {/* <CameraFlight controlsRef={controlsRef} /> */}
-
           {/* <ambientLight color={0xacaccc} intensity={0.2} /> */}
           <SunLight />
           {/* <Water /> */}
           <Models />
-
           {/* 월드 확인용 원점 축: X=빨강, Y=초록, Z=파랑 */}
           {/* <axesHelper args={[100]} /> */}
           {/* <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
@@ -102,6 +101,7 @@ export default function Scene() {
           />
         </GizmoHelper> */}
         </Suspense>
+        <PostProcessing />
         {import.meta.env.DEV && <StatsGl className="absolute top-16 right-2" />}
       </R3FCanvas>
     </div>
