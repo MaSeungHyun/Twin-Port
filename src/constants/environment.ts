@@ -50,9 +50,3 @@ export const ENVIRONMENT_ROTATION = new Euler(-3.0543, Math.PI, -Math.PI);
 // export const ENVIRONMENT_ROTATION = new Euler(-3.002, -3.1067, 2.8274);
 // export const ENVIRONMENT_ROTATION = new Euler(-2.9147, -Math.PI, 2.8274);
 export const BACKGROUND_ROTATION = ENVIRONMENT_ROTATION;
-
-/** Bloom — SunGlow 등 밝은 영역 번짐 */
-export const BLOOM_INTENSITY = 0.15;
-export const BLOOM_LUMINANCE_THRESHOLD = 0.82;
-export const BLOOM_LUMINANCE_SMOOTHING = 0.35;
-export const BLOOM_MIPMAP_BLUR = true;

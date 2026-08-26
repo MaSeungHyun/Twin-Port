@@ -6,7 +6,7 @@ import Controls from "./Controls";
 import Models from "./Models";
 import SunLight from "./SunLight";
 import OccupancyTransition from "./OccupancyTransition";
-import PostProcessing from "./PostProcessing";
+
 import skybox from "@/assets/image/port_hdr.hdr";
 
 import {
@@ -92,16 +92,8 @@ export default function Scene() {
           <SunLight />
           {/* <Water /> */}
           <Models />
-          {/* 월드 확인용 원점 축: X=빨강, Y=초록, Z=파랑 */}
-          {/* <axesHelper args={[100]} /> */}
-          {/* <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
-          <GizmoViewport
-            axisColors={["#ef4444", "#22c55e", "#3b82f6"]}
-            labelColor="white"
-          />
-        </GizmoHelper> */}
         </Suspense>
-        <PostProcessing />
+
         {import.meta.env.DEV && <StatsGl className="absolute top-16 right-2" />}
       </R3FCanvas>
     </div>
