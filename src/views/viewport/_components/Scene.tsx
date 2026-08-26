@@ -30,7 +30,7 @@ import {
   environmentRotationRad,
   useEnvironmentDebugStore,
 } from "@/stores/environmentDebug";
-import { SRGBColorSpace } from "three";
+import { SRGBColorSpace, VSMShadowMap } from "three";
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 import SpotlightGlow from "./SpotlightGlow";
 
@@ -54,7 +54,7 @@ export default function Scene() {
           overflow: "hidden",
           backgroundColor: "#000",
         }}
-        shadows={{ enabled: true }}
+        shadows={{ type: VSMShadowMap }}
         gl={{
           antialias: true,
           alpha: true,
