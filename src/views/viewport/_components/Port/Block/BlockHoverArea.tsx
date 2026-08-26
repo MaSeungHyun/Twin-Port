@@ -128,21 +128,37 @@ export default function BlockHoverArea({
       >
         <div
           ref={cardRef}
-          className="flex min-w-32 flex-col items-center gap-1 rounded-md bg-black/75 text-white py-0.5 border border-background"
-          style={{ visibility: "hidden" }}
+          className="flex items-center gap-3 rounded-lg border-[2px] bg-[#2a2a2a]/95 py-[23px] pl-[10px] pr-[15.26px] shadow-lg w-[162px] h-[60px] justify-between bg-[#00000080]"
+          style={{ visibility: "hidden", borderColor: color }}
         >
-          <span className="text-base font-semibold tracking-wide">
-            {block.code}
-          </span>
-          <div className="flex items-center">
-            <PieChart value={occupancy.percent} color={color} size={42} />
+          <div className="flex items-center gap-2">
+            <span
+              className="size-2 shrink-0 rounded-full w-[14px] h-[14px] aspect-square"
+              style={{ backgroundColor: color }}
+            />
+            <span className="text-sm font-light tracking-wide text-white">
+              {block.code}
+            </span>
           </div>
-          <span className="text-base font-bold" style={{ color }}>
-            {occupancy.percent}%
-          </span>
-          <span className="text-sm text-white/80">
-            {occupancy.occupied} / {occupancy.capacity}
-          </span>
+          <div className="relative shrink-0">
+            <PieChart
+              value={occupancy.percent}
+              color={color}
+              size={46}
+              trackColor="rgba(255,255,255,0.1)"
+            />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span
+                className="text-[12px] font-bold leading-none tracking-normal"
+                style={{ color }}
+              >
+                {occupancy.percent.toString().split(".")[0]}
+                <span className="text-[10px] font-semibold text-white/75">
+                  %
+                </span>
+              </span>
+            </div>
+          </div>
         </div>
       </Html>
     </group>

@@ -1,6 +1,6 @@
 import { Suspense, useMemo, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
-import { Environment, StatsGl } from "@react-three/drei";
+import { Environment, Helper, StatsGl } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import Controls from "./Controls";
 import Models from "./Models";
@@ -31,7 +31,7 @@ import {
   useEnvironmentDebugStore,
 } from "@/stores/environmentDebug";
 
-import { SRGBColorSpace, VSMShadowMap } from "three";
+import { DirectionalLightHelper, SRGBColorSpace, VSMShadowMap } from "three";
 
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 
@@ -90,6 +90,14 @@ export default function Scene() {
           {/* <CameraFlight controlsRef={controlsRef} /> */}
           {/* <ambientLight color={0xacaccc} intensity={0.2} /> */}
           <SunLight />
+          {/* <directionalLight
+            color={0xffffff}
+            intensity={1}
+            position={[0, 5, -0]}
+            castShadow
+          >
+            <Helper type={DirectionalLightHelper} args={[3]} />
+          </directionalLight> */}
           {/* <Water /> */}
           <Models />
         </Suspense>

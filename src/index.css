@@ -16,9 +16,14 @@ body,
 }
 
 @theme {
-  --color-background: #060d13;
-  --color-foreground: #0a151d;
-  --color-primary: #377cbd;
+  --color-background: #060D13;
+  --color-foreground: #0A151D;
+  --color-primary: #3575DC;
+  --color-danger: #EF2444;
+  --color-warining: #FFB020;
+  --color-success: #2ECC71;
+  --color-font-primary: #F5F5F5;
+  --color-font-secondary: #555555;
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
 }
