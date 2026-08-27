@@ -21,6 +21,7 @@ import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
 import { getOccupancySurfaceMaterial } from "@/domain/occupancyLook/occupancySurfaceMaterial";
 import { warmupOccupancyPrograms } from "@/domain/occupancyLook/warmupOccupancyPrograms";
 import {
+  applyGroundPointerFilter,
   collectQuayHoverTargets,
   findQuayCraneRoot,
   getPortHover,
@@ -130,6 +131,7 @@ function attachOccupancyClones(
     clone.quaternion.copy(mesh.quaternion);
     clone.scale.copy(mesh.scale);
     if (!mesh.matrixAutoUpdate) clone.matrix.copy(mesh.matrix);
+    clone.raycast = () => null;
     mesh.parent?.add(clone);
     clones.push(clone);
   }
@@ -185,6 +187,7 @@ export default function Ground({
     enableGlbShadows(cloned);
     enableGroundAlpha(cloned);
     enableGroundWaveResponse(cloned);
+    applyGroundPointerFilter(cloned);
     return cloned;
   }, [scene]);
 

@@ -163,3 +163,13 @@ export function quayTargetMatches(target: QuayHoverTarget, hoverId: string) {
   const uuid = hoverId.slice(0, colon);
   return uuid === target.rootId || uuid === target.source.uuid;
 }
+
+/** Ground deck 등은 통과시키고 quay crane만 포인터 hit (Block hover raycast 복구) */
+export function applyGroundPointerFilter(model: Object3D) {
+  model.traverse((child) => {
+    if (!(child instanceof Mesh)) return;
+    if (child.name.endsWith("-occupancy") || !findQuayCraneRoot(child)) {
+      child.raycast = () => null;
+    }
+  });
+}

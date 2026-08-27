@@ -11,7 +11,6 @@ import { useYardStore } from "@/stores/yard";
 import { Html } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { type MeshBasicMaterial } from "three";
 import { occupancyColor } from "./constants";
 
 /** BlockOccupancyView HEIGHT_SCALE와 맞춤 — occupancy 그래프 위로 카드 띄움 */
@@ -34,7 +33,6 @@ export default function BlockHoverArea({
   tracked?: boolean;
 }) {
   const deckY = useYardStore((s) => s.deckY);
-  const materialRef = useRef<MeshBasicMaterial>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const hoveredRef = useRef(false);
   const center = getBlockFootprintCenter(block);
@@ -45,14 +43,10 @@ export default function BlockHoverArea({
     const fromStore =
       useOccupancyStore.getState().hoveredBlockCode === block.code;
     const show = statusVisible || tracked || hoveredRef.current || fromStore;
-    const material = materialRef.current;
-    if (material) {
-      material.opacity = hitEnabled && hoveredRef.current ? 0.5 : 0;
-    }
     if (cardRef.current) {
       cardRef.current.style.visibility = show ? "visible" : "hidden";
     }
-  }, [block.code, statusVisible, tracked, hitEnabled]);
+  }, [block.code, statusVisible, tracked]);
 
   useLayoutEffect(() => {
     applyVisual();
@@ -105,7 +99,6 @@ export default function BlockHoverArea({
       >
         <boxGeometry args={[width, hitHeight, depth]} />
         <meshBasicMaterial
-          ref={materialRef}
           color={color}
           transparent
           opacity={0}
@@ -128,7 +121,7 @@ export default function BlockHoverArea({
       >
         <div
           ref={cardRef}
-          className="flex items-center gap-md rounded-lg border-[2px] bg-[#2a2a2a]/95 py-[23px] pl-sm pr-[15.26px] shadow-lg w-[162px] h-[60px] justify-between bg-[#00000080]"
+          className="flex h-[60px] w-[162px] items-center justify-between gap-md rounded-lg border-2 py-[23px] pl-sm pr-[15.26px] shadow-lg bg-[#00000080]"
           style={{ visibility: "hidden", borderColor: color }}
         >
           <div className="flex items-center gap-xs">

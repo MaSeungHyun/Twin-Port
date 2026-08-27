@@ -241,6 +241,7 @@ export default function ContainerYard({
             renderOrder={10}
             castShadow
             receiveShadow
+            raycast={() => null}
           />
         ))}
         {CONTAINER_COLORS.map((c) => (
@@ -281,6 +282,7 @@ export default function ContainerYard({
           renderOrder={10}
           castShadow
           receiveShadow
+          raycast={() => null}
         />
       ))}
     </group>

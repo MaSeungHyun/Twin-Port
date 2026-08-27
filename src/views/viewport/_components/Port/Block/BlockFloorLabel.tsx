@@ -85,6 +85,7 @@ export default function BlockFloorLabel({
     >
       <Text
         ref={textRef}
+        raycast={() => null}
         fontSize={fontSize}
         letterSpacing={0.04}
         color="#f8fafc"

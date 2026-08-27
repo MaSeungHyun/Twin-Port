@@ -7,6 +7,10 @@ import Models from "./Models";
 import SunLight from "./SunLight";
 import OccupancyTransition from "./OccupancyTransition";
 
+// 모니터링 모드일 때, Scene의 렌더링을 멈추고 싶을 때 적용
+// 성능 향상이나 현재 60fps로 잘 나오므로 우선 제거
+// import MonitorFrameLoopGate from "./MonitorFrameLoopGate";
+
 import skybox from "@/assets/image/port_hdr.hdr";
 
 import {
@@ -23,8 +27,6 @@ import {
   INITIAL_CAMERA_POSITION,
   INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
-
-import { useViewportStore } from "@/stores/viewport";
 
 import {
   environmentRotationRad,
@@ -45,8 +47,6 @@ const initialCamera = {
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const monitorMode = useViewportStore((s) => s.monitorMode);
-  const pauseRender = monitorMode;
   const rotationDeg = useEnvironmentDebugStore((s) => s.rotationDeg);
   const environmentRotation = useMemo(
     () => environmentRotationRad(rotationDeg),
@@ -71,9 +71,10 @@ function Scene() {
           toneMappingExposure: TONE_MAPPING_EXPOSURE,
           outputColorSpace: SRGBColorSpace,
         }}
-        frameloop={pauseRender ? "never" : "always"}
+        frameloop="always"
         camera={initialCamera}
       >
+        {/* <MonitorFrameLoopGate /> */}
         {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}
         {/* <fogExp2 attach="fog" args={["#000000", OCCUPANCY_TRANSITION.fogFrom]} /> */}
         <Suspense fallback={null}>
