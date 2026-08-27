@@ -14,6 +14,9 @@ type ViewportState = {
   focusNonce: number;
   selectContainer: (id: string) => void;
   clearContainerSelection: () => void;
+  /** 헤더 DANGEROUS — 위험 블록 BlockHoverArea 카드 전체 표시 */
+  showDangerousBlockCards: boolean;
+  toggleShowDangerousBlockCards: () => void;
 };
 
 export const useViewportStore = create<ViewportState>((set) => ({
@@ -38,4 +41,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
     }));
   },
   clearContainerSelection: () => set({ selectedContainerId: null }),
+  showDangerousBlockCards: false,
+  toggleShowDangerousBlockCards: () =>
+    set((state) => ({ showDangerousBlockCards: !state.showDangerousBlockCards })),
 }));

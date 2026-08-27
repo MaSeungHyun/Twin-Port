@@ -1,21 +1,28 @@
-import Toaster from "@/components/Toaster";
 import ToasterTestTrigger from "@/components/Toaster/ToasterTestTrigger";
 import { occupancyDimRef } from "@/constants/occupancyTransition";
 import { useOccupancyStore } from "@/stores/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
 import ContentsLayer from "./_components/ContentsLayer";
 import Scene from "./_components/Scene";
 
-function OccupancyRim() {
+/** dangerous/occupancy 상태 구독을 이 레이어에만 두어 Scene(Canvas) 리렌더를 피함 */
+function ViewportChrome() {
   const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
+  const showDangerousBlockCards = useViewportStore(
+    (s) => s.showDangerousBlockCards,
+  );
+
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-0 z-10 bg-transparent",
-        occupancyMode && "occupancy-rim-pulse",
+        "pointer-events-none absolute inset-0 z-10 border border-primary/80 bg-transparent",
+        showDangerousBlockCards && "border-danger/80",
+        showDangerousBlockCards && "dangerous-rim-pulse",
+        occupancyMode && !showDangerousBlockCards && "occupancy-rim-pulse",
       )}
       style={
-        occupancyMode
+        occupancyMode || showDangerousBlockCards
           ? undefined
           : { boxShadow: "inset 0 0 50px rgba(0,0,0,0.9)" }
       }
@@ -25,7 +32,7 @@ function OccupancyRim() {
 
 export default function Viewport() {
   return (
-    <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden border border-primary/80">
+    <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden">
       <div className="absolute inset-0 z-0">
         <Scene />
       </div>
@@ -37,8 +44,7 @@ export default function Viewport() {
         aria-hidden
       />
       <ContentsLayer />
-      <OccupancyRim />
-      <Toaster />
+      <ViewportChrome />
       <ToasterTestTrigger />
     </div>
   );

@@ -48,7 +48,7 @@ export default function BlockContentAccordion({
         )}
       >
         <Accordion.Header className="flex shrink-0 items-center gap-1 px-xs">
-          <Accordion.Trigger hideIcon className="px-1 py-xs text-sm">
+          <Accordion.Trigger hideIcon className="px-1 py-xs text-lg">
             <span className="flex-1 text-left">Blocks</span>
           </Accordion.Trigger>
           <BlockSortDropdown

@@ -55,10 +55,20 @@ const DANGEROUS_RATIO = 0.8;
 
 export { DANGEROUS_RATIO };
 
+export type OccupancyLevel = "safe" | "warning" | "danger";
+
+const WARNING_RATIO = 0.6;
+
+export function occupancyLevel(ratio: number): OccupancyLevel {
+  if (ratio < WARNING_RATIO) return "safe";
+  if (ratio < DANGEROUS_RATIO) return "warning";
+  return "danger";
+}
+
 /** 점유율 구간별 표시 색 (바닥 마크·패널 공통) */
 export function occupancyColor(ratio: number): string {
-  if (ratio < 0.6) return COLORS.success;
-  if (ratio < 0.8) return COLORS.warning;
+  if (ratio < WARNING_RATIO) return COLORS.success;
+  if (ratio < DANGEROUS_RATIO) return COLORS.warning;
   return COLORS.danger;
 }
 

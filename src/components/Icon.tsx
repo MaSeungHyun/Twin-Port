@@ -16,6 +16,6 @@ export default function Icon({
   const LucideIcon = icons[icon as keyof typeof icons];
 
   return (
-    <LucideIcon className={cn("size-6 stroke-white", className)} {...props} />
+    <LucideIcon className={cn("size-7 stroke-white", className)} {...props} />
   );
 }

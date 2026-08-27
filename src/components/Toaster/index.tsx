@@ -3,6 +3,11 @@ import Icon from "@/components/Icon";
 import { cn } from "@/utils/style";
 import type { icons } from "lucide-react";
 import { Toaster as SonnerToaster, toast } from "sonner";
+import { createPortal } from "react-dom";
+
+/** 헤더 min-h-20(80px) 아래 — MonitoringOverlay(z-150) 위 */
+const TOASTER_Z_INDEX = 160;
+const TOASTER_TOP_OFFSET_PX = 90;
 
 export type ToasterType = "success" | "info" | "warning" | "error";
 
@@ -49,6 +54,7 @@ export const TOASTER_TYPE_STYLE: Record<
 function ToastCard({
   title,
   message,
+  toastId,
   border,
   iconStyle,
   icon,
@@ -56,22 +62,31 @@ function ToastCard({
   return (
     <div
       className={cn(
-        "flex w-64 items-start gap-md rounded-sm border bg-background/70 px-md py-xs shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md",
+        "flex w-76 items-stretch gap-md rounded-sm border bg-background/70 py-xs pl-md pr-xs shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md",
         border,
       )}
     >
-      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-sm">
-        <Icon icon={icon} className={cn("size-6", iconStyle)} />
+      <div className="flex w-8 shrink-0 items-center justify-center">
+        <Icon icon={icon} className={cn("size-8", iconStyle)} />
       </div>
 
-      <div className="min-w-0 flex-1 select-none">
-        <p className="text-xs font-semibold tracking-wide text-white">
+      <div className="min-w-0 flex-1 select-none py-0.5">
+        <p className="text-xl font-semibold tracking-wide text-white">
           {title}
         </p>
         {message ? (
-          <p className="mt-0.5 text-xs text-neutral-400">{message}</p>
+          <p className="mt-0.5 text-lg text-neutral-400">{message}</p>
         ) : null}
       </div>
+
+      <button
+        type="button"
+        aria-label="알림 닫기"
+        onClick={() => toast.dismiss(toastId)}
+        className="flex shrink-0 items-center justify-center self-stretch rounded-sm px-xs text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+      >
+        <Icon icon="X" className="size-lg stroke-current" />
+      </button>
     </div>
   );
 }
@@ -110,7 +125,7 @@ function show(
     ),
     {
       id: options.id,
-      duration: options.duration ?? 10_000,
+      duration: options.duration ?? Number.POSITIVE_INFINITY,
     },
   );
 }
@@ -128,23 +143,25 @@ export const toaster = {
   dismiss: (id?: string | number) => toast.dismiss(id),
 };
 
-/** Viewport 등 트리에 한 번 마운트 */
+/** App 등 트리에 한 번 마운트 — body portal로 overlay 위에 표시 */
 export default function Toaster() {
-  return (
+  return createPortal(
     <SonnerToaster
       position="top-right"
       theme="dark"
       gap={10}
-      offset={8}
-      visibleToasts={2}
-      className="absolute!"
-      style={{ position: "absolute", zIndex: 40 }}
+      offset={{ top: TOASTER_TOP_OFFSET_PX, right: 8 }}
+      visibleToasts={10}
+      className="pointer-events-none"
+      style={{ position: "fixed", zIndex: TOASTER_Z_INDEX }}
       toastOptions={{
         unstyled: true,
+        duration: Number.POSITIVE_INFINITY,
         classNames: {
-          toast: "w-auto",
+          toast: "pointer-events-auto w-auto",
         },
       }}
-    />
+    />,
+    document.body,
   );
 }

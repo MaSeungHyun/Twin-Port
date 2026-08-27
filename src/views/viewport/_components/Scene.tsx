@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef } from "react";
+import { memo, Suspense, useMemo, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
 import { Environment, StatsGl } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -35,7 +35,15 @@ import { SRGBColorSpace, VSMShadowMap } from "three";
 
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 
-export default function Scene() {
+const initialCamera = {
+  position: INITIAL_CAMERA_POSITION,
+  quaternion: INITIAL_CAMERA_QUATERNION,
+  fov: INITIAL_CAMERA_FOV,
+  near: INITIAL_CAMERA_NEAR,
+  far: INITIAL_CAMERA_FAR,
+} as const;
+
+function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const monitorMode = useViewportStore((s) => s.monitorMode);
   const pauseRender = monitorMode;
@@ -64,13 +72,7 @@ export default function Scene() {
           outputColorSpace: SRGBColorSpace,
         }}
         frameloop={pauseRender ? "never" : "always"}
-        camera={{
-          position: INITIAL_CAMERA_POSITION,
-          quaternion: INITIAL_CAMERA_QUATERNION,
-          fov: INITIAL_CAMERA_FOV,
-          near: INITIAL_CAMERA_NEAR,
-          far: INITIAL_CAMERA_FAR,
-        }}
+        camera={initialCamera}
       >
         {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}
         {/* <fogExp2 attach="fog" args={["#000000", OCCUPANCY_TRANSITION.fogFrom]} /> */}
@@ -102,8 +104,10 @@ export default function Scene() {
           <Models />
         </Suspense>
 
-        {import.meta.env.DEV && <StatsGl className="absolute top-16 right-2" />}
+        {import.meta.env.DEV && <StatsGl className="absolute top-24 right-4" />}
       </R3FCanvas>
     </div>
   );
 }
+
+export default memo(Scene);

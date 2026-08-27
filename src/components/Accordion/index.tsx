@@ -55,7 +55,7 @@ function Trigger({
     <AccordionPrimitive.Trigger
       data-slot="accordion-trigger"
       className={cn(
-        "group flex flex-1 cursor-pointer items-center justify-between gap-xs py-md text-left text-sm font-medium text-white outline-none transition-colors",
+        "group flex flex-1 cursor-pointer items-center justify-between gap-xs py-md text-left text-lg font-medium text-white outline-none transition-colors px-lg",
         "hover:text-white/90 focus-visible:ring-2 focus-visible:ring-primary/40",
         "disabled:cursor-not-allowed disabled:opacity-40",
         className,
@@ -82,7 +82,7 @@ function Content({
     <AccordionPrimitive.Content
       data-slot="accordion-content"
       className={cn(
-        "overflow-hidden text-sm text-white/80",
+        "overflow-hidden text-lg text-white/80 px-lg",
         "data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down",
         className,
       )}

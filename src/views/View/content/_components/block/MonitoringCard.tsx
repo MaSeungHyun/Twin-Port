@@ -74,9 +74,9 @@ export default function MonitoringCard({
         </div>
       </div>
 
-      <div className="flex w-full items-center justify-center mt-xl">
-        <span className="text-sm text-text-primary">{occupancy.occupied}</span>
-        <span className="text-xs text-text-secondary">
+      <div className="flex w-full items-center justify-center mt-xl gap-1">
+        <span className="text-lg text-text-primary">{occupancy.occupied}</span>
+        <span className="text-md text-text-secondary">
           / {occupancy.capacity}
         </span>
       </div>

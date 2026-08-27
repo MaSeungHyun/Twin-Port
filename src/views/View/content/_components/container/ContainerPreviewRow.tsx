@@ -47,11 +47,11 @@ export default function ContainerPreviewRow({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold text-white">
+        <p className="truncate text-lg font-semibold text-white">
           {container.id}
         </p>
         <p
-          className="mt-0.5 truncate text-sm font-semibold"
+          className="mt-0.5 truncate text-lg font-semibold"
           style={{ color: accent }}
         >
           {address}
@@ -65,7 +65,7 @@ export default function ContainerPreviewRow({
           else onTrack();
         }}
         className={cn(
-          "inline-flex shrink-0 items-center gap-1 rounded-md border px-xs py-1 text-sm font-semibold text-white",
+          "inline-flex shrink-0 items-center gap-1 rounded-md border px-xs py-1 text-lg font-semibold text-white",
           selected
             ? "border-white/20 bg-white/10 hover:bg-white/20"
             : "border-primary/40 bg-primary/20 hover:bg-primary/35",

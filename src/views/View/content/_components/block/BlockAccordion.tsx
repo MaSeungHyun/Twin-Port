@@ -1,9 +1,8 @@
 import { Accordion } from "@/components/Accordion";
-import PieChart from "@/components/PieChart";
 import { getBlockSlotGrid } from "@/constants/block";
 import { computeBlockOccupancies, occupancyColor } from "@/domain/occupancy";
 import { useYardStore } from "@/stores/yard";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 export type BlockSortBy = "name" | "occupancy";
 export type BlockSortOrder = "desc" | "asc";
@@ -59,7 +58,7 @@ export default function BlockAccordion({
         return (
           <Accordion.Item key={block.code} value={block.code}>
             <Accordion.Header className="flex">
-              <Accordion.Trigger className="px-xs py-sm text-xs">
+              <Accordion.Trigger className="px-xs py-sm text-lg">
                 <span className="flex min-w-0 flex-1 items-center gap-xs">
                   <span
                     className="size-xs shrink-0 rounded-full"
@@ -74,13 +73,21 @@ export default function BlockAccordion({
                 </span>
               </Accordion.Trigger>
             </Accordion.Header>
-            <Accordion.Content className="px-xs">
+            <Accordion.Content className="px-none">
               <div className="flex items-center gap-md rounded-md border border-white/8 bg-black/25 px-sm py-xs">
-                <PieChart value={occupancy.percent} color={color} size={44} />
-                <div className="flex min-w-0 flex-1 flex-col gap-1 text-xs">
+                {/* <PieChart value={occupancy.percent} color={color} size={44} /> */}
+                <div className="flex min-w-0 flex-1 flex-col gap-1 text-lg">
                   <Row
                     label="적재"
-                    value={`${occupancy.occupied} / ${occupancy.capacity}`}
+                    value={
+                      <>
+                        {occupancy.occupied}
+                        <span className="text-md font-medium text-text-secondary">
+                          {" / "}
+                          {occupancy.capacity}
+                        </span>
+                      </>
+                    }
                   />
                   <Row label="공슬롯" value={String(empty)} />
                   <Row
@@ -97,11 +104,13 @@ export default function BlockAccordion({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-xs">
-      <span className="text-white/45">{label}</span>
-      <span className="font-medium text-white tabular-nums">{value}</span>
+      <span className="text-white/45 flex-1">{label}</span>
+      <span className="font-medium text-white tabular-nums flex-2">
+        {value}
+      </span>
     </div>
   );
 }

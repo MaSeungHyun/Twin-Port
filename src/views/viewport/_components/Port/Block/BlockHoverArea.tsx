@@ -136,7 +136,7 @@ export default function BlockHoverArea({
               className="size-lg shrink-0 rounded-full aspect-square"
               style={{ backgroundColor: color }}
             />
-            <span className="text-sm font-light tracking-wide text-text-primary">
+            <span className="text-xl font-light tracking-wide text-text-primary">
               {block.code}
             </span>
           </div>

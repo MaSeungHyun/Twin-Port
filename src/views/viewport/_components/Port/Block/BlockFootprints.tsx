@@ -3,6 +3,7 @@ import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import {
   computeBlockOccupancies,
+  DANGEROUS_RATIO,
   type BlockOccupancy,
 } from "@/domain/occupancy";
 import { useMemo } from "react";
@@ -32,6 +33,9 @@ export default function BlockFootprints({
     [occupancies],
   );
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
+  const showDangerousBlockCards = useViewportStore(
+    (s) => s.showDangerousBlockCards,
+  );
   const trackedBlockCode = useMemo(() => {
     if (!selectedContainerId) return null;
     return (
@@ -51,7 +55,9 @@ export default function BlockFootprints({
             key={block.code}
             block={block}
             occupancy={occupancy}
-            statusVisible={false}
+            statusVisible={
+              showDangerousBlockCards && occupancy.ratio >= DANGEROUS_RATIO
+            }
             tracked={trackedBlockCode === block.code}
             hitEnabled={!occupancyLook}
           />

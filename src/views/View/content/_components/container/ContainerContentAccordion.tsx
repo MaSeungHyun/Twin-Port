@@ -50,19 +50,24 @@ function PanelSearchBar({
         className="border-white/15 bg-black/35"
         aria-label="컨테이너 검색"
       />
-      <p
-        className={cn(
-          "mt-1.5 flex h-xl items-center gap-1 text-sm",
-          isSearching ? "text-white/50" : "text-transparent",
-        )}
-        aria-live="polite"
-      >
-        <Icon
-          icon="LoaderCircle"
-          className={cn("size-md stroke-current", isSearching && "animate-spin")}
-        />
-        검색 중
-      </p>
+      {isSearching && (
+        <p
+          className={cn(
+            "mt-1.5 flex h-xl items-center gap-1 text-lg",
+            isSearching ? "text-white/50" : "text-transparent",
+          )}
+          aria-live="polite"
+        >
+          <Icon
+            icon="LoaderCircle"
+            className={cn(
+              "size-md stroke-current",
+              isSearching && "animate-spin",
+            )}
+          />
+          검색 중
+        </p>
+      )}
     </div>
   );
 }
@@ -92,7 +97,7 @@ export default function ContainerContentAccordion({
         )}
       >
         <Accordion.Header className="flex">
-          <Accordion.Trigger className="shrink-0 px-md py-xs text-sm">
+          <Accordion.Trigger className="shrink-0 px-md py-xs text-lg">
             Containers
           </Accordion.Trigger>
         </Accordion.Header>

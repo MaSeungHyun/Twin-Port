@@ -6,6 +6,7 @@ import {
   type YardStatus,
   type YardStatusKey,
 } from "@/domain/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
 import type { icons } from "lucide-react";
@@ -29,42 +30,62 @@ function StatusItem({
   label,
   display,
   className,
+  active = false,
+  onClick,
 }: {
   icon: keyof typeof icons;
   label: string;
   display: ReactNode;
   className?: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
+  const Comp = onClick ? "button" : "div";
+
   return (
-    <div className="flex items-center gap-xs rounded-md px-1 py-1">
-      <Icon icon={icon} className={cn("size-6 stroke-primary", className)} />
+    <Comp
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-4 rounded-md px-4 py-1 text-left",
+        onClick && "cursor-pointer transition-colors hover:bg-white/5",
+        active && "bg-danger/15 ring-1 ring-danger/40",
+      )}
+    >
+      <Icon icon={icon} className={cn("size-8 stroke-primary", className)} />
       <div className="flex flex-col leading-tight select-none">
-        <span className="text-xs tracking-semiwide text-text-secondary uppercase">
+        <span className="text-right text-lg tracking-semiwide text-text-secondary uppercase font-semibold">
           {label}
         </span>
         <span
           className={cn(
-            "w-full text-right text-sm font-semibold text-text-primary",
+            "w-full text-right text-xl font-semibold text-text-primary",
             className,
           )}
         >
           {display}
         </span>
       </div>
-    </div>
+    </Comp>
   );
 }
 
 export default function Status() {
   const blocks = useYardStore((s) => s.blocks);
   const containers = useYardStore((s) => s.containers);
+  const showDangerousBlockCards = useViewportStore(
+    (s) => s.showDangerousBlockCards,
+  );
+  const toggleShowDangerousBlockCards = useViewportStore(
+    (s) => s.toggleShowDangerousBlockCards,
+  );
   const status = useMemo(
     () => computeYardStatus(containers, blocks),
     [blocks, containers],
   );
 
   return (
-    <div className="flex items-center gap-8">
+    <div className="flex items-center gap-4">
       {STATUS_ITEMS.map((item) =>
         item.key === "occupancy" ? (
           <OccupancyChart key={item.key} status={status} />
@@ -75,6 +96,12 @@ export default function Status() {
             label={item.label}
             display={formatValue(status, item)}
             className={item.className}
+            active={item.key === "dangerous" && showDangerousBlockCards}
+            onClick={
+              item.key === "dangerous"
+                ? toggleShowDangerousBlockCards
+                : undefined
+            }
           />
         ),
       )}
@@ -88,8 +115,8 @@ function formatValue(status: YardStatus, item: StatusItemConfig): ReactNode {
   if (item.format === "fraction" && item.of) {
     return (
       <>
-        <span>{value.toLocaleString()}</span>
-        <span className="ml-1 text-sm font-medium text-text-secondary">
+        <span className="text-xl">{value.toLocaleString()}</span>
+        <span className="ml-1 text-md font-medium text-text-secondary">
           / {status[item.of].toLocaleString()}
         </span>
       </>
@@ -108,14 +135,14 @@ function OccupancyChart({ status }: { status: YardStatus }) {
   const fill = occupancyColor(occupancy / 100);
 
   return (
-    <div className="flex items-center gap-xs rounded-md px-1 py-1">
+    <div className="flex items-center gap-lg rounded-md px-1 py-1">
       <PieChart value={occupancy} color={fill} size={32} />
       <div className="flex flex-col leading-tight select-none">
-        <span className="text-xs tracking-semiwide text-text-secondary uppercase">
+        <span className="text-xl tracking-semiwide text-text-secondary uppercase font-semibold">
           OCCUPANCY
         </span>
         <span
-          className="w-full text-right text-sm font-semibold"
+          className="w-full text-right text-xl font-semibold"
           style={{ color: fill }}
         >
           {occupancy}%

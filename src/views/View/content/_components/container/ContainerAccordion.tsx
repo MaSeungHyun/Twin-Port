@@ -6,6 +6,7 @@ import type { Container } from "@/types/container";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { companyAccent } from "../../util/containerAccent";
 import { useContainerQueryStore } from "./containerQueryStore";
 import ContainerDetailCard from "./ContainerDetailCard";
@@ -47,7 +48,8 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
 
   const shownCount = Math.min(visibleCount, SEARCH_MAX_RESULTS);
   const shown = results.slice(0, shownCount);
-  const hasMore = results.length > shownCount && shownCount < SEARCH_MAX_RESULTS;
+  const hasMore =
+    results.length > shownCount && shownCount < SEARCH_MAX_RESULTS;
 
   const loadMore = useCallback(() => {
     setVisibleCount((count) =>
@@ -79,13 +81,13 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
         <div className="sticky top-0 z-10 -mx-1 space-y-1.5 bg-background/90 px-1 pb-xs backdrop-blur-sm">
           <div className="flex items-center gap-xs rounded-md border border-primary/30 bg-primary/15 px-xs py-1.5">
             <Icon icon="Focus" className="size-lg shrink-0 stroke-primary" />
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+            <span className="min-w-0 flex-1 truncate text-lg font-semibold text-white">
               {selectedContainerId}
             </span>
             <Button
               type="button"
               onClick={clearContainerSelection}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-black/30 px-xs py-1 text-sm font-semibold text-white hover:bg-white/10"
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-black/30 px-xs py-1 text-lg font-semibold text-white hover:bg-white/10"
             >
               <Icon icon="CircleX" className="size-md stroke-white/80" />
               Cancel
@@ -96,7 +98,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
 
       {searching ? (
         results.length === 0 ? (
-          <p className="px-xs py-md text-xs text-white/45">검색 결과 없음</p>
+          <p className="px-xs py-md text-lg text-white/45">검색 결과 없음</p>
         ) : (
           <ul className="flex flex-col gap-xs px-1 pb-xs">
             {shown.map((container) => (
@@ -117,7 +119,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
                 />
               </li>
             ) : shownCount >= SEARCH_MAX_RESULTS ? (
-              <li className="px-xs py-1 text-sm text-white/35">
+              <li className="px-xs py-1 text-lg text-white/35">
                 상위 {SEARCH_MAX_RESULTS}개만 표시 — 검색어를 더 입력해 주세요
               </li>
             ) : null}
@@ -132,12 +134,14 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
             return (
               <Accordion.Item key={company} value={company}>
                 <Accordion.Header className="flex">
-                  <Accordion.Trigger className="px-xs py-sm text-xs">
+                  <Accordion.Trigger
+                    className="px-xs py-sm text-lg"
+                    style={
+                      { "--company-accent": accent } as CSSProperties
+                    }
+                  >
                     <span className="flex min-w-0 flex-1 items-center gap-xs">
-                      <span
-                        className="size-xs shrink-0 rounded-full"
-                        style={{ backgroundColor: accent }}
-                      />
+                      <span className="size-xs shrink-0 rounded-full bg-text-secondary transition-colors group-hover:bg-(--company-accent)" />
                       <span className="truncate font-semibold">{company}</span>
                     </span>
                     <span className="mr-1 tabular-nums text-white/50">
@@ -160,7 +164,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
                     ))}
                   </ul>
                   {count > MAX_PER_COMPANY_PREVIEW ? (
-                    <p className="px-xs py-1.5 text-sm text-white/35">
+                    <p className="px-xs py-1.5 text-lg text-white/35">
                       +{(count - MAX_PER_COMPANY_PREVIEW).toLocaleString()}개 —
                       검색으로 찾기
                     </p>
