@@ -33,7 +33,7 @@ function PanelSearchBar({
   const isSearching = query.trim() !== deferredQuery.trim();
 
   return (
-    <div className="shrink-0 px-xs pb-xs">
+    <div className="shrink-0 px-xl pb-xs">
       <SearchBar
         size="sm"
         value={query}
@@ -97,12 +97,12 @@ export default function ContainerContentAccordion({
         )}
       >
         <Accordion.Header className="flex">
-          <Accordion.Trigger className="shrink-0 px-md py-xs text-lg">
+          <Accordion.Trigger className="shrink-0 px-xl py-xs text-xl">
             Containers
           </Accordion.Trigger>
         </Accordion.Header>
         <PanelSearchBar panelOpen={open} onNeedOpen={openPanel} />
-        <Accordion.Content className="min-h-0 overflow-y-auto overscroll-contain px-1 data-[state=open]:flex data-[state=open]:flex-1 data-[state=open]:flex-col">
+        <Accordion.Content className="min-h-0 overflow-y-auto overscroll-contain data-[state=open]:flex data-[state=open]:flex-1 data-[state=open]:flex-col">
           <DeferredContainerList />
         </Accordion.Content>
       </Accordion.Item>

@@ -32,6 +32,7 @@ export default function ContainerDetailCard({
       className={cn(
         "rounded-md border border-white/10 bg-black/30 px-sm py-xs",
         selected && "border-primary/50 bg-primary/15",
+        "hover:bg-primary/10",
       )}
     >
       <div className="mb-xs flex items-start justify-between gap-xs">
@@ -39,10 +40,7 @@ export default function ContainerDetailCard({
           <p className="truncate text-lg font-semibold text-white">
             {container.id}
           </p>
-          <p
-            className="mt-0.5 text-lg font-semibold"
-            style={{ color: accent }}
-          >
+          <p className="mt-0.5 text-lg font-semibold" style={{ color: accent }}>
             {address}
           </p>
         </div>
@@ -50,7 +48,7 @@ export default function ContainerDetailCard({
           type="button"
           onClick={selected ? onClearTrack : onTrack}
           className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md border px-xs py-1 text-lg font-semibold text-white",
+            "inline-flex shrink-0 items-center gap-1 rounded-md border py-1 text-lg font-semibold text-white",
             selected
               ? "border-white/20 bg-white/10 hover:bg-white/20"
               : "border-primary/40 bg-primary/20 hover:bg-primary/35",

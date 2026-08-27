@@ -47,8 +47,8 @@ export default function BlockContentAccordion({
           open && "min-h-0 flex-1",
         )}
       >
-        <Accordion.Header className="flex shrink-0 items-center gap-1 px-xs">
-          <Accordion.Trigger hideIcon className="px-1 py-xs text-lg">
+        <Accordion.Header className="flex shrink-0 items-center">
+          <Accordion.Trigger hideIcon className="px-xl py-xs text-xl">
             <span className="flex-1 text-left">Blocks</span>
           </Accordion.Trigger>
           <BlockSortDropdown
@@ -58,7 +58,7 @@ export default function BlockContentAccordion({
             onSortOrderChange={setSortOrder}
           />
           <Accordion.Trigger
-            className="flex-none px-1 py-xs"
+            className="flex-none px-xl py-xs"
             aria-label="블록 목록 열기"
           />
         </Accordion.Header>

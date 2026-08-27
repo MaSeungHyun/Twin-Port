@@ -42,7 +42,7 @@ export default function ContainerPreviewRow({
         }
       }}
       className={cn(
-        "flex cursor-pointer items-center gap-xs border-b border-white/5 px-sm py-xs last:border-b-0 hover:bg-primary/15",
+        "flex cursor-pointer items-center gap-xs border-b border-white/5 px-xl py-xs last:border-b-0 hover:bg-primary/15 rounded-md",
         selected && "bg-primary/20",
       )}
     >

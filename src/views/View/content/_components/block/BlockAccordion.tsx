@@ -58,7 +58,7 @@ export default function BlockAccordion({
         return (
           <Accordion.Item key={block.code} value={block.code}>
             <Accordion.Header className="flex">
-              <Accordion.Trigger className="px-xs py-sm text-lg">
+              <Accordion.Trigger className="px-xl py-sm text-lg">
                 <span className="flex min-w-0 flex-1 items-center gap-xs">
                   <span
                     className="size-xs shrink-0 rounded-full"
@@ -73,7 +73,7 @@ export default function BlockAccordion({
                 </span>
               </Accordion.Trigger>
             </Accordion.Header>
-            <Accordion.Content className="px-none">
+            <Accordion.Content className="px-xl">
               <div className="flex items-center gap-md rounded-md border border-white/8 bg-black/25 px-sm py-xs">
                 {/* <PieChart value={occupancy.percent} color={color} size={44} /> */}
                 <div className="flex min-w-0 flex-1 flex-col gap-1 text-lg">

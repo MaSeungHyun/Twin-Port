@@ -48,8 +48,6 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
 
   const shownCount = Math.min(visibleCount, SEARCH_MAX_RESULTS);
   const shown = results.slice(0, shownCount);
-  const hasMore =
-    results.length > shownCount && shownCount < SEARCH_MAX_RESULTS;
 
   const loadMore = useCallback(() => {
     setVisibleCount((count) =>
@@ -76,10 +74,10 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col px-xl">
       {selectedContainerId ? (
-        <div className="sticky top-0 z-10 -mx-1 space-y-1.5 bg-background/90 px-1 pb-xs backdrop-blur-sm">
-          <div className="flex items-center gap-xs rounded-md border border-primary/30 bg-primary/15 px-xs py-1.5">
+        <div className="sticky top-0 z-10  space-y-1.5 bg-background/90 pb-xs backdrop-blur-sm">
+          <div className="flex items-center gap-xs rounded-md border border-primary/30 bg-primary/15 px-sm py-1.5">
             <Icon icon="Focus" className="size-lg shrink-0 stroke-primary" />
             <span className="min-w-0 flex-1 truncate text-lg font-semibold text-white">
               {selectedContainerId}
@@ -98,9 +96,9 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
 
       {searching ? (
         results.length === 0 ? (
-          <p className="px-xs py-md text-lg text-white/45">검색 결과 없음</p>
+          <p className="py-md text-lg text-white/45">검색 결과 없음</p>
         ) : (
-          <ul className="flex flex-col gap-xs px-1 pb-xs">
+          <ul className="flex flex-col gap-xs pb-xs">
             {shown.map((container) => (
               <li key={container.id}>
                 <ContainerDetailCard
@@ -111,18 +109,13 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
                 />
               </li>
             ))}
-            {hasMore ? (
-              <li>
-                <LoadMoreSentinel
-                  onVisible={loadMore}
-                  resetKey={`${query}:${shownCount}`}
-                />
-              </li>
-            ) : shownCount >= SEARCH_MAX_RESULTS ? (
-              <li className="px-xs py-1 text-lg text-white/35">
-                상위 {SEARCH_MAX_RESULTS}개만 표시 — 검색어를 더 입력해 주세요
-              </li>
-            ) : null}
+
+            <li>
+              <LoadMoreSentinel
+                onVisible={loadMore}
+                resetKey={`${query}:${shownCount}`}
+              />
+            </li>
           </ul>
         )
       ) : (
@@ -135,10 +128,8 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
               <Accordion.Item key={company} value={company}>
                 <Accordion.Header className="flex">
                   <Accordion.Trigger
-                    className="px-xs py-sm text-lg"
-                    style={
-                      { "--company-accent": accent } as CSSProperties
-                    }
+                    className="py-sm text-lg"
+                    style={{ "--company-accent": accent } as CSSProperties}
                   >
                     <span className="flex min-w-0 flex-1 items-center gap-xs">
                       <span className="size-xs shrink-0 rounded-full bg-text-secondary transition-colors group-hover:bg-(--company-accent)" />

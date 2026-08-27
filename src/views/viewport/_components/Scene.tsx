@@ -34,6 +34,7 @@ import {
 } from "@/stores/environmentDebug";
 
 import { SRGBColorSpace, VSMShadowMap } from "three";
+import CameraFlight from "./CameraFlight";
 
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 
@@ -90,7 +91,7 @@ function Scene() {
           />
           <OccupancyTransition />
           <Controls controlsRef={controlsRef} />
-          {/* <CameraFlight controlsRef={controlsRef} /> */}
+          <CameraFlight controlsRef={controlsRef} />
           {/* <ambientLight color={0xacaccc} intensity={0.2} /> */}
           <SunLight />
           {/* <directionalLight
