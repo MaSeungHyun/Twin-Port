@@ -132,7 +132,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
                     style={{ "--company-accent": accent } as CSSProperties}
                   >
                     <span className="flex min-w-0 flex-1 items-center gap-xs">
-                      <span className="size-xs shrink-0 rounded-full bg-text-secondary transition-colors group-hover:bg-(--company-accent)" />
+                      <span className="size-xs shrink-0 rounded-full bg-text-secondary group-hover:bg-(--company-accent)" />
                       <span className="truncate font-semibold">{company}</span>
                     </span>
                     <span className="mr-1 tabular-nums text-white/50">
