@@ -7,7 +7,6 @@ import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
 import { useMemo } from "react";
 import type { MonitoringLevelFilterState } from "./monitoringLevelFilter.constants";
-import Icon from "@/components/Icon";
 
 const LEVEL_OPTIONS: {
   level: OccupancyLevel;
