@@ -3,7 +3,7 @@ import {
   occupancyLevel,
   type BlockOccupancy,
 } from "@/domain/occupancy";
-import type { MonitoringLevelFilterState } from "@/views/viewport/_components/monitoringLevelFilter.constants";
+import type { MonitoringLevelFilterState } from "@/components/LevelFilter/constants";
 import { useViewportStore } from "@/stores/viewport";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import MonitoringCard from "./MonitoringCard";

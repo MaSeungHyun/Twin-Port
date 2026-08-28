@@ -1,12 +1,20 @@
 import Icon from "@/components/Icon";
 import { DropdownMenu } from "@/components/DropdownMenu";
 import type { ToasterType } from "@/components/Toaster";
+import { cn } from "@/utils/style";
 
 const TYPE_ICON_STYLE: Record<ToasterType, string> = {
   success: "stroke-success",
   info: "stroke-primary",
   warning: "stroke-warning",
   error: "stroke-danger",
+};
+
+const TYPE_ITEM_STYLE: Record<ToasterType, string> = {
+  success: "border-success/40 bg-success/15",
+  info: "border-primary/40 bg-primary/15",
+  warning: "border-warning/40 bg-warning/15",
+  error: "border-danger/40 bg-danger/15",
 };
 
 function formatAlertDate(iso: string) {
@@ -35,12 +43,20 @@ type AlarmCardProps = {
 };
 
 export default function AlarmCard({ item }: AlarmCardProps) {
+  const level = item.level as ToasterType;
+  const itemStyle = TYPE_ITEM_STYLE[level] ?? TYPE_ITEM_STYLE.info;
+
   return (
-    <DropdownMenu.Item className="flex h-14 items-start gap-xl border border-neutral-700 bg-background/50 text-lg items-center">
+    <DropdownMenu.Item
+      className={cn(
+        "flex h-14 items-center gap-xl border text-lg",
+        itemStyle,
+      )}
+    >
       <div className="flex h-full items-center justify-center">
         <Icon
           icon="TriangleAlert"
-          className={`size-10 ${TYPE_ICON_STYLE[item.level as ToasterType] ?? "stroke-primary"}`}
+          className={`size-10 ${TYPE_ICON_STYLE[level] ?? TYPE_ICON_STYLE.info}`}
         />
       </div>
       <div className="flex flex-col min-w-0 flex-1 leading-tight justify-between h-full">
