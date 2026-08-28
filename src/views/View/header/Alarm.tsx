@@ -70,7 +70,7 @@ export default function Alarm() {
         align="end"
         className="flex h-120 w-100 min-h-0 flex-col bg-background/80"
       >
-        <DropdownMenu.Label className="shrink-0 px-sm pt-sm text-lg text-text-primary flex justify-between items-center">
+        <DropdownMenu.Label className="shrink-0 px-sm pt-sm text-xl text-text-primary flex justify-between items-center">
           알림
           <LevelFilter
             ariaLabel="알림 종류 필터"
@@ -84,7 +84,7 @@ export default function Alarm() {
         </DropdownMenu.Label>
 
         <DropdownMenu.Separator className="shrink-0" />
-        <div className="flex min-h-0 w-full flex-1 flex-col gap-1 overflow-y-auto">
+        <div className="flex min-h-0 w-full flex-1 flex-col gap-1 overflow-y-auto px-2">
           {toastMock.length === 0 ? (
             <DropdownMenu.Item
               disabled
