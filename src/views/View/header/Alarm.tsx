@@ -42,7 +42,8 @@ export default function Alarm() {
   }, []);
 
   const filteredItems = useMemo(
-    () => toastMock.filter((item) => matchesAlarmFilter(item.level, levelFilter)),
+    () =>
+      toastMock.filter((item) => matchesAlarmFilter(item.level, levelFilter)),
     [levelFilter],
   );
 
@@ -69,18 +70,19 @@ export default function Alarm() {
         align="end"
         className="flex h-120 w-100 min-h-0 flex-col bg-background/80"
       >
-        <DropdownMenu.Label className="shrink-0 px-sm pt-sm text-lg text-text-primary">
+        <DropdownMenu.Label className="shrink-0 px-sm pt-sm text-lg text-text-primary flex justify-between items-center">
           알림
+          <LevelFilter
+            ariaLabel="알림 종류 필터"
+            levels={ALARM_LEVELS}
+            counts={levelCounts}
+            value={levelFilter}
+            onChange={toggleLevelFilter}
+            size="sm"
+            preventPointerDown
+          />
         </DropdownMenu.Label>
-        <LevelFilter
-          ariaLabel="알림 종류 필터"
-          levels={ALARM_LEVELS}
-          counts={levelCounts}
-          value={levelFilter}
-          onChange={toggleLevelFilter}
-          className="justify-end px-sm pb-sm"
-          preventPointerDown
-        />
+
         <DropdownMenu.Separator className="shrink-0" />
         <div className="flex min-h-0 w-full flex-1 flex-col gap-1 overflow-y-auto">
           {toastMock.length === 0 ? (

@@ -1,6 +1,19 @@
 import { cn } from "@/utils/style";
 import { LEVEL_FILTER_STYLES, type LevelFilterKey } from "./constants";
 
+const SIZE_STYLES = {
+  md: {
+    root: "gap-md",
+    button: "gap-xs rounded-md px-sm py-xs text-lg",
+    dot: "size-xs",
+  },
+  sm: {
+    root: "gap-xs",
+    button: "gap-0.5 rounded-sm px-sm py-1 text-sm",
+    dot: "size-1.5",
+  },
+} as const;
+
 export type LevelFilterProps<K extends LevelFilterKey> = {
   ariaLabel: string;
   levels: readonly K[];
@@ -8,6 +21,7 @@ export type LevelFilterProps<K extends LevelFilterKey> = {
   value: Record<K, boolean>;
   onChange: (level: K) => void;
   className?: string;
+  size?: keyof typeof SIZE_STYLES;
   /** Dropdown 내부 등 — pointerDown 기본 동작 방지 */
   preventPointerDown?: boolean;
 };
@@ -19,14 +33,18 @@ export default function LevelFilter<K extends LevelFilterKey>({
   value,
   onChange,
   className,
+  size = "md",
   preventPointerDown = false,
 }: LevelFilterProps<K>) {
+  const sizeStyle = SIZE_STYLES[size];
+
   return (
     <div
       role="group"
       aria-label={ariaLabel}
       className={cn(
-        "flex shrink-0 flex-wrap items-center gap-md",
+        "flex shrink-0 flex-wrap items-center",
+        sizeStyle.root,
         className,
       )}
       onPointerDown={
@@ -45,7 +63,8 @@ export default function LevelFilter<K extends LevelFilterKey>({
             aria-pressed={active}
             onClick={() => onChange(level)}
             className={cn(
-              "inline-flex cursor-pointer items-center gap-xs rounded-md border px-sm py-xs text-lg transition-colors",
+              "inline-flex cursor-pointer items-center border transition-colors",
+              sizeStyle.button,
               "hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
               colorClass,
               active
@@ -54,7 +73,7 @@ export default function LevelFilter<K extends LevelFilterKey>({
             )}
           >
             <span
-              className={cn("size-xs shrink-0 rounded-full", dotClass)}
+              className={cn("shrink-0 rounded-full", sizeStyle.dot, dotClass)}
               aria-hidden
             />
             <span className="font-semibold">{label}</span>
