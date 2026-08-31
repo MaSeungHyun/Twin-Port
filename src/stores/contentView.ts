@@ -36,6 +36,25 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
   setActiveView: (view) =>
     set((state) => {
       const next = state.activeView === view ? null : view;
+      const viewport = useViewportStore.getState();
+
+      if (next !== "ship" && state.detailShipKey) {
+        viewport.clearShipDetailFocus();
+        viewport.clearShipSelection();
+      }
+      if (next !== "crane" && state.detailCraneKey) {
+        viewport.clearCraneDetailFocus();
+        viewport.clearCraneSelection();
+      }
+      if (next !== "container" && state.detailContainerId) {
+        viewport.clearContainerSelection();
+      }
+      if (next == null) {
+        viewport.clearShipSelection();
+        viewport.clearCraneSelection();
+        viewport.clearContainerSelection();
+      }
+
       return {
         activeView: next,
         detailGraphOpen: false,
@@ -48,7 +67,12 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
   detailShipKey: null,
   detailCraneKey: null,
   detailContainerId: null,
-  setDetailContainerId: (id) => set({ detailContainerId: id }),
+  setDetailContainerId: (id) => {
+    if (id == null) {
+      useViewportStore.getState().clearContainerSelection();
+    }
+    set({ detailContainerId: id });
+  },
   openShipDetail: (key) => {
     const viewport = useViewportStore.getState();
     set({
@@ -84,8 +108,15 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
       viewport.focusCraneDetail(index);
     }
   },
-  clearContentDetail: () =>
-    set({ detailShipKey: null, detailCraneKey: null, detailContainerId: null }),
+  clearContentDetail: () => {
+    const viewport = useViewportStore.getState();
+    viewport.clearShipDetailFocus();
+    viewport.clearCraneDetailFocus();
+    viewport.clearShipSelection();
+    viewport.clearCraneSelection();
+    viewport.clearContainerSelection();
+    set({ detailShipKey: null, detailCraneKey: null, detailContainerId: null });
+  },
   detailGraphOpen: false,
   detailGraphSubject: null,
   toggleDetailGraph: (subject) => {
@@ -110,27 +141,32 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
     }
 
     if (state.detailShipKey) {
-      useViewportStore.getState().clearShipDetailFocus();
+      const viewport = useViewportStore.getState();
+      viewport.clearShipDetailFocus();
+      viewport.clearShipSelection();
       set({ detailShipKey: null });
       return true;
     }
 
     if (state.detailCraneKey) {
-      useViewportStore.getState().clearCraneDetailFocus();
+      const viewport = useViewportStore.getState();
+      viewport.clearCraneDetailFocus();
+      viewport.clearCraneSelection();
       set({ detailCraneKey: null });
       return true;
     }
 
     if (state.detailContainerId) {
-      const viewport = useViewportStore.getState();
-      if (viewport.selectedContainerId === state.detailContainerId) {
-        viewport.clearContainerSelection();
-      }
+      useViewportStore.getState().clearContainerSelection();
       set({ detailContainerId: null });
       return true;
     }
 
     if (state.activeView) {
+      const viewport = useViewportStore.getState();
+      viewport.clearShipSelection();
+      viewport.clearCraneSelection();
+      viewport.clearContainerSelection();
       set({
         activeView: null,
         detailShipKey: null,

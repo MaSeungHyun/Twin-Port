@@ -39,7 +39,10 @@ export default function CraneContentPanel() {
   const closeDetailGraph = useContentViewStore((s) => s.closeDetailGraph);
 
   const items = useMemo<CraneListItem[]>(() => {
-    const { placements } = getCraneListSource();
+    const { placements } =
+      quayCranes.length > 0
+        ? { placements: quayCranes }
+        : getCraneListSource();
     return placements.map((crane) => {
       const twin = getCraneTwinProfile(crane.glbIndex);
       return {

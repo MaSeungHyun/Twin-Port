@@ -79,9 +79,6 @@ export default function ContainerAccordion({
   }
 
   function handleBack() {
-    if (detailContainerId && selectedContainerId === detailContainerId) {
-      clearContainerSelection();
-    }
     setDetailContainerId(null);
   }
 
