@@ -24,13 +24,11 @@ export default function BlockHoverArea({
   occupancy,
   statusVisible,
   hitEnabled = true,
-  tracked = false,
 }: {
   block: BlockDefinition;
   occupancy: BlockOccupancy;
   statusVisible: boolean;
   hitEnabled?: boolean;
-  tracked?: boolean;
 }) {
   const deckY = useYardStore((s) => s.deckY);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -42,11 +40,11 @@ export default function BlockHoverArea({
   const applyVisual = useCallback(() => {
     const fromStore =
       useOccupancyStore.getState().hoveredBlockCode === block.code;
-    const show = statusVisible || tracked || hoveredRef.current || fromStore;
+    const show = statusVisible || hoveredRef.current || fromStore;
     if (cardRef.current) {
       cardRef.current.style.visibility = show ? "visible" : "hidden";
     }
-  }, [block.code, statusVisible, tracked]);
+  }, [block.code, statusVisible]);
 
   useLayoutEffect(() => {
     applyVisual();

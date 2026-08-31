@@ -32,17 +32,9 @@ export default function BlockFootprints({
       ) as Record<string, BlockOccupancy>,
     [occupancies],
   );
-  const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
   const showDangerousBlockCards = useViewportStore(
     (s) => s.showDangerousBlockCards,
   );
-  const trackedBlockCode = useMemo(() => {
-    if (!selectedContainerId) return null;
-    return (
-      containers.find((item) => item.id === selectedContainerId)?.location
-        .block ?? null
-    );
-  }, [containers, selectedContainerId]);
 
   return (
     <group position={[...yardOffset]} visible={visible}>
@@ -58,7 +50,6 @@ export default function BlockFootprints({
             statusVisible={
               showDangerousBlockCards && occupancy.ratio >= DANGEROUS_RATIO
             }
-            tracked={trackedBlockCode === block.code}
             hitEnabled={!occupancyLook}
           />
         );

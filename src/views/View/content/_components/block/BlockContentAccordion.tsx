@@ -6,6 +6,7 @@ import BlockAccordion, {
   type BlockSortOrder,
 } from "./BlockAccordion";
 import BlockSortDropdown from "./BlockSortDropdown";
+import { CyberHeading } from "../cyber/CyberPanel";
 
 type BlockContentAccordionProps = {
   /** 컨테이너 패널이 열려 있으면 높이 절반으로 제한 */
@@ -27,16 +28,18 @@ export default function BlockContentAccordion({
 
   if (flat) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center border-b border-cyber/15 px-xl py-sm">
-          <h2 className="cyber-heading flex-1 text-xl">Blocks</h2>
-          <BlockSortDropdown
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSortByChange={setSortBy}
-            onSortOrderChange={setSortOrder}
-          />
-        </header>
+      <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <CyberHeading
+          title="Blocks"
+          trailing={
+            <BlockSortDropdown
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSortByChange={setSortBy}
+              onSortOrderChange={setSortOrder}
+            />
+          }
+        />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-xs">
           <BlockAccordion sortBy={sortBy} sortOrder={sortOrder} />
         </div>
