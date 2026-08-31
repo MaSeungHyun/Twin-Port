@@ -40,7 +40,6 @@ export default function ContainerDetailCard({
           {container.company}
         </span>
       }
-      scrollBody={false}
       compactHero
       onBack={onBack}
       tracking={tracking}
