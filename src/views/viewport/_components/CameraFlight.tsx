@@ -7,7 +7,15 @@ import {
   CAMERA_FLIGHT_DURATION,
   CONTAINER_FOCUS_DISTANCE,
   CONTAINER_FOCUS_HEIGHT,
+  CRANE_FOCUS_DISTANCE,
+  CRANE_FOCUS_HEIGHT,
+  SHIP_FOCUS_DISTANCE,
+  SHIP_FOCUS_HEIGHT,
 } from "@/constants/camera";
+import {
+  getCraneFocusTarget,
+  getShipFocusTarget,
+} from "@/domain/cameraFocus";
 import { getContainerWorldPosition } from "@/domain/container";
 import { getBlockSlotGrid } from "@/constants/block";
 import { useViewportStore } from "@/stores/viewport";
@@ -23,6 +31,13 @@ type FlightCamera = {
   lookAt: (v: Vector3) => void;
 };
 
+type FocusProfile = {
+  distance: number;
+  height: number;
+  /** radial: 야드 중심 방향 — 줌/현재 시점과 무관하게 동일 bearing */
+  bearing?: "camera" | "radial";
+};
+
 function setControlsEnabled(
   controlsRef: RefObject<OrbitControlsImpl | null>,
   enabled: boolean,
@@ -31,11 +46,23 @@ function setControlsEnabled(
   if (controls) controls.enabled = enabled;
 }
 
-/**
- * 현재 카메라 방향을 유지한 채 목표 주변을 바라보는 위치 계산
- * (항상 +X+Z에서 접근하면 급격한 yaw 회전이 생김)
- */
-function focusCameraPosition(target: Vector3, currentCameraPos: Vector3) {
+function focusCameraPosition(
+  target: Vector3,
+  currentCameraPos: Vector3,
+  profile: FocusProfile,
+) {
+  if (profile.bearing === "radial") {
+    const bearing = new Vector3(target.x, 0, target.z);
+    if (bearing.lengthSq() < 1e-4) {
+      bearing.set(1, 0, 0);
+    } else {
+      bearing.normalize();
+    }
+    const offset = bearing.multiplyScalar(profile.distance);
+    offset.y = profile.height;
+    return target.clone().add(offset);
+  }
+
   const offset = currentCameraPos.clone().sub(target);
   if (offset.lengthSq() < 1e-4) {
     offset.set(1, 0.6, 1);
@@ -44,12 +71,11 @@ function focusCameraPosition(target: Vector3, currentCameraPos: Vector3) {
   if (offset.lengthSq() < 1e-4) {
     offset.set(1, 0, 1);
   }
-  offset.normalize().multiplyScalar(CONTAINER_FOCUS_DISTANCE);
-  offset.y = CONTAINER_FOCUS_HEIGHT;
+  offset.normalize().multiplyScalar(profile.distance);
+  offset.y = profile.height;
   return target.clone().add(offset);
 }
 
-/** position + lookAt 타겟 보간 (컨테이너 포커스용) */
 function animateLookAtFlight(options: {
   camera: FlightCamera;
   controls: OrbitControlsImpl;
@@ -114,10 +140,72 @@ function animateLookAtFlight(options: {
   return timeline;
 }
 
+function resolveFocusTarget(
+  selectedContainerId: string | null,
+  selectedShipKey: string | null,
+  selectedCraneIndex: number | null,
+): { target: Vector3; profile: FocusProfile } | null {
+  if (selectedContainerId) {
+    const { blocks, containers, deckY, yardOffset } = useYardStore.getState();
+    const container = containers.find((item) => item.id === selectedContainerId);
+    if (!container) return null;
+
+    const block = blocks.find((item) => item.code === container.location.block);
+    if (!block) return null;
+
+    const grid = getBlockSlotGrid(block);
+    return {
+      target: getContainerWorldPosition(
+        block.origin,
+        Number(container.location.slot.row) - 1,
+        Number(container.location.slot.bay) - 1,
+        Number(container.location.slot.tier),
+        deckY,
+        yardOffset,
+        block.yaw ?? 0,
+        grid.rowPitch,
+        grid.bayPitch,
+        grid.padX,
+        grid.padZ,
+      ),
+      profile: {
+        distance: CONTAINER_FOCUS_DISTANCE,
+        height: CONTAINER_FOCUS_HEIGHT,
+      },
+    };
+  }
+
+  if (selectedShipKey) {
+    const target = getShipFocusTarget(selectedShipKey);
+    if (!target) return null;
+    return {
+      target,
+      profile: { distance: SHIP_FOCUS_DISTANCE, height: SHIP_FOCUS_HEIGHT },
+    };
+  }
+
+  if (selectedCraneIndex != null) {
+    const target = getCraneFocusTarget(selectedCraneIndex);
+    if (!target) return null;
+    return {
+      target,
+      profile: {
+        distance: CRANE_FOCUS_DISTANCE,
+        height: CRANE_FOCUS_HEIGHT,
+        bearing: "radial",
+      },
+    };
+  }
+
+  return null;
+}
+
 export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   const camera = useThree((state) => state.camera);
   const monitorMode = useViewportStore((s) => s.monitorMode);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
+  const selectedShipKey = useViewportStore((s) => s.selectedShipKey);
+  const selectedCraneIndex = useViewportStore((s) => s.selectedCraneIndex);
   const focusNonce = useViewportStore((s) => s.focusNonce);
   const tweenRef = useRef<gsap.core.Timeline | null>(null);
   const prevMonitorModeRef = useRef<boolean | null>(null);
@@ -147,35 +235,18 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
-    if (!selectedContainerId || focusNonce === prevFocusNonceRef.current) {
-      return;
-    }
+    if (focusNonce === prevFocusNonceRef.current) return;
     prevFocusNonceRef.current = focusNonce;
 
-    const { blocks, containers, deckY, yardOffset } = useYardStore.getState();
-    const container = containers.find(
-      (item) => item.id === selectedContainerId,
+    const resolved = resolveFocusTarget(
+      selectedContainerId,
+      selectedShipKey,
+      selectedCraneIndex,
     );
-    if (!container) return;
+    if (!resolved) return;
 
-    const block = blocks.find((item) => item.code === container.location.block);
-    if (!block) return;
-
-    const grid = getBlockSlotGrid(block);
-    const toTarget = getContainerWorldPosition(
-      block.origin,
-      Number(container.location.slot.row) - 1,
-      Number(container.location.slot.bay) - 1,
-      Number(container.location.slot.tier),
-      deckY,
-      yardOffset,
-      block.yaw ?? 0,
-      grid.rowPitch,
-      grid.bayPitch,
-      grid.padX,
-      grid.padZ,
-    );
-    const toPosition = focusCameraPosition(toTarget, camera.position);
+    const { target: toTarget, profile } = resolved;
+    const toPosition = focusCameraPosition(toTarget, camera.position, profile);
 
     tweenRef.current?.kill();
     const timeline = animateLookAtFlight({
@@ -190,7 +261,14 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       timeline.kill();
       setControlsEnabled(controlsRef, true);
     };
-  }, [selectedContainerId, focusNonce, controlsRef, camera]);
+  }, [
+    selectedContainerId,
+    selectedShipKey,
+    selectedCraneIndex,
+    focusNonce,
+    controlsRef,
+    camera,
+  ]);
 
   return null;
 }

@@ -8,7 +8,7 @@ function Button({ className, ...props }: ButtonProps) {
     <button
       type="button"
       className={cn(
-        "relative cursor-pointer rounded-md px-1 py-1 hover:bg-primary/20",
+        "flex relative cursor-pointer rounded-md px-1 py-1 hover:bg-primary/20 items-center justify-center",
         className,
       )}
       {...props}

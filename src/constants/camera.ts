@@ -65,6 +65,12 @@ export const ORBIT_MAX_DISTANCE = 70;
 export const CONTAINER_FOCUS_DISTANCE = 11.2;
 export const CONTAINER_FOCUS_HEIGHT = 5.6;
 
+export const SHIP_FOCUS_DISTANCE = 16;
+export const SHIP_FOCUS_HEIGHT = 4.5;
+
+export const CRANE_FOCUS_DISTANCE = 16;
+export const CRANE_FOCUS_HEIGHT = 7;
+
 /** position + quaternion → 지면(y=0) 교차점으로 lookAt 타겟 계산 */
 export function cameraLookAtTarget(
   position: Vector3,

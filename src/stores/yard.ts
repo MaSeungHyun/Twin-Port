@@ -2,7 +2,7 @@ import { BLOCKS, type BlockDefinition } from "@/constants/block";
 import { DECK_Y } from "@/constants/container";
 import { CONTAINER_YARD_OFFSET } from "@/domain/container";
 import { generateYardContainers } from "@/domain/generateYardContainers";
-import type { QuayBerth } from "@/domain/extractQuayBerths";
+import type { QuayBerth, QuayCranePlacement } from "@/domain/extractQuayBerths";
 import type { Vec3 } from "@/constants/geometry";
 import type { Container } from "@/types/container";
 import mockContainers from "@/data/container_mock.json";
@@ -14,11 +14,13 @@ type YardState = {
   blocks: readonly BlockDefinition[];
   containers: Container[];
   ships: readonly QuayBerth[];
+  quayCranes: readonly QuayCranePlacement[];
   deckY: number;
   yardOffset: Vec3;
   fromModel: boolean;
   setModelBlocks: (blocks: BlockDefinition[]) => void;
   setModelShips: (ships: QuayBerth[]) => void;
+  setQuayCranes: (cranes: QuayCranePlacement[]) => void;
   resetBlocks: () => void;
 };
 
@@ -26,6 +28,7 @@ export const useYardStore = create<YardState>((set) => ({
   blocks: BLOCKS,
   containers: DEFAULT_CONTAINERS,
   ships: [],
+  quayCranes: [],
   deckY: DECK_Y,
   yardOffset: CONTAINER_YARD_OFFSET,
   fromModel: false,
@@ -38,11 +41,13 @@ export const useYardStore = create<YardState>((set) => ({
       fromModel: true,
     }),
   setModelShips: (ships) => set({ ships }),
+  setQuayCranes: (quayCranes) => set({ quayCranes }),
   resetBlocks: () =>
     set({
       blocks: BLOCKS,
       containers: DEFAULT_CONTAINERS,
       ships: [],
+      quayCranes: [],
       deckY: DECK_Y,
       yardOffset: CONTAINER_YARD_OFFSET,
       fromModel: false,

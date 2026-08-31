@@ -74,18 +74,18 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
   }
 
   return (
-    <div className="flex flex-col px-xl">
+    <div className="flex flex-col">
       {selectedContainerId ? (
-        <div className="sticky top-0 z-10  space-y-1.5 bg-background/90 pb-xs backdrop-blur-sm">
-          <div className="flex items-center gap-xs rounded-md border border-primary/30 bg-primary/15 px-sm py-1.5">
-            <Icon icon="Focus" className="size-lg shrink-0 stroke-primary" />
-            <span className="min-w-0 flex-1 truncate text-lg font-semibold text-white">
+        <div className="sticky top-0 z-10 shrink-0 border-b border-cyber/15 bg-background/80 px-xl py-xs backdrop-blur-sm">
+          <div className="flex items-center gap-xs border border-cyber/25 bg-cyber/5 px-sm py-1.5">
+            <Icon icon="Focus" className="size-lg shrink-0 stroke-cyber" />
+            <span className="cyber-heading min-w-0 flex-1 truncate text-lg not-italic">
               {selectedContainerId}
             </span>
             <Button
               type="button"
               onClick={clearContainerSelection}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-black/30 px-xs py-1 text-lg font-semibold text-white hover:bg-white/10"
+              className="cyber-btn inline-flex shrink-0 items-center gap-1 px-xs py-1 text-lg font-semibold"
             >
               <Icon icon="CircleX" className="size-md stroke-white/80" />
               Cancel
@@ -96,11 +96,11 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
 
       {searching ? (
         results.length === 0 ? (
-          <p className="py-md text-lg text-white/45">검색 결과 없음</p>
+          <p className="px-xl py-md text-lg text-white/45">검색 결과 없음</p>
         ) : (
-          <ul className="flex flex-col gap-xs pb-xs">
+          <ul className="flex flex-col pb-xs">
             {shown.map((container) => (
-              <li key={container.id}>
+              <li key={container.id} className="border-b border-white/5 last:border-b-0">
                 <ContainerDetailCard
                   container={container}
                   selected={selectedContainerId === container.id}
@@ -119,7 +119,7 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
           </ul>
         )
       ) : (
-        <Accordion type="multiple" className="w-full">
+        <Accordion type="multiple" className="w-full px-xl">
           {companyGroups.map(({ company, items, count }) => {
             const accent = companyAccent(company);
             const preview = items.slice(0, MAX_PER_COMPANY_PREVIEW);

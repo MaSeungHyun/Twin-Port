@@ -5,6 +5,7 @@ import {
   SHIP_SCALE,
 } from "@/constants/model";
 import { yawToward } from "@/constants/shipCargo";
+import { findQuayCraneRoot } from "@/domain/hoverOutline";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import {
   Box3,
@@ -33,6 +34,7 @@ type CraneSpot = {
   radius: number;
   /** 인스턴스 원점(레일/발판) */
   baseX: number;
+  baseY: number;
   baseZ: number;
   /** 원점에서 붐 끝까지 거리 */
   boomReach: number;
@@ -40,6 +42,8 @@ type CraneSpot = {
   /** 붐이 바다 쪽으로 뻗는 XZ 방향 */
   boomX: number;
   boomZ: number;
+  /** 3D hover / tracking outline id (rootUuid or rootUuid:instanceId) */
+  hoverId?: string;
 };
 
 function namesOf(object: Object3D) {
@@ -100,7 +104,7 @@ function collectSpots(
     const kind = kindFromNames(names);
     const mesh = names.find(Boolean) || child.name || "crane";
 
-    const pushBox = (matrix: Matrix4) => {
+    const pushBox = (matrix: Matrix4, instanceIndex?: number) => {
       const geometry = child.geometry;
       if (!geometry.boundingBox) geometry.computeBoundingBox();
       if (!geometry.boundingBox) return;
@@ -123,6 +127,16 @@ function collectSpots(
           }
         }
       }
+
+      let hoverId: string | undefined;
+      const craneRoot = findQuayCraneRoot(child);
+      if (craneRoot) {
+        hoverId =
+          instanceIndex != null
+            ? `${craneRoot.uuid}:${instanceIndex}`
+            : craneRoot.uuid;
+      }
+
       spots.push({
         kind,
         mesh,
@@ -132,11 +146,13 @@ function collectSpots(
         height: size.y,
         radius: Math.max(size.x, size.z) * 0.5,
         baseX: origin.x,
+        baseY: origin.y,
         baseZ: origin.z,
         boomReach: Math.max(boomReach, 0.2),
         boomBack: Math.max(boomBack, 0.2),
         boomX: boom.x,
         boomZ: boom.z,
+        hoverId,
       });
     };
 
@@ -148,7 +164,7 @@ function collectSpots(
       for (let i = 0; i < child.count; i += 1) {
         child.getMatrixAt(i, instance);
         world.multiplyMatrices(child.matrixWorld, instance);
-        pushBox(world.clone());
+        pushBox(world.clone(), i);
       }
       return;
     }
@@ -372,4 +388,84 @@ export function extractQuayBerths(root: Object3D): QuayBerth[] {
   }
 
   return berths;
+}
+
+export type QuayCranePlacement = {
+  kind: "crane" | "kran" | "unknown";
+  mesh: string;
+  /** GLB bbox center — camera look-at */
+  position: [number, number, number];
+  height: number;
+  /** 3D hover / tracking outline id */
+  hoverId?: string;
+};
+
+function quayCraneSpots(root: Object3D): CraneSpot[] {
+  root.updateMatrixWorld(true);
+  const named = collectSpots(root, isNamedQuayCrane);
+  return keepTallSpots(
+    named.length >= 3 ? named : collectSpots(root, isFallbackCraneMesh),
+  );
+}
+
+/** BUSAN.glb quay crane 인스턴스 월드 좌표 (UI·카메라 tracking용) */
+const QUAY_CRANE_CLUSTER_EPS = 4;
+
+/** 부품 mesh가 여러 개면 같은 크레인 좌표로 묶음 */
+function clusterQuayCraneSpots(spots: CraneSpot[]): CraneSpot[] {
+  const clusters: CraneSpot[][] = [];
+
+  for (const spot of spots) {
+    const cluster = clusters.find((group) =>
+      group.some(
+        (other) =>
+          Math.hypot(other.baseX - spot.baseX, other.baseZ - spot.baseZ) <
+          QUAY_CRANE_CLUSTER_EPS,
+      ),
+    );
+    if (cluster) cluster.push(spot);
+    else clusters.push([spot]);
+  }
+
+  return clusters.map((group) => {
+    const anchor = group.reduce((best, spot) =>
+      spot.height > best.height ? spot : best,
+    );
+    let baseX = 0;
+    let baseY = 0;
+    let baseZ = 0;
+    for (const spot of group) {
+      baseX += spot.baseX;
+      baseY += spot.baseY;
+      baseZ += spot.baseZ;
+    }
+    const n = group.length;
+    baseX /= n;
+    baseY /= n;
+    baseZ /= n;
+    const focusY = baseY + anchor.height * 0.55;
+    return {
+      ...anchor,
+      baseX,
+      baseY,
+      baseZ,
+      x: baseX,
+      y: focusY,
+      z: baseZ,
+    };
+  });
+}
+
+export function extractQuayCranePlacements(
+  root: Object3D,
+): QuayCranePlacement[] {
+  const clustered = clusterQuayCraneSpots(quayCraneSpots(root));
+  const sorted = [...clustered].sort((a, b) => b.z - a.z || a.x - b.x);
+  return sorted.map((spot) => ({
+    kind: spot.kind,
+    mesh: spot.mesh,
+    position: [spot.baseX, spot.baseY + spot.height * 0.55, spot.baseZ],
+    height: spot.height,
+    hoverId: spot.hoverId,
+  }));
 }

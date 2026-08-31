@@ -10,10 +10,18 @@ type ViewportState = {
   clearBlockSelection: () => void;
   /** 목록에서 선택한 컨테이너 — 하이라이트/카메라 포커스용 */
   selectedContainerId: string | null;
-  /** 같은 ID 재선택 시에도 카메라 비행이 다시 돌도록 */
+  /** 목록/상세에서 선택한 선박 */
+  selectedShipKey: string | null;
+  /** 목록/상세에서 선택한 quay crane 인덱스 */
+  selectedCraneIndex: number | null;
+  /** 같은 대상 재선택 시에도 카메라 비행이 다시 돌도록 */
   focusNonce: number;
   selectContainer: (id: string) => void;
   clearContainerSelection: () => void;
+  selectShip: (key: string) => void;
+  clearShipSelection: () => void;
+  selectCrane: (index: number) => void;
+  clearCraneSelection: () => void;
   /** 헤더 DANGEROUS — 위험 블록 BlockHoverArea 카드 전체 표시 */
   showDangerousBlockCards: boolean;
   toggleShowDangerousBlockCards: () => void;
@@ -33,15 +41,46 @@ export const useViewportStore = create<ViewportState>((set) => ({
     })),
   clearBlockSelection: () => set({ selectedBlockCode: null }),
   selectedContainerId: null,
+  selectedShipKey: null,
+  selectedCraneIndex: null,
   focusNonce: 0,
   selectContainer: (id) => {
     set((state) => ({
       selectedContainerId: id,
+      selectedShipKey: null,
+      selectedCraneIndex: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
   clearContainerSelection: () => set({ selectedContainerId: null }),
+  selectShip: (key) => {
+    set((state) => ({
+      selectedShipKey: key,
+      selectedContainerId: null,
+      selectedCraneIndex: null,
+      focusNonce: state.focusNonce + 1,
+    }));
+  },
+  clearShipSelection: () => set({ selectedShipKey: null }),
+  selectCrane: (index) => {
+    set((state) => ({
+      selectedCraneIndex: index,
+      selectedContainerId: null,
+      selectedShipKey: null,
+      focusNonce: state.focusNonce + 1,
+    }));
+  },
+  clearCraneSelection: () => set({ selectedCraneIndex: null }),
   showDangerousBlockCards: false,
   toggleShowDangerousBlockCards: () =>
     set((state) => ({ showDangerousBlockCards: !state.showDangerousBlockCards })),
 }));
+
+/** 컨테이너·선박·크레인 중 하나라도 3D tracking 중 */
+export function isViewportTracking(state: ViewportState): boolean {
+  return (
+    Boolean(state.selectedContainerId) ||
+    Boolean(state.selectedShipKey) ||
+    state.selectedCraneIndex != null
+  );
+}

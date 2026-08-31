@@ -7,9 +7,11 @@ import { memo, useDeferredValue } from "react";
 import ContainerAccordion from "./ContainerAccordion";
 import { useContainerQueryStore } from "./containerQueryStore";
 import { useContainerPanel } from "./useContainerPanel";
-
+import { CyberHeading } from "../cyber/CyberPanel";
 type ContainerContentAccordionProps = {
   onOpenChange?: (open: boolean) => void;
+  /** ContentPanel 등 단일 탭 — 최상위 Accordion 없이 항상 펼침 */
+  flat?: boolean;
 };
 
 const ContainerList = memo(ContainerAccordion);
@@ -74,9 +76,22 @@ function PanelSearchBar({
 
 export default function ContainerContentAccordion({
   onOpenChange,
+  flat = false,
 }: ContainerContentAccordionProps) {
   const { value, open, onValueChange, openPanel } =
     useContainerPanel(onOpenChange);
+
+  if (flat) {
+    return (
+      <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <CyberHeading title="Containers" subtitle="Search and track" />
+        <PanelSearchBar panelOpen onNeedOpen={() => {}} />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <DeferredContainerList />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Accordion

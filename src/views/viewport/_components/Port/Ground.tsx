@@ -6,6 +6,9 @@ import {
 } from "@/domain/extractGroundBlocks";
 import { shipsFromPlacements } from "@/domain/extractShipCubes";
 import {
+  extractQuayCranePlacements,
+} from "@/domain/extractQuayBerths";
+import {
   applyGlbViewCamera,
   extractGlbViewCamera,
 } from "@/domain/extractGlbCamera";
@@ -25,19 +28,22 @@ import {
   collectQuayHoverTargets,
   findQuayCraneRoot,
   getPortHover,
+  pinPortHover,
   portHoverOut,
   portHoverOver,
   quayTargetMatches,
+  resolveQuayCraneHoverId,
   subscribePortHover,
+  unpinPortHover,
   writeQuayOutlineMatrix,
 } from "@/domain/hoverOutline";
+import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
-  InstancedMesh,
   Material,
   Mesh,
   MeshStandardMaterial,
@@ -169,6 +175,7 @@ export default function Ground({
 }: GroundProps) {
   const setModelBlocks = useYardStore((s) => s.setModelBlocks);
   const setModelShips = useYardStore((s) => s.setModelShips);
+  const setQuayCranes = useYardStore((s) => s.setQuayCranes);
   const resetBlocks = useYardStore((s) => s.resetBlocks);
   const gl = useThree((state) => state.gl);
   const threeScene = useThree((state) => state.scene);
@@ -200,7 +207,20 @@ export default function Ground({
     model.updateMatrixWorld(true);
     const blocks = extractGroundBlocks(model);
     const berths = shipsFromPlacements();
+    const quayCranes = extractQuayCranePlacements(model);
     if (berths.length > 0) setModelShips(berths);
+    if (quayCranes.length > 0) {
+      setQuayCranes(quayCranes);
+      if (import.meta.env.DEV) {
+        console.info(
+          `[Ground] ${quayCranes.length} quay cranes`,
+          quayCranes.map(
+            (crane, index) =>
+              `${index}: ${crane.kind} @ ${crane.position.map((n) => n.toFixed(1)).join(",")}`,
+          ),
+        );
+      }
+    }
     if (blocks.length > 0) {
       if (import.meta.env.DEV) {
         console.info(
@@ -231,6 +251,7 @@ export default function Ground({
     scale,
     setModelBlocks,
     setModelShips,
+    setQuayCranes,
     resetBlocks,
     gl,
   ]);
@@ -284,7 +305,7 @@ export default function Ground({
           const root = findQuayCraneRoot(event.object);
           if (!root) return;
           const id =
-            event.instanceId != null && (root as InstancedMesh).isInstancedMesh
+            event.instanceId != null
               ? `${root.uuid}:${event.instanceId}`
               : root.uuid;
           portHoverOver(event, "quayCrane", id);
@@ -293,15 +314,49 @@ export default function Ground({
           const root = findQuayCraneRoot(event.object);
           if (!root) return;
           const id =
-            event.instanceId != null && (root as InstancedMesh).isInstancedMesh
+            event.instanceId != null
               ? `${root.uuid}:${event.instanceId}`
               : root.uuid;
           portHoverOut(event, "quayCrane", id);
         }}
       />
       <QuayCraneHoverOutlines model={model} />
+      <QuayCraneTrackingHover model={model} />
     </>
   );
+}
+
+/** tracking 시 hover outline과 동일한 port hover pin */
+function QuayCraneTrackingHover({ model }: { model: Object3D }) {
+  useLayoutEffect(() => {
+    const sync = () => {
+      const index = useViewportStore.getState().selectedCraneIndex;
+      if (index == null) {
+        unpinPortHover("quayCrane");
+        return;
+      }
+      const id = resolveQuayCraneHoverId(model, index);
+      if (id) pinPortHover({ kind: "quayCrane", id });
+      else unpinPortHover("quayCrane");
+    };
+
+    sync();
+    const unsubViewport = useViewportStore.subscribe((state, prev) => {
+      if (state.selectedCraneIndex === prev.selectedCraneIndex) return;
+      sync();
+    });
+    const unsubCranes = useYardStore.subscribe((state, prev) => {
+      if (state.quayCranes === prev.quayCranes) return;
+      sync();
+    });
+    return () => {
+      unsubViewport();
+      unsubCranes();
+      unpinPortHover("quayCrane");
+    };
+  }, [model]);
+
+  return null;
 }
 
 function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
@@ -317,13 +372,13 @@ function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
         if (!outline) return;
         const show = hoverId != null && quayTargetMatches(target, hoverId);
         outline.visible = show;
-        if (show) writeQuayOutlineMatrix(target, outline);
+        if (show) writeQuayOutlineMatrix(target, outline, hoverId);
       });
     };
 
     apply();
     return subscribePortHover(apply);
-  }, [targets]);
+  }, [targets, model]);
 
   return (
     <>

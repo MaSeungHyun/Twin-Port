@@ -11,16 +11,38 @@ type BlockContentAccordionProps = {
   /** 컨테이너 패널이 열려 있으면 높이 절반으로 제한 */
   siblingOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** ContentPanel 등 단일 탭 — 최상위 Accordion 없이 항상 펼침 */
+  flat?: boolean;
 };
 
 export default function BlockContentAccordion({
   siblingOpen = false,
   onOpenChange,
+  flat = false,
 }: BlockContentAccordionProps) {
   const [value, setValue] = useState("blocks");
   const [sortBy, setSortBy] = useState<BlockSortBy>("name");
   const [sortOrder, setSortOrder] = useState<BlockSortOrder>("asc");
   const open = value === "blocks";
+
+  if (flat) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center border-b border-cyber/15 px-xl py-sm">
+          <h2 className="cyber-heading flex-1 text-xl">Blocks</h2>
+          <BlockSortDropdown
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortByChange={setSortBy}
+            onSortOrderChange={setSortOrder}
+          />
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-xs">
+          <BlockAccordion sortBy={sortBy} sortOrder={sortOrder} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Accordion

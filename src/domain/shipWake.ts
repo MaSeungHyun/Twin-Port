@@ -14,6 +14,10 @@ export type ShipWakeSample = {
   scale: number;
 };
 
+export function getShipPoseAt(index: number): ShipInstance | null {
+  return bound?.[index] ?? null;
+}
+
 export function forEachShip(fn: (ship: ShipWakeSample) => void) {
   if (!bound) return;
   for (let i = 0; i < bound.length; i++) {

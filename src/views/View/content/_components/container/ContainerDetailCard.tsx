@@ -1,9 +1,12 @@
+import { CONTENT_THUMBNAILS } from "@/assets/image/thumbnail";
 import Button from "@/components/Button";
 import Icon from "@/components/Icon";
 import { formatSlotAddress } from "@/domain/container";
 import type { Container } from "@/types/container";
 import { cn } from "@/utils/style";
 import { companyAccent } from "../../util/containerAccent";
+import ContentDetailHero from "../ContentDetailHero";
+import { DetailFields } from "../ContentDetailLayout";
 
 type ContainerDetailCardProps = {
   container: Container;
@@ -30,62 +33,65 @@ export default function ContainerDetailCard({
   return (
     <div
       className={cn(
-        "rounded-md border border-white/10 bg-black/30 px-sm py-xs",
-        selected && "border-primary/50 bg-primary/15",
-        "hover:bg-primary/10",
+        "relative z-1 overflow-hidden",
+        selected && "bg-cyber/5",
+        "hover:bg-cyber/5",
       )}
     >
-      <div className="mb-xs flex items-start justify-between gap-xs">
-        <div className="min-w-0">
-          <p className="truncate text-lg font-semibold text-white">
-            {container.id}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold" style={{ color: accent }}>
-            {address}
-          </p>
-        </div>
-        <Button
-          type="button"
-          onClick={selected ? onClearTrack : onTrack}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md border py-1 text-lg font-semibold text-white",
-            selected
-              ? "border-white/20 bg-white/10 hover:bg-white/20"
-              : "border-primary/40 bg-primary/20 hover:bg-primary/35",
-          )}
-        >
-          <Icon
-            icon={selected ? "CircleX" : "Focus"}
+      <ContentDetailHero
+        src={CONTENT_THUMBNAILS.container}
+        alt="Container"
+        title={container.id}
+        subtitle={container.company}
+        layout="block"
+      />
+
+      <div className="px-xl pb-sm">
+        <div className="mb-sm flex items-start justify-between gap-xs">
+          <div className="min-w-0">
+            <p
+              className="cyber-stat-value truncate text-left text-lg"
+              style={{ color: accent, textShadow: `0 0 12px ${accent}88` }}
+            >
+              {address}
+            </p>
+            <p className="cyber-subheading mt-0.5 truncate">
+              {container.status}
+              {container.destination ? ` · ${container.destination}` : ""}
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={selected ? onClearTrack : onTrack}
             className={cn(
-              "size-md",
-              selected ? "stroke-white/80" : "stroke-primary",
+              "cyber-btn inline-flex shrink-0 items-center gap-1 py-1 text-lg font-semibold",
+              selected && "border-white/25!",
             )}
-          />
-          {selected ? "Cancel" : "Tracking"}
-        </Button>
+          >
+            <Icon
+              icon={selected ? "CircleX" : "Focus"}
+              className={cn(
+                "size-md",
+                selected ? "stroke-white/80" : "stroke-cyber-glow",
+              )}
+            />
+            {selected ? "Cancel" : "Tracking"}
+          </Button>
+        </div>
+
+        <DetailFields
+          rows={[
+            { label: "id", value: container.id },
+            { label: "company", value: container.company },
+            { label: "status", value: container.status },
+            { label: "block", value: block },
+            { label: "bay", value: slot.bay },
+            { label: "row", value: slot.row },
+            { label: "tier", value: slot.tier },
+            { label: "destination", value: container.destination || "—" },
+          ]}
+        />
       </div>
-
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-lg">
-        <Field label="id" value={container.id} />
-        <Field label="company" value={container.company} />
-        <Field label="status" value={container.status} />
-        <Field label="block" value={block} />
-        <Field label="bay" value={slot.bay} />
-        <Field label="row" value={slot.row} />
-        <Field label="tier" value={slot.tier} />
-        <Field label="destination" value={container.destination || "—"} />
-      </dl>
     </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt className="text-white/40">{label}</dt>
-      <dd className="truncate font-medium text-white/90 tabular-nums">
-        {value}
-      </dd>
-    </>
   );
 }

@@ -1,10 +1,13 @@
 import { type ThreeEvent } from "@react-three/fiber";
 import {
   InstancedMesh,
+  Matrix4,
   Mesh,
   type BufferGeometry,
   type Object3D,
+  Vector3,
 } from "three";
+import { useYardStore } from "@/stores/yard";
 
 export type PortHoverKind = "ship" | "overheadCrane" | "quayCrane";
 
@@ -14,6 +17,8 @@ export type PortHover = {
 } | null;
 
 let currentHover: PortHover = null;
+/** UI tracking 등 — 포인터 hover와 별도 유지 */
+let pinnedHover: PortHover = null;
 let clearToken = 0;
 const listeners = new Set<() => void>();
 
@@ -21,8 +26,26 @@ function notifyHover() {
   for (const listener of listeners) listener();
 }
 
+/** 포인터 hover 우선, 없으면 tracking pin */
 export function getPortHover() {
+  return currentHover ?? pinnedHover;
+}
+
+export function getPointerHover() {
   return currentHover;
+}
+
+export function pinPortHover(next: PortHover) {
+  if (pinnedHover?.kind === next?.kind && pinnedHover?.id === next?.id) return;
+  pinnedHover = next;
+  notifyHover();
+}
+
+export function unpinPortHover(kind?: PortHoverKind) {
+  if (!pinnedHover) return;
+  if (kind != null && pinnedHover.kind !== kind) return;
+  pinnedHover = null;
+  notifyHover();
 }
 
 export function subscribePortHover(listener: () => void) {
@@ -136,11 +159,16 @@ export function collectQuayHoverTargets(model: Object3D): QuayHoverTarget[] {
   return targets;
 }
 
-export function writeQuayOutlineMatrix(target: QuayHoverTarget, dest: Mesh) {
-  const hover = currentHover;
+export function writeQuayOutlineMatrix(
+  target: QuayHoverTarget,
+  dest: Mesh,
+  hoverId?: string | null,
+) {
+  const hover = getPortHover();
+  const id = hoverId ?? (hover?.kind === "quayCrane" ? hover.id : null);
   const instanceId =
-    hover?.kind === "quayCrane" && hover.id.includes(":")
-      ? Number(hover.id.slice(hover.id.indexOf(":") + 1))
+    id != null && id.includes(":")
+      ? Number(id.slice(id.indexOf(":") + 1))
       : undefined;
 
   dest.matrixAutoUpdate = false;
@@ -154,6 +182,53 @@ export function writeQuayOutlineMatrix(target: QuayHoverTarget, dest: Mesh) {
     dest.matrix.copy(target.source.matrixWorld);
   }
   dest.matrixWorldNeedsUpdate = true;
+}
+
+const QUAY_HOVER_MATCH_EPS = 8;
+const quayMatchPos = new Vector3();
+const quayMatchInstance = new Matrix4();
+const quayMatchWorld = new Matrix4();
+
+/** UI crane index → hover와 동일한 id (rootUuid:instanceId) */
+export function resolveQuayCraneHoverId(
+  model: Object3D,
+  craneIndex: number,
+): string | null {
+  const placement = useYardStore.getState().quayCranes[craneIndex];
+  if (!placement) return null;
+  if (placement.hoverId) return placement.hoverId;
+
+  const [tx, , tz] = placement.position;
+  let bestId: string | null = null;
+  let bestDist = Infinity;
+
+  for (const target of collectQuayHoverTargets(model)) {
+    if (target.source instanceof InstancedMesh) {
+      for (let i = 0; i < target.source.count; i += 1) {
+        target.source.getMatrixAt(i, quayMatchInstance);
+        quayMatchWorld.multiplyMatrices(
+          target.source.matrixWorld,
+          quayMatchInstance,
+        );
+        quayMatchPos.setFromMatrixPosition(quayMatchWorld);
+        const dist = Math.hypot(quayMatchPos.x - tx, quayMatchPos.z - tz);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestId = `${target.rootId}:${i}`;
+        }
+      }
+      continue;
+    }
+
+    quayMatchPos.setFromMatrixPosition(target.source.matrixWorld);
+    const dist = Math.hypot(quayMatchPos.x - tx, quayMatchPos.z - tz);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestId = target.rootId;
+    }
+  }
+
+  return bestDist <= QUAY_HOVER_MATCH_EPS ? bestId : null;
 }
 
 export function quayTargetMatches(target: QuayHoverTarget, hoverId: string) {

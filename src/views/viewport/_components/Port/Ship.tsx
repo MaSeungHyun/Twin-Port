@@ -12,8 +12,10 @@ import {
   portHoverOver,
   subscribePortHover,
 } from "@/domain/hoverOutline";
+import { resolveShipIndex } from "@/domain/cameraFocus";
 import { SHIP_TWEEN, WATERWAY_FULL_SPEED } from "@/constants/tween";
 import { useOccupancyStore } from "@/stores/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
@@ -157,9 +159,17 @@ export default function Ship({ instances, posesRef }: ShipProps) {
 
   const applyHoverOutline = useCallback((list: ShipInstance[]) => {
     const hoverIndex = hoveredIndexOf("ship");
-    const hovered = hoverIndex >= 0 ? list[hoverIndex] : undefined;
+    const selectedKey = useViewportStore.getState().selectedShipKey;
+    const trackIndex = selectedKey ? resolveShipIndex(selectedKey) : null;
+    const outlineIndex =
+      trackIndex != null && trackIndex >= 0
+        ? trackIndex
+        : hoverIndex >= 0
+          ? hoverIndex
+          : -1;
+    const target = outlineIndex >= 0 ? list[outlineIndex] : undefined;
     const showOutline =
-      hovered != null && instanceScale(hovered) > SHIP_TWEEN.hiddenScale * 2;
+      target != null && instanceScale(target) > SHIP_TWEEN.hiddenScale * 2;
 
     parts.forEach((part, partIndex) => {
       const outline = outlineRefs.current[partIndex];
@@ -174,7 +184,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         outline.visible = false;
         return;
       }
-      source.getMatrixAt(hoverIndex, outline.matrix);
+      source.getMatrixAt(outlineIndex, outline.matrix);
       outline.matrixWorldNeedsUpdate = true;
       outline.visible = true;
     });
@@ -310,11 +320,21 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   }, [parts]);
 
   useLayoutEffect(() => {
-    return subscribePortHover(() => {
+    const refresh = () => {
       const list = posesRef?.current ?? instances;
       if (!list) return;
       applyHoverOutline(list);
+    };
+
+    const unsubHover = subscribePortHover(refresh);
+    const unsubViewport = useViewportStore.subscribe((state, prev) => {
+      if (state.selectedShipKey === prev.selectedShipKey) return;
+      refresh();
     });
+    return () => {
+      unsubHover();
+      unsubViewport();
+    };
   }, [applyHoverOutline, instances, posesRef]);
 
   const count = instances?.length ?? 0;

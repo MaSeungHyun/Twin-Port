@@ -73,27 +73,39 @@ export default function BlockAccordion({
                 </span>
               </Accordion.Trigger>
             </Accordion.Header>
-            <Accordion.Content className="px-xl">
-              <div className="flex items-center gap-md rounded-md border border-white/8 bg-black/25 px-sm py-xs">
-                {/* <PieChart value={occupancy.percent} color={color} size={44} /> */}
-                <div className="flex min-w-0 flex-1 flex-col gap-1 text-lg">
-                  <Row
-                    label="적재"
-                    value={
-                      <>
-                        {occupancy.occupied}
-                        <span className="text-md font-medium text-text-secondary">
-                          {" / "}
-                          {occupancy.capacity}
-                        </span>
-                      </>
-                    }
-                  />
-                  <Row label="공슬롯" value={String(empty)} />
-                  <Row
-                    label="규격"
-                    value={`${grid.bays}×${grid.rows}×${grid.tiers}`}
-                  />
+            <Accordion.Content className="px-xl pb-sm">
+              <div className="overflow-hidden rounded-md border border-white/10 bg-black/25">
+                <div
+                  className="border-b border-white/10 px-sm py-xs"
+                  style={{ backgroundColor: `${color}22` }}
+                >
+                  <p className="text-lg font-semibold tracking-wide text-white">
+                    {block.code}
+                  </p>
+                  <p className="mt-0.5 text-md tabular-nums" style={{ color }}>
+                    {occupancy.percent}% occupied
+                  </p>
+                </div>
+                <div className="flex items-center gap-md px-sm py-xs">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 text-lg">
+                    <Row
+                      label="적재"
+                      value={
+                        <>
+                          {occupancy.occupied}
+                          <span className="text-md font-medium text-text-secondary">
+                            {" / "}
+                            {occupancy.capacity}
+                          </span>
+                        </>
+                      }
+                    />
+                    <Row label="공슬롯" value={String(empty)} />
+                    <Row
+                      label="규격"
+                      value={`${grid.bays}×${grid.rows}×${grid.tiers}`}
+                    />
+                  </div>
                 </div>
               </div>
             </Accordion.Content>
