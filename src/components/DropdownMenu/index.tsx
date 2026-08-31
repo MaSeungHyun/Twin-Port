@@ -129,7 +129,7 @@ function Item({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-xs py-1 rounded-sm px-xs text-sm outline-none select-none",
+        "relative flex cursor-pointer items-center gap-xs rounded-sm px-xs py-1 text-sm outline-none select-none",
         "focus:bg-primary/20 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         "[&_svg]:pointer-events-none [&_svg]:size-xl [&_svg]:shrink-0",
         inset && "pl-8",

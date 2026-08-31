@@ -10,7 +10,8 @@ import {
   DEFAULT_ALARM_LEVEL_FILTER,
   type AlarmLevelFilterState,
 } from "@/components/LevelFilter/constants";
-import CyberPanel, { CyberHeading } from "@/views/View/content/_components/cyber/CyberPanel";
+import { CyberHeading } from "@/views/View/content/_components/cyber/CyberPanel";
+import { useScrollEdgeFade } from "@/hooks/useScrollEdgeFade";
 import { useCallback, useMemo, useState } from "react";
 
 function matchesAlarmFilter(
@@ -55,6 +56,12 @@ export default function Alarm() {
     [],
   );
 
+  const scrollItemCount =
+    toastMock.length === 0 || filteredItems.length === 0
+      ? 0
+      : filteredItems.length;
+  const { scrollRef, edge, onScroll } = useScrollEdgeFade(scrollItemCount);
+
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
@@ -69,25 +76,29 @@ export default function Alarm() {
         sideOffset={30}
         alignOffset={-10}
         align="end"
-        className="h-120 w-100 min-h-0 border-0 bg-transparent p-0 shadow-none"
+        className="flex h-120 w-100 min-h-0 flex-col border-cyber/25 p-0 shadow-[0_12px_40px_rgba(0,0,0,0.55),0_0_28px_rgba(0,232,255,0.1)]"
       >
-        <CyberPanel className="flex h-full min-h-0 flex-col backdrop-blur-md">
-          <CyberHeading
-            title="알림"
-            trailing={
-              <LevelFilter
-                ariaLabel="알림 종류 필터"
-                levels={ALARM_LEVELS}
-                counts={levelCounts}
-                value={levelFilter}
-                onChange={toggleLevelFilter}
-                size="sm"
-                preventPointerDown
-              />
-            }
-          />
+        <CyberHeading
+          title="알림"
+          trailing={
+            <LevelFilter
+              ariaLabel="알림 종류 필터"
+              levels={ALARM_LEVELS}
+              counts={levelCounts}
+              value={levelFilter}
+              onChange={toggleLevelFilter}
+              size="sm"
+              preventPointerDown
+            />
+          }
+        />
 
-          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-xl py-sm">
+        <div className="scroll-edge-fade relative min-h-0 flex-1">
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            className="flex h-full flex-col gap-2 overflow-y-auto overscroll-contain px-xl py-sm"
+          >
             {toastMock.length === 0 ? (
               <p className="flex flex-1 items-center justify-center py-xl text-lg text-text-secondary">
                 새 알림이 없습니다
@@ -98,11 +109,24 @@ export default function Alarm() {
               </p>
             ) : (
               filteredItems.map((item) => (
-                <AlarmCard key={`${item.title}-${item.createdAt}`} item={item} />
+                <AlarmCard
+                  key={`${item.title}-${item.createdAt}`}
+                  item={item}
+                />
               ))
             )}
           </div>
-        </CyberPanel>
+          <div
+            aria-hidden
+            className="scroll-edge-fade__edge scroll-edge-fade__top"
+            data-visible={edge.top}
+          />
+          <div
+            aria-hidden
+            className="scroll-edge-fade__edge scroll-edge-fade__bottom"
+            data-visible={edge.bottom}
+          />
+        </div>
       </DropdownMenu.Content>
     </DropdownMenu>
   );

@@ -11,10 +11,10 @@ const TYPE_ICON_STYLE: Record<ToasterType, string> = {
 };
 
 const TYPE_ITEM_STYLE: Record<ToasterType, string> = {
-  success: "border-success/40 bg-success/15",
-  info: "border-primary/40 bg-primary/15",
-  warning: "border-warning/40 bg-warning/15",
-  error: "border-danger/40 bg-danger/15",
+  success: "border-success/40",
+  info: "border-primary/40",
+  warning: "border-warning/40",
+  error: "border-danger/40",
 };
 
 function formatAlertDate(iso: string) {
@@ -49,19 +49,19 @@ export default function AlarmCard({ item }: AlarmCardProps) {
   return (
     <DropdownMenu.Item
       className={cn(
-        "flex h-14 items-center gap-xl border text-lg",
+        "flex h-18 items-center gap-xl border bg-background py-2 text-lg [&_svg]:size-[2.625rem]!",
         itemStyle,
       )}
     >
       <div className="flex h-full items-center justify-center">
         <Icon
           icon="TriangleAlert"
-          className={`size-10 ${TYPE_ICON_STYLE[level] ?? TYPE_ICON_STYLE.info}`}
+          className={TYPE_ICON_STYLE[level] ?? TYPE_ICON_STYLE.info}
         />
       </div>
-      <div className="flex flex-col min-w-0 flex-1 leading-tight justify-between h-full">
+      <div className="flex h-full min-w-0 flex-1 flex-col justify-between leading-tight">
         <p className="truncate text-lg font-medium text-white">{item.title}</p>
-        <div className="flex items-center justify-between ">
+        <div className="flex items-center justify-between">
           {item.message ? (
             <p className="mt-0.5 text-lg text-white/45">{item.message}</p>
           ) : null}

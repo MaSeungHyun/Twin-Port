@@ -31,7 +31,7 @@ export default function ShipDetailGraphView({
             </p>
           </div>
         </div>
-        <p className="text-lg tabular-nums text-text-secondary">
+        <p className="text-xl tabular-nums text-text-secondary">
           <span className="font-medium text-text-primary">
             {data.teuLoaded.toLocaleString()}
           </span>

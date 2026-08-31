@@ -29,7 +29,12 @@ export default function Content() {
               !active && "hover:bg-cyber/10",
             )}
           >
-            <Icon icon={icon} />
+            <Icon
+              icon={icon}
+              className={cn(
+                active ? "stroke-text-primary" : "stroke-text-secondary",
+              )}
+            />
           </Button>
         );
       })}
