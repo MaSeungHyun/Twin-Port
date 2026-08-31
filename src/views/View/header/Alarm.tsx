@@ -10,6 +10,7 @@ import {
   DEFAULT_ALARM_LEVEL_FILTER,
   type AlarmLevelFilterState,
 } from "@/components/LevelFilter/constants";
+import CyberPanel, { CyberHeading } from "@/views/View/content/_components/cyber/CyberPanel";
 import { useCallback, useMemo, useState } from "react";
 
 function matchesAlarmFilter(
@@ -68,43 +69,40 @@ export default function Alarm() {
         sideOffset={30}
         alignOffset={-10}
         align="end"
-        className="flex h-120 w-100 min-h-0 flex-col bg-background/80"
+        className="h-120 w-100 min-h-0 border-0 bg-transparent p-0 shadow-none"
       >
-        <DropdownMenu.Label className="shrink-0 px-sm pt-sm text-xl text-text-primary flex justify-between items-center">
-          알림
-          <LevelFilter
-            ariaLabel="알림 종류 필터"
-            levels={ALARM_LEVELS}
-            counts={levelCounts}
-            value={levelFilter}
-            onChange={toggleLevelFilter}
-            size="sm"
-            preventPointerDown
+        <CyberPanel className="flex h-full min-h-0 flex-col backdrop-blur-md">
+          <CyberHeading
+            title="알림"
+            trailing={
+              <LevelFilter
+                ariaLabel="알림 종류 필터"
+                levels={ALARM_LEVELS}
+                counts={levelCounts}
+                value={levelFilter}
+                onChange={toggleLevelFilter}
+                size="sm"
+                preventPointerDown
+              />
+            }
           />
-        </DropdownMenu.Label>
 
-        <DropdownMenu.Separator className="shrink-0" />
-        <div className="flex min-h-0 w-full flex-1 flex-col gap-1 overflow-y-auto px-2">
-          {toastMock.length === 0 ? (
-            <DropdownMenu.Item
-              disabled
-              className="flex h-full w-full flex-col items-center justify-center text-lg text-text-secondary"
-            >
-              새 알림이 없습니다
-            </DropdownMenu.Item>
-          ) : filteredItems.length === 0 ? (
-            <DropdownMenu.Item
-              disabled
-              className="flex h-full w-full flex-col items-center justify-center text-lg text-text-secondary"
-            >
-              표시할 알림이 없습니다
-            </DropdownMenu.Item>
-          ) : (
-            filteredItems.map((item) => (
-              <AlarmCard key={`${item.title}-${item.createdAt}`} item={item} />
-            ))
-          )}
-        </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-xl py-sm">
+            {toastMock.length === 0 ? (
+              <p className="flex flex-1 items-center justify-center py-xl text-lg text-text-secondary">
+                새 알림이 없습니다
+              </p>
+            ) : filteredItems.length === 0 ? (
+              <p className="flex flex-1 items-center justify-center py-xl text-lg text-text-secondary">
+                표시할 알림이 없습니다
+              </p>
+            ) : (
+              filteredItems.map((item) => (
+                <AlarmCard key={`${item.title}-${item.createdAt}`} item={item} />
+              ))
+            )}
+          </div>
+        </CyberPanel>
       </DropdownMenu.Content>
     </DropdownMenu>
   );

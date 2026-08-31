@@ -19,8 +19,8 @@ export default function ViewOption() {
           <Icon icon="Eye" />
         </Button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content>
-        <div className="flex flex-col gap-xs px-1 py-1 text-sm text-white">
+      <DropdownMenu.Content className="min-w-40 p-sm text-lg">
+        <div className="flex flex-col gap-sm px-xs py-xs text-lg text-white">
           {/* <Checkbox
             id="view-option-terrain"
             label="Terrain"

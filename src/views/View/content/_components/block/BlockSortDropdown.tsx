@@ -34,7 +34,7 @@ export default function BlockSortDropdown({
         <DropdownMenu.Content
           align="center"
           sideOffset={4}
-          className="min-w-32"
+          className="min-w-40 p-sm text-lg"
         >
           <SortOption
             selected={sortBy === "name"}
@@ -78,11 +78,11 @@ function SortOption({
 }) {
   return (
     <DropdownMenu.Item
-      className={cn("pl-8", selected && "text-white")}
+      className={cn("py-xs pl-9 text-xl", selected && "text-white")}
       onSelect={onSelect}
     >
       {selected ? (
-        <span className="pointer-events-none absolute left-2 flex size-lg items-center justify-center">
+        <span className="pointer-events-none absolute left-2 flex size-xl items-center justify-center">
           <Icon icon="Check" className="size-lg stroke-primary" />
         </span>
       ) : null}

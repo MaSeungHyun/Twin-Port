@@ -38,7 +38,7 @@ export default function Checkbox({
           <Icon icon="Check" className="size-md stroke-3 stroke-white" />
         </CheckboxPrimitive.Indicator>
       </CheckboxPrimitive.Root>
-      {label ? <span className="text-sm text-white">{label}</span> : null}
+      {label ? <span className="text-inherit text-white">{label}</span> : null}
     </label>
   );
 }
