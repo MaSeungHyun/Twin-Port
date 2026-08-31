@@ -52,10 +52,17 @@ export type CraneDetailGraphMetrics = {
   processedContainers: CraneProcessedContainer[];
 };
 
+export type ShipLoadedContainerLog = {
+  /** 컨테이너 ID */
+  id: string;
+  /** 적재 시각 */
+  loadedAt: string;
+};
+
 export type ShipDetailGraphData = {
   subjectKey: string;
-  title: string;
-  series: DetailGraphSeries[];
+  vesselName: string;
+  loadedContainers: ShipLoadedContainerLog[];
 };
 
 export type DetailGraphData = CraneDetailGraphMetrics | ShipDetailGraphData;

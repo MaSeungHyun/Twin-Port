@@ -6,10 +6,13 @@ import {
   craneOperationalTone,
   craneStatusLabel,
   getCraneTwinProfile,
+  getShipTwinProfile,
+  shipStatusLabel,
 } from "@/domain/portTwinMock";
 import { cn } from "@/utils/style";
 import Button from "@/components/Button";
 import CraneDetailGraphView from "./detail/CraneDetailGraphView";
+import ShipDetailGraphView from "./detail/ShipDetailGraphView";
 import OperationalStatusIndicator from "./detail/OperationalStatusIndicator";
 import CyberPanel, { CyberHeading } from "./cyber/CyberPanel";
 
@@ -32,9 +35,12 @@ function graphHeader(subject: DetailGraphSubject) {
     };
   }
 
+  const twin = getShipTwinProfile(subject.index);
   return {
-    title: "Vessel Metrics",
-    subtitle: <p className="cyber-subheading">{`Ship · ${subject.key}`}</p>,
+    title: twin.vesselName,
+    subtitle: (
+      <p className="cyber-subheading">{shipStatusLabel(twin.status)}</p>
+    ),
   };
 }
 
@@ -65,9 +71,10 @@ export default function ContentDetailGraphPanel({
             subjectKey={subject.key}
           />
         ) : (
-          <p className="py-xl text-center text-lg text-white/45">
-            Vessel graph data coming soon.
-          </p>
+          <ShipDetailGraphView
+            index={subject.index}
+            subjectKey={subject.key}
+          />
         )}
       </div>
 

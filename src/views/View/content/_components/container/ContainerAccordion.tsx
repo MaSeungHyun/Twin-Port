@@ -1,6 +1,7 @@
 import { Accordion } from "@/components/Accordion";
 import { searchContainers } from "@/domain/containerSearch";
 import type { Container } from "@/types/container";
+import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,19 +16,18 @@ const SEARCH_MAX_RESULTS = 100;
 
 type ContainerAccordionProps = {
   query: string;
-  onDetailChange?: (detailId: string | null) => void;
 };
 
 export default function ContainerAccordion({
   query,
-  onDetailChange,
 }: ContainerAccordionProps) {
   const selectContainer = useViewportStore((s) => s.selectContainer);
   const clearContainerSelection = useViewportStore(
     (s) => s.clearContainerSelection,
   );
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailContainerId = useContentViewStore((s) => s.detailContainerId);
+  const setDetailContainerId = useContentViewStore((s) => s.setDetailContainerId);
 
   const containers = useYardStore((s) => s.containers);
   const [visibleCount, setVisibleCount] = useState(SEARCH_PAGE_SIZE);
@@ -70,21 +70,19 @@ export default function ContainerAccordion({
 
   const searching = query.trim().length > 0;
   const detailContainer =
-    detailId != null
-      ? (containers.find((item) => item.id === detailId) ?? null)
+    detailContainerId != null
+      ? (containers.find((item) => item.id === detailContainerId) ?? null)
       : null;
 
   function openDetail(container: Container) {
-    setDetailId(container.id);
-    onDetailChange?.(container.id);
+    setDetailContainerId(container.id);
   }
 
   function handleBack() {
-    if (detailId && selectedContainerId === detailId) {
+    if (detailContainerId && selectedContainerId === detailContainerId) {
       clearContainerSelection();
     }
-    setDetailId(null);
-    onDetailChange?.(null);
+    setDetailContainerId(null);
   }
 
   if (detailContainer) {

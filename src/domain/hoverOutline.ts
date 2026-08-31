@@ -18,56 +18,55 @@ export type PortHover = {
   id: string;
 } | null;
 
-let currentHover: PortHover = null;
+let pointerHover: PortHover = null;
 /** UI tracking 등 — 포인터 hover와 별도 유지 */
 let pinnedHover: PortHover = null;
-let clearToken = 0;
-const listeners = new Set<() => void>();
+let pointerClearToken = 0;
+const outlineAppliers = new Set<() => void>();
 
-function notifyHover() {
-  for (const listener of listeners) listener();
+function notifyOutlineAppliers() {
+  for (const fn of outlineAppliers) fn();
+}
+
+/** 3D outline 전용 — React state 없이 hover/selection 변경 시에만 호출 */
+export function registerPortOutlineApplier(applier: () => void) {
+  outlineAppliers.add(applier);
+  return () => {
+    outlineAppliers.delete(applier);
+  };
 }
 
 /** 포인터 hover 우선, 없으면 tracking pin */
 export function getPortHover() {
-  return currentHover ?? pinnedHover;
+  return pointerHover ?? pinnedHover;
 }
 
 export function getPointerHover() {
-  return currentHover;
+  return pointerHover;
 }
 
 export function pinPortHover(next: PortHover) {
   if (pinnedHover?.kind === next?.kind && pinnedHover?.id === next?.id) return;
   pinnedHover = next;
-  notifyHover();
+  notifyOutlineAppliers();
 }
 
 export function unpinPortHover(kind?: PortHoverKind) {
   if (!pinnedHover) return;
   if (kind != null && pinnedHover.kind !== kind) return;
   pinnedHover = null;
-  notifyHover();
+  notifyOutlineAppliers();
 }
 
-export function subscribePortHover(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function setPortHover(next: PortHover) {
-  const prev = currentHover;
-  if (prev?.kind === next?.kind && prev?.id === next?.id) return;
-  currentHover = next;
-  notifyHover();
+function setPointerHover(next: PortHover) {
+  if (pointerHover?.kind === next?.kind && pointerHover?.id === next?.id) return;
+  pointerHover = next;
+  notifyOutlineAppliers();
 }
 
 export function hoveredIndexOf(kind: PortHoverKind) {
-  const hover = currentHover;
-  if (hover?.kind !== kind) return -1;
-  const index = Number(hover.id);
+  if (pointerHover?.kind !== kind) return -1;
+  const index = Number(pointerHover.id);
   return Number.isInteger(index) ? index : -1;
 }
 
@@ -78,8 +77,8 @@ export function portHoverOver(
 ) {
   if (id == null) return;
   event.stopPropagation();
-  clearToken += 1;
-  setPortHover({ kind, id });
+  pointerClearToken += 1;
+  setPointerHover({ kind, id });
 }
 
 export function portHoverOut(
@@ -89,13 +88,15 @@ export function portHoverOut(
 ) {
   if (id == null) return;
   event.stopPropagation();
-  const token = ++clearToken;
+  const token = ++pointerClearToken;
   const snapshot = { kind, id };
   requestAnimationFrame(() => {
-    if (token !== clearToken) return;
-    const hover = currentHover;
-    if (hover?.kind === snapshot.kind && hover.id === snapshot.id) {
-      setPortHover(null);
+    if (token !== pointerClearToken) return;
+    if (
+      pointerHover?.kind === snapshot.kind &&
+      pointerHover.id === snapshot.id
+    ) {
+      setPointerHover(null);
     }
   });
 }

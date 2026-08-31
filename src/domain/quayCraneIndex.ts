@@ -30,7 +30,9 @@ export function parseQuayCraneGlbIndex(object: Object3D): number | null {
   return null;
 }
 
+/** Blender GLB: `crane` → 0, `crane.001` → 1 … */
 export function formatQuayCraneGlbName(glbIndex: number): string {
+  if (glbIndex === 0) return "crane";
   return `crane.${String(glbIndex).padStart(3, "0")}`;
 }
 

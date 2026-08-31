@@ -10,12 +10,16 @@ import {
   instanceHoverId,
   portHoverOut,
   portHoverOver,
-  subscribePortHover,
 } from "@/domain/hoverOutline";
 import { resolveShipIndex } from "@/domain/cameraFocus";
+import {
+  activateShipFromViewport,
+  pickShipKeyFromClick,
+  setViewportPickCursor,
+} from "@/domain/viewportPick";
 import { SHIP_TWEEN, WATERWAY_FULL_SPEED } from "@/constants/tween";
 import { useOccupancyStore } from "@/stores/occupancy";
-import { useViewportStore } from "@/stores/viewport";
+import { getActiveShipKey, useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
@@ -29,6 +33,7 @@ import {
   MeshStandardMaterial,
   Object3D,
 } from "three";
+import type { ThreeEvent } from "@react-three/fiber";
 import HoverOutlineMesh from "./HoverOutlineMesh";
 
 export type ShipInstance = {
@@ -159,11 +164,11 @@ export default function Ship({ instances, posesRef }: ShipProps) {
 
   const applyHoverOutline = useCallback((list: ShipInstance[]) => {
     const hoverIndex = hoveredIndexOf("ship");
-    const selectedKey = useViewportStore.getState().selectedShipKey;
-    const trackIndex = selectedKey ? resolveShipIndex(selectedKey) : null;
+    const activeKey = getActiveShipKey(useViewportStore.getState());
+    const focusIndex = activeKey ? resolveShipIndex(activeKey) : null;
     const outlineIndex =
-      trackIndex != null && trackIndex >= 0
-        ? trackIndex
+      focusIndex != null && focusIndex >= 0
+        ? focusIndex
         : hoverIndex >= 0
           ? hoverIndex
           : -1;
@@ -319,26 +324,37 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     });
   }, [parts]);
 
-  useLayoutEffect(() => {
-    const refresh = () => {
-      const list = posesRef?.current ?? instances;
-      if (!list) return;
-      applyHoverOutline(list);
-    };
-
-    const unsubHover = subscribePortHover(refresh);
-    const unsubViewport = useViewportStore.subscribe((state, prev) => {
-      if (state.selectedShipKey === prev.selectedShipKey) return;
-      refresh();
-    });
-    return () => {
-      unsubHover();
-      unsubViewport();
-    };
-  }, [applyHoverOutline, instances, posesRef]);
-
   const count = instances?.length ?? 0;
   if (count === 0) return null;
+
+  function handleShipPointerOver(
+    event: ThreeEvent<PointerEvent>,
+    id: string | null,
+  ) {
+    if (id == null) return;
+    event.stopPropagation();
+    setViewportPickCursor(true);
+    portHoverOver(event, "ship", id);
+  }
+
+  function handleShipPointerOut(
+    event: ThreeEvent<PointerEvent>,
+    id: string | null,
+  ) {
+    if (id == null) return;
+    event.stopPropagation();
+    setViewportPickCursor(false);
+    portHoverOut(event, "ship", id);
+  }
+
+  function handleShipClick(event: ThreeEvent<PointerEvent>) {
+    const list = posesRef?.current ?? instances;
+    if (!list) return;
+    const key = pickShipKeyFromClick(event, list);
+    if (!key) return;
+    event.stopPropagation();
+    activateShipFromViewport(key);
+  }
 
   return (
     <group>
@@ -356,13 +372,16 @@ export default function Ship({ instances, posesRef }: ShipProps) {
             onPointerOver={
               part.waterway
                 ? undefined
-                : (event) => portHoverOver(event, "ship", instanceHoverId(event))
+                : (event) =>
+                    handleShipPointerOver(event, instanceHoverId(event))
             }
             onPointerOut={
               part.waterway
                 ? undefined
-                : (event) => portHoverOut(event, "ship", instanceHoverId(event))
+                : (event) =>
+                    handleShipPointerOut(event, instanceHoverId(event))
             }
+            onClick={part.waterway ? undefined : handleShipClick}
           />
           {part.waterway ? null : (
             <instancedMesh
@@ -375,11 +394,12 @@ export default function Ship({ instances, posesRef }: ShipProps) {
               castShadow
               receiveShadow
               onPointerOver={(event) =>
-                portHoverOver(event, "ship", instanceHoverId(event))
+                handleShipPointerOver(event, instanceHoverId(event))
               }
               onPointerOut={(event) =>
-                portHoverOut(event, "ship", instanceHoverId(event))
+                handleShipPointerOut(event, instanceHoverId(event))
               }
+              onClick={handleShipClick}
             />
           )}
           {part.waterway ? null : (

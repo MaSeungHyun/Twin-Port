@@ -5,7 +5,6 @@ import {
   instanceHoverId,
   portHoverOut,
   portHoverOver,
-  subscribePortHover,
 } from "@/domain/hoverOutline";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -125,11 +124,6 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   useLayoutEffect(() => {
     writeMatrices(0);
   }, [writeMatrices]);
-
-  useLayoutEffect(
-    () => subscribePortHover(applyHoverOutline),
-    [applyHoverOutline],
-  );
 
   useFrame(({ clock }) => {
     writeMatrices(clock.elapsedTime);

@@ -3,11 +3,12 @@ import SearchBar from "@/components/SearchBar";
 import Icon from "@/components/Icon";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
-import { memo, useDeferredValue, useState } from "react";
+import { memo, useDeferredValue } from "react";
 import ContainerAccordion from "./ContainerAccordion";
 import { useContainerQueryStore } from "./containerQueryStore";
 import { useContainerPanel } from "./useContainerPanel";
 import { CyberHeading } from "../cyber/CyberPanel";
+import { useContentViewStore } from "@/stores/contentView";
 type ContainerContentAccordionProps = {
   onOpenChange?: (open: boolean) => void;
   /** ContentPanel 등 단일 탭 — 최상위 Accordion 없이 항상 펼침 */
@@ -16,16 +17,10 @@ type ContainerContentAccordionProps = {
 
 const ContainerList = memo(ContainerAccordion);
 
-function DeferredContainerList({
-  onDetailChange,
-}: {
-  onDetailChange?: (detailId: string | null) => void;
-}) {
+function DeferredContainerList() {
   const query = useContainerQueryStore((s) => s.query);
   const deferredQuery = useDeferredValue(query);
-  return (
-    <ContainerList query={deferredQuery} onDetailChange={onDetailChange} />
-  );
+  return <ContainerList query={deferredQuery} />;
 }
 
 function PanelSearchBar({
@@ -43,7 +38,7 @@ function PanelSearchBar({
   return (
     <div className="shrink-0 px-xl pb-xs">
       <SearchBar
-        size="sm"
+        size="md"
         value={query}
         onChange={(event) => {
           const next = event.target.value;
@@ -86,18 +81,19 @@ export default function ContainerContentAccordion({
 }: ContainerContentAccordionProps) {
   const { value, open, onValueChange, openPanel } =
     useContainerPanel(onOpenChange);
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const showSearchBar = detailId == null;
+  const detailContainerId = useContentViewStore((s) => s.detailContainerId);
+  const showListChrome = detailContainerId == null;
+  const showSearchBar = showListChrome;
 
   if (flat) {
     return (
-      <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CyberHeading title="Containers" subtitle="Search and track" />
+      <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden gap-2">
+        {showListChrome ? <CyberHeading title="Containers" /> : null}
         {showSearchBar ? (
           <PanelSearchBar panelOpen onNeedOpen={() => {}} />
         ) : null}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <DeferredContainerList onDetailChange={setDetailId} />
+          <DeferredContainerList />
         </div>
       </div>
     );
@@ -121,16 +117,18 @@ export default function ContainerContentAccordion({
           open && "min-h-0 flex-1",
         )}
       >
-        <Accordion.Header className="flex">
-          <Accordion.Trigger className="shrink-0 px-xl py-xs text-xl">
-            Containers
-          </Accordion.Trigger>
-        </Accordion.Header>
+        {showListChrome ? (
+          <Accordion.Header className="flex">
+            <Accordion.Trigger className="shrink-0 px-xl py-xs text-xl">
+              Containers
+            </Accordion.Trigger>
+          </Accordion.Header>
+        ) : null}
         {showSearchBar ? (
           <PanelSearchBar panelOpen={open} onNeedOpen={openPanel} />
         ) : null}
         <Accordion.Content className="min-h-0 overflow-y-auto overscroll-contain data-[state=open]:flex data-[state=open]:flex-1 data-[state=open]:flex-col">
-          <DeferredContainerList onDetailChange={setDetailId} />
+          <DeferredContainerList />
         </Accordion.Content>
       </Accordion.Item>
     </Accordion>

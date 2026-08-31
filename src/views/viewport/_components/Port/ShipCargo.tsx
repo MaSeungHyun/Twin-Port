@@ -22,6 +22,11 @@ import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
 import { getOccupancyContainerMaterial } from "@/domain/occupancyLook/occupancyContainerMaterial";
 import { portHoverOut, portHoverOver } from "@/domain/hoverOutline";
+import {
+  activateShipFromViewport,
+  resolveShipKeyFromInstanceIndex,
+  setViewportPickCursor,
+} from "@/domain/viewportPick";
 import { composeCargoSlotLocal, shipWorldScale } from "@/domain/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import { useGLTF } from "@react-three/drei";
@@ -34,6 +39,7 @@ import {
   Matrix4,
   type Object3D,
 } from "three";
+import type { ThreeEvent } from "@react-three/fiber";
 
 type CargoSlot = {
   shipIndex: number;
@@ -570,12 +576,22 @@ export default function ShipCargo({
                   count,
                 ]}
                 frustumCulled={false}
-                onPointerOver={(event) =>
-                  portHoverOver(event, "ship", String(shipIndex))
-                }
-                onPointerOut={(event) =>
-                  portHoverOut(event, "ship", String(shipIndex))
-                }
+                onPointerOver={(event) => {
+                  event.stopPropagation();
+                  setViewportPickCursor(true);
+                  portHoverOver(event, "ship", String(shipIndex));
+                }}
+                onPointerOut={(event) => {
+                  event.stopPropagation();
+                  setViewportPickCursor(false);
+                  portHoverOut(event, "ship", String(shipIndex));
+                }}
+                onClick={(event: ThreeEvent<PointerEvent>) => {
+                  const key = resolveShipKeyFromInstanceIndex(shipIndex);
+                  if (!key) return;
+                  event.stopPropagation();
+                  activateShipFromViewport(key);
+                }}
               />
             );
           })}

@@ -18,6 +18,8 @@ type ViewportState = {
   focusNonce: number;
   /** GLB crane index — 상세 화면 outline 전용 (카메라 이동 없음) */
   focusedCraneGlbIndex: number | null;
+  /** 상세 화면 outline 전용 (Tracking 해제해도 유지) */
+  focusedShipKey: string | null;
   selectContainer: (id: string) => void;
   clearContainerSelection: () => void;
   selectShip: (key: string) => void;
@@ -26,6 +28,8 @@ type ViewportState = {
   clearCraneSelection: () => void;
   focusCraneDetail: (glbIndex: number) => void;
   clearCraneDetailFocus: () => void;
+  focusShipDetail: (key: string) => void;
+  clearShipDetailFocus: () => void;
   /** 헤더 DANGEROUS — 위험 블록 BlockHoverArea 카드 전체 표시 */
   showDangerousBlockCards: boolean;
   toggleShowDangerousBlockCards: () => void;
@@ -36,7 +40,13 @@ export const useViewportStore = create<ViewportState>((set) => ({
   setMonitorMode: (enabled) =>
     set({
       monitorMode: enabled,
-      ...(!enabled ? { selectedBlockCode: null } : {}),
+      ...(enabled
+        ? {
+            selectedShipKey: null,
+            selectedCraneIndex: null,
+            selectedContainerId: null,
+          }
+        : { selectedBlockCode: null }),
     }),
   selectedBlockCode: null,
   selectBlock: (code) =>
@@ -48,6 +58,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   selectedShipKey: null,
   selectedCraneIndex: null,
   focusedCraneGlbIndex: null,
+  focusedShipKey: null,
   focusNonce: 0,
   selectContainer: (id) => {
     set((state) => ({
@@ -55,6 +66,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedShipKey: null,
       selectedCraneIndex: null,
       focusedCraneGlbIndex: null,
+      focusedShipKey: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
@@ -62,6 +74,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   selectShip: (key) => {
     set((state) => ({
       selectedShipKey: key,
+      focusedShipKey: key,
       selectedContainerId: null,
       selectedCraneIndex: null,
       focusedCraneGlbIndex: null,
@@ -73,6 +86,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set((state) => ({
       selectedCraneIndex: index,
       focusedCraneGlbIndex: index,
+      focusedShipKey: null,
       selectedContainerId: null,
       selectedShipKey: null,
       focusNonce: state.focusNonce + 1,
@@ -82,10 +96,20 @@ export const useViewportStore = create<ViewportState>((set) => ({
   focusCraneDetail: (glbIndex) =>
     set({
       focusedCraneGlbIndex: glbIndex,
+      focusedShipKey: null,
       selectedContainerId: null,
       selectedShipKey: null,
     }),
   clearCraneDetailFocus: () => set({ focusedCraneGlbIndex: null }),
+  focusShipDetail: (key) =>
+    set({
+      focusedShipKey: key,
+      focusedCraneGlbIndex: null,
+      selectedContainerId: null,
+      selectedShipKey: null,
+      selectedCraneIndex: null,
+    }),
+  clearShipDetailFocus: () => set({ focusedShipKey: null }),
   showDangerousBlockCards: false,
   toggleShowDangerousBlockCards: () =>
     set((state) => ({ showDangerousBlockCards: !state.showDangerousBlockCards })),
@@ -103,4 +127,9 @@ export function isViewportTracking(state: ViewportState): boolean {
 /** outline — Tracking 또는 상세 포커스 */
 export function getActiveCraneGlbIndex(state: ViewportState): number | null {
   return state.selectedCraneIndex ?? state.focusedCraneGlbIndex;
+}
+
+/** outline — Tracking 또는 상세 포커스 */
+export function getActiveShipKey(state: ViewportState): string | null {
+  return state.selectedShipKey ?? state.focusedShipKey;
 }

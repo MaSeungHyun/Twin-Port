@@ -10,7 +10,7 @@ import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import ContentDetailLayout, { DetailFields } from "../ContentDetailLayout";
 import { CyberHeading } from "../cyber/CyberPanel";
 
@@ -26,7 +26,10 @@ export default function ShipContentPanel() {
   const selectedShipKey = useViewportStore((s) => s.selectedShipKey);
   const selectShip = useViewportStore((s) => s.selectShip);
   const clearShipSelection = useViewportStore((s) => s.clearShipSelection);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const clearShipDetailFocus = useViewportStore((s) => s.clearShipDetailFocus);
+  const detailShipKey = useContentViewStore((s) => s.detailShipKey);
+  const openShipDetail = useContentViewStore((s) => s.openShipDetail);
+  const clearContentDetail = useContentViewStore((s) => s.clearContentDetail);
   const detailGraphOpen = useContentViewStore((s) => s.detailGraphOpen);
   const detailGraphSubject = useContentViewStore((s) => s.detailGraphSubject);
   const toggleDetailGraph = useContentViewStore((s) => s.toggleDetailGraph);
@@ -56,14 +59,16 @@ export default function ShipContentPanel() {
     });
   }, [modelShips]);
 
-  const selected = items.find((item) => item.key === selectedKey) ?? null;
+  const selected = items.find((item) => item.key === detailShipKey) ?? null;
 
   function handleBack() {
-    if (selectedKey && selectedShipKey === selectedKey) {
-      clearShipSelection();
-    }
+    clearShipDetailFocus();
+    clearContentDetail();
     closeDetailGraph();
-    setSelectedKey(null);
+  }
+
+  function openDetail(item: ShipListItem) {
+    openShipDetail(item.key);
   }
 
   if (selected) {
@@ -109,7 +114,7 @@ export default function ShipContentPanel() {
           <li key={item.key}>
             <button
               type="button"
-              onClick={() => setSelectedKey(item.key)}
+              onClick={() => openDetail(item)}
               className={cn(
                 "cyber-list-row flex w-full items-center gap-sm px-xl py-sm text-left",
                 selectedShipKey === item.key && "bg-cyber/8",

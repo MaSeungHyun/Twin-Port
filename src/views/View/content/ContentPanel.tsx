@@ -7,12 +7,30 @@ import CyberPanel from "./_components/cyber/CyberPanel";
 import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
+import { useEffect } from "react";
 
 export default function ContentPanel() {
   const activeView = useContentViewStore((s) => s.activeView);
   const detailGraphOpen = useContentViewStore((s) => s.detailGraphOpen);
   const detailGraphSubject = useContentViewStore((s) => s.detailGraphSubject);
   const monitorMode = useViewportStore((s) => s.monitorMode);
+  const dismissContentPanelLayer = useContentViewStore(
+    (s) => s.dismissContentPanelLayer,
+  );
+
+  useEffect(() => {
+    if (monitorMode || !activeView) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (dismissContentPanelLayer()) {
+        event.preventDefault();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeView, monitorMode, dismissContentPanelLayer]);
 
   if (monitorMode || !activeView) return null;
 

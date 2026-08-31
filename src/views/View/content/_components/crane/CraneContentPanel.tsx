@@ -1,6 +1,6 @@
 import { CONTENT_THUMBNAILS } from "@/assets/image/thumbnail";
 import Icon from "@/components/Icon";
-import { getCraneListSource, resolveCraneIndex } from "@/domain/cameraFocus";
+import { getCraneListSource } from "@/domain/cameraFocus";
 import {
   craneTwinDetailRows,
   craneOperationalTone,
@@ -11,7 +11,7 @@ import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import ContentDetailLayout, { DetailFields } from "../ContentDetailLayout";
 import { CraneStatusDot } from "../detail/OperationalStatusIndicator";
 import { CyberHeading } from "../cyber/CyberPanel";
@@ -29,9 +29,10 @@ export default function CraneContentPanel() {
   const selectedCraneIndex = useViewportStore((s) => s.selectedCraneIndex);
   const selectCrane = useViewportStore((s) => s.selectCrane);
   const clearCraneSelection = useViewportStore((s) => s.clearCraneSelection);
-  const focusCraneDetail = useViewportStore((s) => s.focusCraneDetail);
   const clearCraneDetailFocus = useViewportStore((s) => s.clearCraneDetailFocus);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const detailCraneKey = useContentViewStore((s) => s.detailCraneKey);
+  const openCraneDetail = useContentViewStore((s) => s.openCraneDetail);
+  const clearContentDetail = useContentViewStore((s) => s.clearContentDetail);
   const detailGraphOpen = useContentViewStore((s) => s.detailGraphOpen);
   const detailGraphSubject = useContentViewStore((s) => s.detailGraphSubject);
   const toggleDetailGraph = useContentViewStore((s) => s.toggleDetailGraph);
@@ -51,23 +52,16 @@ export default function CraneContentPanel() {
     });
   }, [quayCranes]);
 
-  const selected = items.find((item) => item.key === selectedKey) ?? null;
+  const selected = items.find((item) => item.key === detailCraneKey) ?? null;
 
   function handleBack() {
-    if (
-      selectedKey != null &&
-      resolveCraneIndex(selectedKey) === selectedCraneIndex
-    ) {
-      clearCraneSelection();
-    }
     clearCraneDetailFocus();
+    clearContentDetail();
     closeDetailGraph();
-    setSelectedKey(null);
   }
 
   function openDetail(item: CraneListItem) {
-    setSelectedKey(item.key);
-    focusCraneDetail(item.index);
+    openCraneDetail(item.key);
   }
 
   if (selected) {

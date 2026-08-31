@@ -38,13 +38,13 @@ export default function ContainerPreviewRow({
         <p className="truncate text-lg font-medium text-text-primary">
           {container.id}
         </p>
-        <p className="mt-0.5 truncate text-lg text-text-secondary">
-          {container.company}
-        </p>
         <p
-          className="container-address-line mt-0.5"
+          className="mt-0.5 truncate text-lg font-medium"
           style={{ color: accent, textShadow: `0 0 12px ${accent}88` }}
         >
+          {container.company}
+        </p>
+        <p className="mt-0.5 truncate text-lg text-text-secondary tabular-nums">
           {address}
         </p>
         <p className="mt-0.5 truncate text-lg text-text-secondary">

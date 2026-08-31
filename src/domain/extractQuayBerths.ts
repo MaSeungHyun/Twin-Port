@@ -8,6 +8,7 @@ import { yawToward } from "@/constants/shipCargo";
 import { findQuayCraneRoot } from "@/domain/hoverOutline";
 import {
   formatQuayCraneGlbName,
+  parseCraneNameIndex,
   parseQuayCraneGlbIndex,
 } from "@/domain/quayCraneIndex";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
@@ -411,112 +412,40 @@ export type QuayCranePlacement = {
   hoverId?: string;
 };
 
-function quayCraneSpots(root: Object3D): CraneSpot[] {
-  root.updateMatrixWorld(true);
-  const named = collectSpots(root, isNamedQuayCrane);
-  return keepTallSpots(
-    named.length >= 3 ? named : collectSpots(root, isFallbackCraneMesh),
-  );
+/** GLB crane / crane.001 … 루트 노드 (0~75) */
+function collectQuayCraneRootNodes(root: Object3D): Object3D[] {
+  const byIndex = new Map<number, Object3D>();
+  root.traverse((child) => {
+    const glbIndex = parseCraneNameIndex(child.name);
+    if (glbIndex == null || byIndex.has(glbIndex)) return;
+    byIndex.set(glbIndex, child);
+  });
+  return [...byIndex.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, node]) => node);
 }
 
 /** BUSAN.glb quay crane 인스턴스 월드 좌표 (UI·카메라 tracking용) */
-const QUAY_CRANE_CLUSTER_EPS = 4;
-
-/** 부품 mesh가 여러 개면 같은 크레인 좌표로 묶음 */
-function clusterQuayCraneSpots(spots: CraneSpot[]): CraneSpot[] {
-  const clusters: CraneSpot[][] = [];
-
-  for (const spot of spots) {
-    const cluster = clusters.find((group) =>
-      group.some(
-        (other) =>
-          Math.hypot(other.baseX - spot.baseX, other.baseZ - spot.baseZ) <
-          QUAY_CRANE_CLUSTER_EPS,
-      ),
-    );
-    if (cluster) cluster.push(spot);
-    else clusters.push([spot]);
-  }
-
-  return clusters.map((group) => {
-    const anchor = group.reduce((best, spot) =>
-      spot.height > best.height ? spot : best,
-    );
-    let baseX = 0;
-    let baseY = 0;
-    let baseZ = 0;
-    for (const spot of group) {
-      baseX += spot.baseX;
-      baseY += spot.baseY;
-      baseZ += spot.baseZ;
-    }
-    const n = group.length;
-    baseX /= n;
-    baseY /= n;
-    baseZ /= n;
-    return {
-      ...anchor,
-      baseX,
-      baseY,
-      baseZ,
-    };
-  });
-}
-
-/** 동일 glbIndex(crane.052) 부품 mesh를 하나로 합침 */
-function mergeSpotGroup(group: CraneSpot[]): CraneSpot {
-  const anchor = group.reduce((best, spot) =>
-    spot.height > best.height ? spot : best,
-  );
-  let baseX = 0;
-  let baseY = 0;
-  let baseZ = 0;
-  for (const spot of group) {
-    baseX += spot.baseX;
-    baseY += spot.baseY;
-    baseZ += spot.baseZ;
-  }
-  const n = group.length;
-  return {
-    ...anchor,
-    baseX: baseX / n,
-    baseY: baseY / n,
-    baseZ: baseZ / n,
-    glbIndex: anchor.glbIndex,
-  };
-}
-
-function groupSpotsByGlbIndex(spots: CraneSpot[]): CraneSpot[] {
-  const withIndex = spots.filter((spot) => spot.glbIndex != null);
-  const withoutIndex = spots.filter((spot) => spot.glbIndex == null);
-
-  const groups = new Map<number, CraneSpot[]>();
-  for (const spot of withIndex) {
-    const list = groups.get(spot.glbIndex!) ?? [];
-    list.push(spot);
-    groups.set(spot.glbIndex!, list);
-  }
-
-  const merged = [...groups.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([, group]) => mergeSpotGroup(group));
-
-  if (withoutIndex.length === 0) return merged;
-  return [...merged, ...clusterQuayCraneSpots(withoutIndex)];
-}
-
 export function extractQuayCranePlacements(
   root: Object3D,
 ): QuayCranePlacement[] {
-  const grouped = groupSpotsByGlbIndex(quayCraneSpots(root));
-  return grouped
-    .filter((spot) => spot.glbIndex != null)
-    .map((spot) => ({
-      glbIndex: spot.glbIndex!,
-      kind: spot.kind,
-      mesh: formatQuayCraneGlbName(spot.glbIndex!),
-      position: [spot.x, spot.y, spot.z],
-      height: spot.height,
-      hoverId: spot.hoverId,
-    }));
+  root.updateMatrixWorld(true);
+  const box = new Box3();
+  const center = new Vector3();
+  const size = new Vector3();
+
+  return collectQuayCraneRootNodes(root).map((node) => {
+    const glbIndex = parseCraneNameIndex(node.name)!;
+    box.setFromObject(node);
+    box.getCenter(center);
+    box.getSize(size);
+    return {
+      glbIndex,
+      kind: kindFromNames([node.name]),
+      mesh: formatQuayCraneGlbName(glbIndex),
+      position: [center.x, center.y, center.z],
+      height: size.y,
+      hoverId: node.uuid,
+    };
+  });
 }

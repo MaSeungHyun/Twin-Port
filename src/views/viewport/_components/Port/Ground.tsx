@@ -35,10 +35,15 @@ import {
   quayTargetMatches,
   quayTargetMatchesGlbIndex,
   resolveQuayCraneHoverId,
-  subscribePortHover,
+  registerPortOutlineApplier,
   unpinPortHover,
   writeQuayOutlineMatrix,
 } from "@/domain/hoverOutline";
+import {
+  activateCraneFromViewport,
+  pickCraneGlbIndexFromClick,
+  setViewportPickCursor,
+} from "@/domain/viewportPick";
 import { useViewportStore, isViewportTracking, getActiveCraneGlbIndex } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { useOccupancyStore } from "@/stores/occupancy";
@@ -312,6 +317,8 @@ export default function Ground({
         onPointerOver={(event: ThreeEvent<PointerEvent>) => {
           const root = findQuayCraneRoot(event.object);
           if (!root) return;
+          event.stopPropagation();
+          setViewportPickCursor(true);
           const id =
             event.instanceId != null
               ? `${root.uuid}:${event.instanceId}`
@@ -321,11 +328,19 @@ export default function Ground({
         onPointerOut={(event: ThreeEvent<PointerEvent>) => {
           const root = findQuayCraneRoot(event.object);
           if (!root) return;
+          event.stopPropagation();
+          setViewportPickCursor(false);
           const id =
             event.instanceId != null
               ? `${root.uuid}:${event.instanceId}`
               : root.uuid;
           portHoverOut(event, "quayCrane", id);
+        }}
+        onClick={(event: ThreeEvent<PointerEvent>) => {
+          const glbIndex = pickCraneGlbIndexFromClick(event);
+          if (glbIndex == null) return;
+          event.stopPropagation();
+          activateCraneFromViewport(glbIndex);
         }}
       />
       <QuayCraneHoverOutlines model={model} />
@@ -382,15 +397,18 @@ function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
         const showByHover =
           hoverId != null && quayTargetMatches(target, hoverId);
         const showByCrane =
-          glbIndex != null && quayTargetMatchesGlbIndex(target.source, glbIndex);
+          glbIndex != null &&
+          quayTargetMatchesGlbIndex(target.source, glbIndex);
         const show = showByHover || showByCrane;
+        const wasVisible = outline.visible;
         outline.visible = show;
-        if (show) writeQuayOutlineMatrix(target, outline, hoverId);
+        if (!show || (wasVisible && show)) return;
+        writeQuayOutlineMatrix(target, outline, hoverId);
       });
     };
 
     apply();
-    const unsubHover = subscribePortHover(apply);
+    const unsubOutline = registerPortOutlineApplier(apply);
     const unsubViewport = useViewportStore.subscribe((state, prev) => {
       if (
         state.selectedCraneIndex === prev.selectedCraneIndex &&
@@ -401,7 +419,7 @@ function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
       apply();
     });
     return () => {
-      unsubHover();
+      unsubOutline();
       unsubViewport();
     };
   }, [targets, model]);

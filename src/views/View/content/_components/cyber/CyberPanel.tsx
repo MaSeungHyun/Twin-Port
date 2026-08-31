@@ -74,9 +74,9 @@ export function CyberHeading({
     >
       <div className="flex items-start justify-between gap-md">
         <div className="min-w-0">
-          <h2 className="cyber-heading text-xl">{title}</h2>
+          <h2 className="cyber-heading text-2xl">{title}</h2>
           {subtitle ? (
-            <div className="mt-0.5">{subtitle}</div>
+            <div className="mt-0.5 text-text-secondary">{subtitle}</div>
           ) : null}
         </div>
         {trailing ? <div className="shrink-0 pt-0.5">{trailing}</div> : null}
