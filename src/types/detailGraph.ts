@@ -62,6 +62,10 @@ export type ShipLoadedContainerLog = {
 export type ShipDetailGraphData = {
   subjectKey: string;
   vesselName: string;
+  /** 선박 TEU 용량 */
+  teuCapacity: number;
+  /** 현재 적재 TEU */
+  teuLoaded: number;
   loadedContainers: ShipLoadedContainerLog[];
 };
 

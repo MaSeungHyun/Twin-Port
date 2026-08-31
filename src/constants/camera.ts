@@ -68,6 +68,9 @@ export const ORBIT_MAX_DISTANCE = 70;
  */
 export const TRACKING_FOCUS_DISTANCE = 14;
 
+/** 컨테이너 tracking — 슬롯 근접 뷰 (Ship/Crane보다 가깝게) */
+export const CONTAINER_TRACKING_FOCUS_DISTANCE = 7;
+
 /** 선박 tracking pivot — berth y 기준 추가 높이 (낮을수록 수선면 쪽) */
 export const SHIP_TRACKING_TARGET_Y_OFFSET = 0.5;
 

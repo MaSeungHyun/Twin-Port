@@ -1,4 +1,5 @@
 import { cn } from "@/utils/style";
+import type { ReactNode } from "react";
 
 /** 모든 썸네일 공통 정사각형 크기 */
 export const CONTENT_THUMBNAIL_SIZE = "size-48";
@@ -10,7 +11,7 @@ type ContentDetailHeroProps = {
   src: string;
   alt: string;
   title?: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   /** block: 패널 너비 기준 정사각형 / fixed: 고정 정사각형 */
   layout?: "block" | "fixed";
   titleClassName?: string;

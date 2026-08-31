@@ -35,10 +35,18 @@ export function getShipDetailGraphData(
 ) {
   const twin = getShipTwinProfile(index);
   const logCount = 14 + (index % 5) * 2;
+  const loadRatio =
+    0.48 + (index % 6) * 0.07 + seeded(index, 11) * 0.12;
+  const teuLoaded = Math.min(
+    twin.teu,
+    Math.round(twin.teu * Math.min(loadRatio, 0.94)),
+  );
 
   return {
     subjectKey,
     vesselName: twin.vesselName,
+    teuCapacity: twin.teu,
+    teuLoaded,
     loadedContainers: loadedContainersFor(index, logCount),
   };
 }

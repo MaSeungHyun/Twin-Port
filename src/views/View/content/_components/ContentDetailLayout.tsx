@@ -9,7 +9,7 @@ import ContentTrackButton from "./ContentTrackButton";
 type ContentDetailLayoutProps = {
   thumbnail: string;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   onBack: () => void;
   tracking?: boolean;
   onTrack?: () => void;
@@ -57,24 +57,35 @@ export default function ContentDetailLayout({
       <div
         className={cn(
           "relative w-full shrink-0 px-xl pt-sm",
-          scrollBody ? "pb-sm" : compactHero ? "pb-0" : "pb-sm",
+          compactHero ? "pb-0" : "pb-sm",
         )}
       >
-        {showDetail ? (
+        <div className="mb-sm flex items-center justify-between gap-sm">
           <Button
             type="button"
-            onClick={onDetailClick}
-            aria-label="Toggle detail graph"
-            aria-pressed={detailGraphActive}
-            className={cn(
-              "cyber-btn absolute top-sm right-xl z-2 inline-flex items-center gap-1 px-sm py-1 text-lg font-semibold",
-              detailGraphActive && "cyber-detail-btn--active",
-            )}
+            onClick={onBack}
+            aria-label="Back to list"
+            className="cyber-btn inline-flex items-center gap-1 px-sm py-1 text-lg font-semibold"
           >
-            <Icon icon="Info" className="size-lg stroke-cyber-glow" />
-            DETAIL
+            <Icon icon="ArrowLeft" className="size-lg stroke-cyber-glow" />
+            Back
           </Button>
-        ) : null}
+          {showDetail ? (
+            <Button
+              type="button"
+              onClick={onDetailClick}
+              aria-label="Toggle detail graph"
+              aria-pressed={detailGraphActive}
+              className={cn(
+                "cyber-btn inline-flex items-center gap-1 px-sm py-1 text-lg font-semibold",
+                detailGraphActive && "cyber-detail-btn--active",
+              )}
+            >
+              <Icon icon="Info" className="size-lg stroke-cyber-glow" />
+              DETAIL
+            </Button>
+          ) : null}
+        </div>
         <ContentDetailHero
           src={thumbnail}
           alt={title}
@@ -85,21 +96,16 @@ export default function ContentDetailLayout({
           compact={compactHero}
           inset
         />
-        <Button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to list"
-          className="cyber-btn absolute top-sm left-xl z-2 inline-flex items-center gap-1 px-sm py-1 text-lg font-semibold"
-        >
-          <Icon icon="ArrowLeft" className="size-lg stroke-cyber-glow" />
-          Back
-        </Button>
       </div>
 
       <div
         className={cn(
           "relative z-1 min-h-0 w-full flex-1 px-xl",
-          scrollBody && "overflow-y-auto overscroll-contain py-sm",
+          scrollBody &&
+            cn(
+              "overflow-y-auto overscroll-contain",
+              compactHero ? "pt-0 pb-sm" : "py-sm",
+            ),
           !scrollBody &&
             cn(
               "overflow-hidden",

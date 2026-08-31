@@ -32,7 +32,14 @@ export default function ContainerDetailCard({
     <ContentDetailLayout
       thumbnail={CONTENT_THUMBNAILS.container}
       title={container.id}
-      subtitle={container.company}
+      subtitle={
+        <span
+          className="truncate font-medium"
+          style={{ color: accent, textShadow: `0 0 12px ${accent}88` }}
+        >
+          {container.company}
+        </span>
+      }
       scrollBody={false}
       compactHero
       onBack={onBack}
@@ -41,10 +48,7 @@ export default function ContainerDetailCard({
       onClearTrack={onClearTrack}
     >
       <div className="mb-xs min-w-0 text-left">
-        <p
-          className="container-address-line"
-          style={{ color: accent, textShadow: `0 0 12px ${accent}88` }}
-        >
+        <p className="container-address-line text-text-secondary tabular-nums">
           {address}
         </p>
         <p className="cyber-subheading mt-0.5 truncate">

@@ -81,7 +81,6 @@ export default function ShipContentPanel() {
         thumbnail={CONTENT_THUMBNAILS.ship}
         title={twin.vesselName}
         subtitle={`${twin.flag} · ${twin.loa} · ${twin.teu.toLocaleString()} TEU`}
-        scrollBody={false}
         compactHero
         onBack={handleBack}
         tracking={selectedShipKey === selected.key}

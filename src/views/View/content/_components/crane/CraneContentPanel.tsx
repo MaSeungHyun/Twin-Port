@@ -76,6 +76,7 @@ export default function CraneContentPanel() {
         title={selected.title}
         subtitle={`${twin.craneId} · ${twin.assignedVessel}`}
         titleClassName="cyber-detail-title"
+        compactHero
         onBack={handleBack}
         tracking={selectedCraneIndex === selected.index}
         onTrack={() => selectCrane(selected.index)}

@@ -5,6 +5,7 @@ import { Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import {
   CAMERA_FLIGHT_DURATION,
+  CONTAINER_TRACKING_FOCUS_DISTANCE,
   INITIAL_CAMERA_POSITION,
   INITIAL_CAMERA_TARGET,
   TRACKING_FOCUS_DISTANCE,
@@ -144,6 +145,13 @@ function resolveTrackingTarget(
   return null;
 }
 
+function resolveTrackingFocusDistance(
+  selectedContainerId: string | null,
+): number {
+  if (selectedContainerId) return CONTAINER_TRACKING_FOCUS_DISTANCE;
+  return TRACKING_FOCUS_DISTANCE;
+}
+
 export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   const camera = useThree((state) => state.camera);
   const monitorMode = useViewportStore((s) => s.monitorMode);
@@ -237,7 +245,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       const toPosition = focusCameraPosition(
         toTarget,
         camera.position,
-        TRACKING_FOCUS_DISTANCE,
+        resolveTrackingFocusDistance(selectedContainerId),
       );
       const timeline = animateLookAtFlight({
         camera,

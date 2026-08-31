@@ -1,3 +1,4 @@
+import PieChart from "@/components/PieChart";
 import { getShipDetailGraphData } from "@/domain/shipDetailGraphMock";
 
 type ShipDetailGraphViewProps = {
@@ -10,9 +11,35 @@ export default function ShipDetailGraphView({
   subjectKey,
 }: ShipDetailGraphViewProps) {
   const data = getShipDetailGraphData(index, subjectKey);
+  const loadPct = Math.round((data.teuLoaded / data.teuCapacity) * 100);
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-md overflow-hidden">
+      <section className="cyber-graph-block shrink-0">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <h3 className="cyber-graph-label">Cargo Load</h3>
+          <div className="flex items-center gap-sm">
+            <PieChart
+              value={loadPct}
+              size={36}
+              color="#00E8FF"
+              trackColor="rgba(255,255,255,0.1)"
+            />
+            <p className="cyber-graph-kpi">
+              {loadPct}
+              <span className="cyber-graph-kpi-suffix ml-1">%</span>
+            </p>
+          </div>
+        </div>
+        <p className="text-lg tabular-nums text-text-secondary">
+          <span className="font-medium text-text-primary">
+            {data.teuLoaded.toLocaleString()}
+          </span>
+          {" / "}
+          {data.teuCapacity.toLocaleString()} TEU
+        </p>
+      </section>
+
       <section className="cyber-graph-block flex min-h-0 flex-1 flex-col">
         <div className="mb-sm flex shrink-0 items-baseline justify-between gap-2">
           <h3 className="cyber-graph-label">Loaded Containers</h3>
