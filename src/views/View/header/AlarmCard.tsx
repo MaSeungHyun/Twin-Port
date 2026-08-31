@@ -49,7 +49,7 @@ export default function AlarmCard({ item }: AlarmCardProps) {
   return (
     <DropdownMenu.Item
       className={cn(
-        "flex h-18 items-center gap-xl border bg-background py-2 text-lg [&_svg]:size-[2.625rem]!",
+        "flex h-18 items-center gap-xl border bg-background py-2 text-lg [&_svg]:size-[1.75rem]!",
         itemStyle,
       )}
     >
