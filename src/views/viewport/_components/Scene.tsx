@@ -106,7 +106,7 @@ function Scene() {
           <Models />
         </Suspense>
 
-        {import.meta.env.DEV && <StatsGl className="absolute top-24 right-4" />}
+        <StatsGl className="absolute top-24 right-4" />
       </R3FCanvas>
     </div>
   );
