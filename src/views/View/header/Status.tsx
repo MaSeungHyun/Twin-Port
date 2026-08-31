@@ -54,7 +54,7 @@ function StatusItem({
     >
       <Icon icon={icon} className={cn("size-8 stroke-primary", className)} />
       <div className="flex flex-col leading-tight select-none">
-        <span className="text-right text-lg tracking-semiwide text-text-secondary uppercase font-semibold">
+        <span className="text-right text-xl tracking-semiwide text-text-secondary uppercase font-semibold">
           {label}
         </span>
         <span
