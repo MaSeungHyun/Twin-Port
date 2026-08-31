@@ -1,6 +1,4 @@
 import { Accordion } from "@/components/Accordion";
-import Button from "@/components/Button";
-import Icon from "@/components/Icon";
 import { searchContainers } from "@/domain/containerSearch";
 import type { Container } from "@/types/container";
 import { useViewportStore } from "@/stores/viewport";
@@ -8,7 +6,6 @@ import { useYardStore } from "@/stores/yard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { companyAccent } from "../../util/containerAccent";
-import { useContainerQueryStore } from "./containerQueryStore";
 import ContainerDetailCard from "./ContainerDetailCard";
 import ContainerPreviewRow from "./ContainerPreviewRow";
 
@@ -18,15 +15,19 @@ const SEARCH_MAX_RESULTS = 100;
 
 type ContainerAccordionProps = {
   query: string;
+  onDetailChange?: (detailId: string | null) => void;
 };
 
-export default function ContainerAccordion({ query }: ContainerAccordionProps) {
+export default function ContainerAccordion({
+  query,
+  onDetailChange,
+}: ContainerAccordionProps) {
   const selectContainer = useViewportStore((s) => s.selectContainer);
   const clearContainerSelection = useViewportStore(
     (s) => s.clearContainerSelection,
   );
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
-  const setQuery = useContainerQueryStore((s) => s.setQuery);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const containers = useYardStore((s) => s.containers);
   const [visibleCount, setVisibleCount] = useState(SEARCH_PAGE_SIZE);
@@ -68,44 +69,54 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
   }, [containers]);
 
   const searching = query.trim().length > 0;
+  const detailContainer =
+    detailId != null
+      ? (containers.find((item) => item.id === detailId) ?? null)
+      : null;
 
-  function focusContainer(container: Container) {
-    setQuery(container.id);
+  function openDetail(container: Container) {
+    setDetailId(container.id);
+    onDetailChange?.(container.id);
+  }
+
+  function handleBack() {
+    if (detailId && selectedContainerId === detailId) {
+      clearContainerSelection();
+    }
+    setDetailId(null);
+    onDetailChange?.(null);
+  }
+
+  if (detailContainer) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ContainerDetailCard
+          container={detailContainer}
+          tracking={selectedContainerId === detailContainer.id}
+          onBack={handleBack}
+          onTrack={() => selectContainer(detailContainer.id)}
+          onClearTrack={clearContainerSelection}
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col">
-      {selectedContainerId ? (
-        <div className="sticky top-0 z-10 shrink-0 border-b border-cyber/15 bg-background/80 px-xl py-xs backdrop-blur-sm">
-          <div className="flex items-center gap-xs border border-cyber/25 bg-cyber/5 px-sm py-1.5">
-            <Icon icon="Focus" className="size-lg shrink-0 stroke-cyber" />
-            <span className="cyber-heading min-w-0 flex-1 truncate text-lg not-italic">
-              {selectedContainerId}
-            </span>
-            <Button
-              type="button"
-              onClick={clearContainerSelection}
-              className="cyber-btn inline-flex shrink-0 items-center gap-1 px-xs py-1 text-lg font-semibold"
-            >
-              <Icon icon="CircleX" className="size-md stroke-white/80" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {searching ? (
         results.length === 0 ? (
           <p className="px-xl py-md text-lg text-white/45">검색 결과 없음</p>
         ) : (
-          <ul className="flex flex-col pb-xs">
+          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-xs">
             {shown.map((container) => (
-              <li key={container.id} className="border-b border-white/5 last:border-b-0">
-                <ContainerDetailCard
+              <li
+                key={container.id}
+                className="border-b border-white/5 last:border-b-0"
+              >
+                <ContainerPreviewRow
                   container={container}
-                  selected={selectedContainerId === container.id}
-                  onTrack={() => selectContainer(container.id)}
-                  onClearTrack={clearContainerSelection}
+                  tracking={selectedContainerId === container.id}
+                  onSelect={() => openDetail(container)}
                 />
               </li>
             ))}
@@ -119,52 +130,52 @@ export default function ContainerAccordion({ query }: ContainerAccordionProps) {
           </ul>
         )
       ) : (
-        <Accordion type="multiple" className="w-full px-xl">
-          {companyGroups.map(({ company, items, count }) => {
-            const accent = companyAccent(company);
-            const preview = items.slice(0, MAX_PER_COMPANY_PREVIEW);
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <Accordion type="multiple" className="w-full px-xl">
+            {companyGroups.map(({ company, items, count }) => {
+              const accent = companyAccent(company);
+              const preview = items.slice(0, MAX_PER_COMPANY_PREVIEW);
 
-            return (
-              <Accordion.Item key={company} value={company}>
-                <Accordion.Header className="flex">
-                  <Accordion.Trigger
-                    className="py-sm text-lg"
-                    style={{ "--company-accent": accent } as CSSProperties}
-                  >
-                    <span className="flex min-w-0 flex-1 items-center gap-xs">
-                      <span className="size-xs shrink-0 rounded-full bg-text-secondary group-hover:bg-(--company-accent)" />
-                      <span className="truncate font-semibold">{company}</span>
-                    </span>
-                    <span className="mr-1 tabular-nums text-white/50">
-                      {count.toLocaleString()}
-                    </span>
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="px-0">
-                  <ul className="flex flex-col border-t border-white/5">
-                    {preview.map((container) => (
-                      <li key={container.id}>
-                        <ContainerPreviewRow
-                          container={container}
-                          selected={selectedContainerId === container.id}
-                          onSelect={() => focusContainer(container)}
-                          onTrack={() => selectContainer(container.id)}
-                          onClearTrack={clearContainerSelection}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                  {count > MAX_PER_COMPANY_PREVIEW ? (
-                    <p className="px-xs py-1.5 text-lg text-white/35">
-                      +{(count - MAX_PER_COMPANY_PREVIEW).toLocaleString()}개 —
-                      검색으로 찾기
-                    </p>
-                  ) : null}
-                </Accordion.Content>
-              </Accordion.Item>
-            );
-          })}
-        </Accordion>
+              return (
+                <Accordion.Item key={company} value={company}>
+                  <Accordion.Header className="flex">
+                    <Accordion.Trigger
+                      className="py-sm text-lg"
+                      style={{ "--company-accent": accent } as CSSProperties}
+                    >
+                      <span className="flex min-w-0 flex-1 items-center gap-xs">
+                        <span className="size-xs shrink-0 rounded-full bg-text-secondary group-hover:bg-(--company-accent)" />
+                        <span className="truncate font-semibold">{company}</span>
+                      </span>
+                      <span className="mr-1 tabular-nums text-white/50">
+                        {count.toLocaleString()}
+                      </span>
+                    </Accordion.Trigger>
+                  </Accordion.Header>
+                  <Accordion.Content className="px-0">
+                    <ul className="flex flex-col border-t border-white/5">
+                      {preview.map((container) => (
+                        <li key={container.id}>
+                          <ContainerPreviewRow
+                            container={container}
+                            tracking={selectedContainerId === container.id}
+                            onSelect={() => openDetail(container)}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                    {count > MAX_PER_COMPANY_PREVIEW ? (
+                      <p className="px-xs py-1.5 text-lg text-white/35">
+                        +{(count - MAX_PER_COMPANY_PREVIEW).toLocaleString()}개
+                        — 검색으로 찾기
+                      </p>
+                    ) : null}
+                  </Accordion.Content>
+                </Accordion.Item>
+              );
+            })}
+          </Accordion>
+        </div>
       )}
     </div>
   );
@@ -183,9 +194,7 @@ function LoadMoreSentinel({
     const target = ref.current;
     if (!target) return;
 
-    const root = target.closest(
-      "[data-slot='accordion-content']",
-    ) as HTMLElement | null;
+    const root = target.closest(".overflow-y-auto") as HTMLElement | null;
 
     const observer = new IntersectionObserver(
       ([entry]) => {

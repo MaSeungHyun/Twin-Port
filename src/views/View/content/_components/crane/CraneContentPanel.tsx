@@ -1,19 +1,27 @@
 import { CONTENT_THUMBNAILS } from "@/assets/image/thumbnail";
 import Icon from "@/components/Icon";
 import { getCraneListSource, resolveCraneIndex } from "@/domain/cameraFocus";
+import {
+  craneTwinDetailRows,
+  craneOperationalTone,
+  craneStatusLabel,
+  getCraneTwinProfile,
+} from "@/domain/portTwinMock";
+import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
 import { useMemo, useState } from "react";
 import ContentDetailLayout, { DetailFields } from "../ContentDetailLayout";
+import { CraneStatusDot } from "../detail/OperationalStatusIndicator";
 import { CyberHeading } from "../cyber/CyberPanel";
 
 type CraneListItem = {
   key: string;
   index: number;
+  glbName: string;
   title: string;
   subtitle: string;
-  details: { label: string; value: string }[];
 };
 
 export default function CraneContentPanel() {
@@ -21,27 +29,24 @@ export default function CraneContentPanel() {
   const selectedCraneIndex = useViewportStore((s) => s.selectedCraneIndex);
   const selectCrane = useViewportStore((s) => s.selectCrane);
   const clearCraneSelection = useViewportStore((s) => s.clearCraneSelection);
+  const focusCraneDetail = useViewportStore((s) => s.focusCraneDetail);
+  const clearCraneDetailFocus = useViewportStore((s) => s.clearCraneDetailFocus);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const detailGraphOpen = useContentViewStore((s) => s.detailGraphOpen);
+  const detailGraphSubject = useContentViewStore((s) => s.detailGraphSubject);
+  const toggleDetailGraph = useContentViewStore((s) => s.toggleDetailGraph);
+  const closeDetailGraph = useContentViewStore((s) => s.closeDetailGraph);
 
   const items = useMemo<CraneListItem[]>(() => {
-    const { placements, fromModel } = getCraneListSource();
-    return placements.map((crane, index) => {
-      const label = `Crane ${String(index + 1).padStart(2, "0")}`;
-      const position = crane.position.map((v) => v.toFixed(1)).join(", ");
-
+    const { placements } = getCraneListSource();
+    return placements.map((crane) => {
+      const twin = getCraneTwinProfile(crane.glbIndex);
       return {
-        key: `crane-${index}`,
-        index,
-        title: label,
-        subtitle: `${crane.kind} · (${position})`,
-        details: [
-          { label: "index", value: String(index + 1) },
-          { label: "kind", value: crane.kind },
-          { label: "mesh", value: crane.mesh },
-          { label: "position", value: position },
-          { label: "height", value: crane.height > 0 ? crane.height.toFixed(2) : "—" },
-          { label: "source", value: fromModel ? "BUSAN.glb" : "fallback" },
-        ],
+        key: `crane-${crane.glbIndex}`,
+        index: crane.glbIndex,
+        glbName: crane.mesh,
+        title: `Crane ${String(crane.glbIndex).padStart(2, "0")}`,
+        subtitle: `${twin.craneId} · ${crane.mesh} · ${twin.containersMoved.toLocaleString()} moves`,
       };
     });
   }, [quayCranes]);
@@ -55,21 +60,43 @@ export default function CraneContentPanel() {
     ) {
       clearCraneSelection();
     }
+    clearCraneDetailFocus();
+    closeDetailGraph();
     setSelectedKey(null);
   }
 
+  function openDetail(item: CraneListItem) {
+    setSelectedKey(item.key);
+    focusCraneDetail(item.index);
+  }
+
   if (selected) {
+    const twin = getCraneTwinProfile(selected.index);
+
     return (
       <ContentDetailLayout
         thumbnail={CONTENT_THUMBNAILS.crane}
         title={selected.title}
+        subtitle={`${twin.craneId} · ${twin.assignedVessel}`}
         titleClassName="cyber-detail-title"
         onBack={handleBack}
         tracking={selectedCraneIndex === selected.index}
         onTrack={() => selectCrane(selected.index)}
         onClearTrack={clearCraneSelection}
+        onDetailClick={() =>
+          toggleDetailGraph({
+            kind: "crane",
+            key: selected.key,
+            index: selected.index,
+          })
+        }
+        detailGraphActive={
+          detailGraphOpen &&
+          detailGraphSubject?.kind === "crane" &&
+          detailGraphSubject.key === selected.key
+        }
       >
-        <DetailFields rows={selected.details} />
+        <DetailFields rows={craneTwinDetailRows(twin)} />
       </ContentDetailLayout>
     );
   }
@@ -82,23 +109,35 @@ export default function CraneContentPanel() {
       />
 
       <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {items.map((item) => (
+        {items.map((item) => {
+          const twin = getCraneTwinProfile(item.index);
+          const statusTone = craneOperationalTone(twin.status);
+          const statusLabel = craneStatusLabel(twin.status);
+
+          return (
           <li key={item.key}>
             <button
               type="button"
-              onClick={() => setSelectedKey(item.key)}
+              onClick={() => openDetail(item)}
               className={cn(
                 "cyber-list-row flex w-full items-center gap-sm px-xl py-sm text-left",
                 selectedCraneIndex === item.index && "bg-cyber/8",
               )}
             >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-medium text-text-primary">
-                  {item.title}
-                </p>
-                <p className="mt-0.5 truncate text-lg text-text-secondary">
-                  {item.subtitle}
-                </p>
+              <div className="flex min-w-0 flex-1 items-start gap-sm text-lg">
+                <CraneStatusDot
+                  tone={statusTone}
+                  label={statusLabel}
+                  className="mt-[0.5em] shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium leading-snug text-text-primary">
+                    {item.title}
+                  </p>
+                  <p className="mt-0.5 truncate leading-snug text-text-secondary">
+                    {item.subtitle}
+                  </p>
+                </div>
               </div>
               {selectedCraneIndex === item.index ? (
                 <Icon icon="Focus" className="size-lg shrink-0 stroke-cyber" />
@@ -110,7 +149,8 @@ export default function CraneContentPanel() {
               )}
             </button>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );

@@ -1,6 +1,12 @@
 import { CONTENT_THUMBNAILS } from "@/assets/image/thumbnail";
 import Icon from "@/components/Icon";
 import { SHIP_PLACEMENTS } from "@/constants/model";
+import {
+  getShipTwinProfile,
+  resolveShipTwinIndex,
+  shipTwinDetailRows,
+} from "@/domain/portTwinMock";
+import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
@@ -10,9 +16,9 @@ import { CyberHeading } from "../cyber/CyberPanel";
 
 type ShipListItem = {
   key: string;
+  index: number;
   title: string;
   subtitle: string;
-  details: { label: string; value: string }[];
 };
 
 export default function ShipContentPanel() {
@@ -21,50 +27,33 @@ export default function ShipContentPanel() {
   const selectShip = useViewportStore((s) => s.selectShip);
   const clearShipSelection = useViewportStore((s) => s.clearShipSelection);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const detailGraphOpen = useContentViewStore((s) => s.detailGraphOpen);
+  const detailGraphSubject = useContentViewStore((s) => s.detailGraphSubject);
+  const toggleDetailGraph = useContentViewStore((s) => s.toggleDetailGraph);
+  const closeDetailGraph = useContentViewStore((s) => s.closeDetailGraph);
 
   const items = useMemo<ShipListItem[]>(() => {
     if (modelShips.length > 0) {
-      return modelShips.map((ship, index) => ({
-        key: `ship-${index}`,
-        title: `Berth ${index + 1}`,
-        subtitle: `${ship.craneCount} cranes · ${ship.kind}`,
-        details: [
-          { label: "kind", value: ship.kind },
-          { label: "cranes", value: String(ship.craneCount) },
-          {
-            label: "position",
-            value: ship.position.map((v) => v.toFixed(2)).join(", "),
-          },
-          {
-            label: "rotation",
-            value: ship.rotation
-              ? ship.rotation.map((v) => v.toFixed(2)).join(", ")
-              : "—",
-          },
-          {
-            label: "locator",
-            value:
-              ship.locatorIndex != null ? String(ship.locatorIndex) : "—",
-          },
-        ],
-      }));
+      return modelShips.map((_ship, index) => {
+        const twin = getShipTwinProfile(index);
+        return {
+          key: `ship-${index}`,
+          index,
+          title: twin.vesselName,
+          subtitle: `${twin.flag} · ${twin.loa} · ${twin.berth}`,
+        };
+      });
     }
 
-    return SHIP_PLACEMENTS.map((ship) => ({
-      key: ship.label,
-      title: `Ship ${ship.label}`,
-      subtitle: `Locators ${ship.locators.join(", ")}`,
-      details: [
-        { label: "label", value: ship.label },
-        { label: "locators", value: ship.locators.join(", ") },
-        {
-          label: "position",
-          value: ship.position.map((v) => v.toFixed(2)).join(", "),
-        },
-        { label: "yaw", value: `${ship.yawDeg.toFixed(1)}°` },
-        { label: "scale", value: ship.scale.toFixed(3) },
-      ],
-    }));
+    return SHIP_PLACEMENTS.map((ship, index) => {
+      const twin = getShipTwinProfile(index);
+      return {
+        key: ship.label,
+        index,
+        title: twin.vesselName,
+        subtitle: `${twin.flag} · ${twin.loa}`,
+      };
+    });
   }, [modelShips]);
 
   const selected = items.find((item) => item.key === selectedKey) ?? null;
@@ -73,21 +62,40 @@ export default function ShipContentPanel() {
     if (selectedKey && selectedShipKey === selectedKey) {
       clearShipSelection();
     }
+    closeDetailGraph();
     setSelectedKey(null);
   }
 
   if (selected) {
+    const twin = getShipTwinProfile(
+      selected.index ?? resolveShipTwinIndex(selected.key),
+    );
+
     return (
       <ContentDetailLayout
         thumbnail={CONTENT_THUMBNAILS.ship}
-        title={selected.title}
-        subtitle={selected.subtitle}
+        title={twin.vesselName}
+        subtitle={`${twin.flag} · ${twin.loa} · ${twin.teu.toLocaleString()} TEU`}
+        scrollBody={false}
+        compactHero
         onBack={handleBack}
         tracking={selectedShipKey === selected.key}
         onTrack={() => selectShip(selected.key)}
         onClearTrack={clearShipSelection}
+        onDetailClick={() =>
+          toggleDetailGraph({
+            kind: "ship",
+            key: selected.key,
+            index: selected.index,
+          })
+        }
+        detailGraphActive={
+          detailGraphOpen &&
+          detailGraphSubject?.kind === "ship" &&
+          detailGraphSubject.key === selected.key
+        }
       >
-        <DetailFields rows={selected.details} />
+        <DetailFields rows={shipTwinDetailRows(twin)} />
       </ContentDetailLayout>
     );
   }

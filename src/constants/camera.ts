@@ -62,14 +62,14 @@ export const ORBIT_MAX_DISTANCE = 70;
  * - DISTANCE: 수평 거리 (클수록 멀리)
  * - HEIGHT: 목표 대비 카메라 높이
  */
-export const CONTAINER_FOCUS_DISTANCE = 11.2;
-export const CONTAINER_FOCUS_HEIGHT = 5.6;
+/**
+ * Ship / Container / Crane 트래킹 공통 — 대상으로부터 카메라까지 거리
+ * (현재 시점 방향은 유지, OrbitControls pivot만 대상으로 이동)
+ */
+export const TRACKING_FOCUS_DISTANCE = 14;
 
-export const SHIP_FOCUS_DISTANCE = 16;
-export const SHIP_FOCUS_HEIGHT = 4.5;
-
-export const CRANE_FOCUS_DISTANCE = 16;
-export const CRANE_FOCUS_HEIGHT = 7;
+/** 선박 tracking pivot — berth y 기준 추가 높이 (낮을수록 수선면 쪽) */
+export const SHIP_TRACKING_TARGET_Y_OFFSET = 0.5;
 
 /** position + quaternion → 지면(y=0) 교차점으로 lookAt 타겟 계산 */
 export function cameraLookAtTarget(

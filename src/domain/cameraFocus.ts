@@ -3,10 +3,23 @@ import {
   SHIP_INSTANCES,
   SHIP_PLACEMENTS,
 } from "@/constants/model";
+import { SHIP_TRACKING_TARGET_Y_OFFSET } from "@/constants/camera";
 import type { QuayCranePlacement } from "@/domain/extractQuayBerths";
+import { getQuayCraneWorldTrackingTarget } from "@/domain/hoverOutline";
+import {
+  formatQuayCraneGlbName,
+  resolveQuayCraneGlbIndexFromKey,
+} from "@/domain/quayCraneIndex";
 import { getShipPoseAt } from "@/domain/shipWake";
 import { useYardStore } from "@/stores/yard";
-import { Vector3 } from "three";
+import { type Object3D, Vector3 } from "three";
+
+let quayCraneModel: Object3D | null = null;
+
+/** Ground GLB — tracking 시 live bbox center 조회 */
+export function bindQuayCraneModel(model: Object3D | null) {
+  quayCraneModel = model;
+}
 
 export function resolveShipIndex(key: string): number | null {
   if (key.startsWith("ship-")) {
@@ -17,10 +30,9 @@ export function resolveShipIndex(key: string): number | null {
   return index >= 0 ? index : null;
 }
 
+/** UI key crane-52 → GLB index 52 */
 export function resolveCraneIndex(key: string): number | null {
-  if (!key.startsWith("crane-")) return null;
-  const index = Number.parseInt(key.slice(6), 10);
-  return Number.isFinite(index) ? index : null;
+  return resolveQuayCraneGlbIndexFromKey(key);
 }
 
 /** 선박 월드 포커스 — tween 중이면 live pose 우선 */
@@ -35,21 +47,31 @@ export function getShipFocusTarget(key: string): Vector3 | null {
   if (!berth) return null;
 
   const [x, y, z] = berth.position;
-  return new Vector3(x, Math.max(y, 0) + 1.5, z);
+  return new Vector3(x, Math.max(y, 0) + SHIP_TRACKING_TARGET_Y_OFFSET, z);
 }
 
 function cranePlacements(): readonly QuayCranePlacement[] {
   return useYardStore.getState().quayCranes;
 }
 
-export function getCraneFocusTarget(index: number): Vector3 | null {
-  const fromModel = cranePlacements()[index];
+export function getCranePlacement(glbIndex: number): QuayCranePlacement | null {
+  return cranePlacements().find((crane) => crane.glbIndex === glbIndex) ?? null;
+}
+
+/** quay crane 월드 포커스 — GLB index(crane.052→52) 기준 */
+export function getCraneFocusTarget(glbIndex: number): Vector3 | null {
+  if (quayCraneModel) {
+    const fromScene = getQuayCraneWorldTrackingTarget(quayCraneModel, glbIndex);
+    if (fromScene) return fromScene;
+  }
+
+  const fromModel = getCranePlacement(glbIndex);
   if (fromModel) {
     const [x, y, z] = fromModel.position;
     return new Vector3(x, y, z);
   }
 
-  const fallback = CRANE_INSTANCES[index];
+  const fallback = CRANE_INSTANCES[glbIndex];
   if (!fallback) return null;
 
   const [x, , z] = fallback.position;
@@ -65,9 +87,10 @@ export function getCraneListSource(): {
     return { placements, fromModel: true };
   }
   return {
-    placements: CRANE_INSTANCES.map((crane, index) => ({
+    placements: CRANE_INSTANCES.map((crane, glbIndex) => ({
+      glbIndex,
       kind: "crane" as const,
-      mesh: `Crane ${index + 1}`,
+      mesh: formatQuayCraneGlbName(glbIndex),
       position: [
         crane.position[0],
         6,

@@ -1,5 +1,6 @@
 import { type ThreeEvent } from "@react-three/fiber";
 import {
+  Box3,
   InstancedMesh,
   Matrix4,
   Mesh,
@@ -7,6 +8,7 @@ import {
   type Object3D,
   Vector3,
 } from "three";
+import { parseCraneNameIndex } from "@/domain/quayCraneIndex";
 import { useYardStore } from "@/stores/yard";
 
 export type PortHoverKind = "ship" | "overheadCrane" | "quayCrane";
@@ -189,12 +191,14 @@ const quayMatchPos = new Vector3();
 const quayMatchInstance = new Matrix4();
 const quayMatchWorld = new Matrix4();
 
-/** UI crane index → hover와 동일한 id (rootUuid:instanceId) */
+/** GLB index(crane.052→52) → hover outline id */
 export function resolveQuayCraneHoverId(
   model: Object3D,
-  craneIndex: number,
+  glbIndex: number,
 ): string | null {
-  const placement = useYardStore.getState().quayCranes[craneIndex];
+  const placement = useYardStore
+    .getState()
+    .quayCranes.find((crane) => crane.glbIndex === glbIndex);
   if (!placement) return null;
   if (placement.hoverId) return placement.hoverId;
 
@@ -231,12 +235,123 @@ export function resolveQuayCraneHoverId(
   return bestDist <= QUAY_HOVER_MATCH_EPS ? bestId : null;
 }
 
+/** placement 주변 quay crane mesh bbox 합집합 — tracking pivot */
+const QUAY_CRANE_TRACKING_RADIUS = 8;
+const craneTrackBox = new Box3();
+const craneTrackPart = new Box3();
+const craneTrackMatrix = new Matrix4();
+const craneTrackOrigin = new Vector3();
+const craneTrackCenter = new Vector3();
+
+export function getQuayCraneWorldTrackingTarget(
+  model: Object3D,
+  glbIndex: number,
+): Vector3 | null {
+  model.updateMatrixWorld(true);
+  craneTrackBox.makeEmpty();
+  let matched = false;
+
+  model.traverse((child) => {
+    if (!(child instanceof Mesh)) return;
+    if (child.name.endsWith("-occupancy")) return;
+
+    let node: Object3D | null = child;
+    let idx: number | null = null;
+    while (node) {
+      idx = parseCraneNameIndex(node.name);
+      if (idx != null) break;
+      node = node.parent;
+    }
+    if (idx !== glbIndex) return;
+
+    const geometry = child.geometry;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    if (!geometry.boundingBox) return;
+
+    if (child instanceof InstancedMesh) {
+      for (let i = 0; i < child.count; i += 1) {
+        child.getMatrixAt(i, craneTrackMatrix);
+        craneTrackMatrix.premultiply(child.matrixWorld);
+        craneTrackPart.copy(geometry.boundingBox).applyMatrix4(craneTrackMatrix);
+        craneTrackBox.union(craneTrackPart);
+        matched = true;
+      }
+      return;
+    }
+
+    craneTrackPart.copy(geometry.boundingBox).applyMatrix4(child.matrixWorld);
+    craneTrackBox.union(craneTrackPart);
+    matched = true;
+  });
+
+  if (matched) {
+    craneTrackBox.getCenter(craneTrackCenter);
+    return craneTrackCenter.clone();
+  }
+
+  const placement = useYardStore
+    .getState()
+    .quayCranes.find((crane) => crane.glbIndex === glbIndex);
+  if (!placement) return null;
+
+  const [tx, , tz] = placement.position;
+  craneTrackBox.makeEmpty();
+  matched = false;
+
+  for (const target of collectQuayHoverTargets(model)) {
+    const geometry = target.source.geometry;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    if (!geometry.boundingBox) continue;
+
+    if (target.source instanceof InstancedMesh) {
+      for (let i = 0; i < target.source.count; i += 1) {
+        target.source.getMatrixAt(i, craneTrackMatrix);
+        craneTrackMatrix.premultiply(target.source.matrixWorld);
+        craneTrackOrigin.setFromMatrixPosition(craneTrackMatrix);
+        if (Math.hypot(craneTrackOrigin.x - tx, craneTrackOrigin.z - tz) > QUAY_CRANE_TRACKING_RADIUS) {
+          continue;
+        }
+        craneTrackPart.copy(geometry.boundingBox).applyMatrix4(craneTrackMatrix);
+        craneTrackBox.union(craneTrackPart);
+        matched = true;
+      }
+      continue;
+    }
+
+    craneTrackOrigin.setFromMatrixPosition(target.source.matrixWorld);
+    if (Math.hypot(craneTrackOrigin.x - tx, craneTrackOrigin.z - tz) > QUAY_CRANE_TRACKING_RADIUS) {
+      continue;
+    }
+    craneTrackPart.copy(geometry.boundingBox).applyMatrix4(target.source.matrixWorld);
+    craneTrackBox.union(craneTrackPart);
+    matched = true;
+  }
+
+  if (matched) {
+    craneTrackBox.getCenter(craneTrackCenter);
+    return craneTrackCenter.clone();
+  }
+
+  const [x, y, z] = placement.position;
+  return new Vector3(x, y, z);
+}
+
 export function quayTargetMatches(target: QuayHoverTarget, hoverId: string) {
   if (target.rootId === hoverId || target.source.uuid === hoverId) return true;
   const colon = hoverId.indexOf(":");
   if (colon === -1) return false;
   const uuid = hoverId.slice(0, colon);
   return uuid === target.rootId || uuid === target.source.uuid;
+}
+
+/** GLB crane.052 → 52 와 동일 crane mesh인지 (부품 전체 outline) */
+export function quayTargetMatchesGlbIndex(source: Mesh, glbIndex: number): boolean {
+  let node: Object3D | null = source;
+  while (node) {
+    if (parseCraneNameIndex(node.name) === glbIndex) return true;
+    node = node.parent;
+  }
+  return false;
 }
 
 /** Ground deck 등은 통과시키고 quay crane만 포인터 hit (Block hover raycast 복구) */

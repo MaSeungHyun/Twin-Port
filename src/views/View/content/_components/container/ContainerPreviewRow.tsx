@@ -1,4 +1,3 @@
-import Button from "@/components/Button";
 import Icon from "@/components/Icon";
 import { formatSlotAddress } from "@/domain/container";
 import type { Container } from "@/types/container";
@@ -7,18 +6,14 @@ import { companyAccent } from "../../util/containerAccent";
 
 type ContainerPreviewRowProps = {
   container: Container;
-  selected: boolean;
+  tracking: boolean;
   onSelect: () => void;
-  onTrack: () => void;
-  onClearTrack: () => void;
 };
 
 export default function ContainerPreviewRow({
   container,
-  selected,
+  tracking,
   onSelect,
-  onTrack,
-  onClearTrack,
 }: ContainerPreviewRowProps) {
   const { block, slot } = container.location;
 
@@ -31,55 +26,37 @@ export default function ContainerPreviewRow({
   const accent = companyAccent(container.company);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect();
-        }
-      }}
       className={cn(
-        "flex cursor-pointer items-center gap-xs border-b border-white/5 px-xl py-xs last:border-b-0 hover:bg-primary/15 rounded-md",
-        selected && "bg-primary/20",
+        "cyber-list-row flex w-full items-center gap-sm px-xl py-sm text-left",
+        tracking && "bg-cyber/8",
       )}
     >
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-lg font-semibold text-white">
+      <div className="min-w-0 flex-1 text-left">
+        <p className="truncate text-lg font-medium text-text-primary">
           {container.id}
         </p>
+        <p className="mt-0.5 truncate text-lg text-text-secondary">
+          {container.company}
+        </p>
         <p
-          className="mt-0.5 truncate text-lg font-semibold"
-          style={{ color: accent }}
+          className="container-address-line mt-0.5"
+          style={{ color: accent, textShadow: `0 0 12px ${accent}88` }}
         >
           {address}
         </p>
+        <p className="mt-0.5 truncate text-lg text-text-secondary">
+          {container.status}
+          {container.destination ? ` · ${container.destination}` : ""}
+        </p>
       </div>
-      <Button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          if (selected) onClearTrack();
-          else onTrack();
-        }}
-        className={cn(
-          "inline-flex shrink-0 items-center gap-1 rounded-md border px-xs py-1 text-lg font-semibold text-white",
-          selected
-            ? "border-white/20 bg-white/10 hover:bg-white/20"
-            : "border-primary/40 bg-primary/20 hover:bg-primary/35",
-        )}
-      >
-        <Icon
-          icon={selected ? "CircleX" : "Focus"}
-          className={cn(
-            "size-md",
-            selected ? "stroke-white/80" : "stroke-primary",
-          )}
-        />
-        {selected ? "Cancel" : "Tracking"}
-      </Button>
-    </div>
+      {tracking ? (
+        <Icon icon="Focus" className="size-lg shrink-0 stroke-cyber" />
+      ) : (
+        <Icon icon="ChevronRight" className="size-lg shrink-0 stroke-cyber/50" />
+      )}
+    </button>
   );
 }

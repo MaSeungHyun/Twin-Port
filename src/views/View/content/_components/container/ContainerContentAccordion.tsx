@@ -3,7 +3,7 @@ import SearchBar from "@/components/SearchBar";
 import Icon from "@/components/Icon";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
-import { memo, useDeferredValue } from "react";
+import { memo, useDeferredValue, useState } from "react";
 import ContainerAccordion from "./ContainerAccordion";
 import { useContainerQueryStore } from "./containerQueryStore";
 import { useContainerPanel } from "./useContainerPanel";
@@ -16,10 +16,16 @@ type ContainerContentAccordionProps = {
 
 const ContainerList = memo(ContainerAccordion);
 
-function DeferredContainerList() {
+function DeferredContainerList({
+  onDetailChange,
+}: {
+  onDetailChange?: (detailId: string | null) => void;
+}) {
   const query = useContainerQueryStore((s) => s.query);
   const deferredQuery = useDeferredValue(query);
-  return <ContainerList query={deferredQuery} />;
+  return (
+    <ContainerList query={deferredQuery} onDetailChange={onDetailChange} />
+  );
 }
 
 function PanelSearchBar({
@@ -80,14 +86,18 @@ export default function ContainerContentAccordion({
 }: ContainerContentAccordionProps) {
   const { value, open, onValueChange, openPanel } =
     useContainerPanel(onOpenChange);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const showSearchBar = detailId == null;
 
   if (flat) {
     return (
       <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden">
         <CyberHeading title="Containers" subtitle="Search and track" />
-        <PanelSearchBar panelOpen onNeedOpen={() => {}} />
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <DeferredContainerList />
+        {showSearchBar ? (
+          <PanelSearchBar panelOpen onNeedOpen={() => {}} />
+        ) : null}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <DeferredContainerList onDetailChange={setDetailId} />
         </div>
       </div>
     );
@@ -116,9 +126,11 @@ export default function ContainerContentAccordion({
             Containers
           </Accordion.Trigger>
         </Accordion.Header>
-        <PanelSearchBar panelOpen={open} onNeedOpen={openPanel} />
+        {showSearchBar ? (
+          <PanelSearchBar panelOpen={open} onNeedOpen={openPanel} />
+        ) : null}
         <Accordion.Content className="min-h-0 overflow-y-auto overscroll-contain data-[state=open]:flex data-[state=open]:flex-1 data-[state=open]:flex-col">
-          <DeferredContainerList />
+          <DeferredContainerList onDetailChange={setDetailId} />
         </Accordion.Content>
       </Accordion.Item>
     </Accordion>

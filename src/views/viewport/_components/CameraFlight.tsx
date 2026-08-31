@@ -1,16 +1,13 @@
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, type RefObject } from "react";
 import gsap from "gsap";
-import { type Quaternion, Vector3 } from "three";
+import { Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import {
   CAMERA_FLIGHT_DURATION,
-  CONTAINER_FOCUS_DISTANCE,
-  CONTAINER_FOCUS_HEIGHT,
-  CRANE_FOCUS_DISTANCE,
-  CRANE_FOCUS_HEIGHT,
-  SHIP_FOCUS_DISTANCE,
-  SHIP_FOCUS_HEIGHT,
+  INITIAL_CAMERA_POSITION,
+  INITIAL_CAMERA_TARGET,
+  TRACKING_FOCUS_DISTANCE,
 } from "@/constants/camera";
 import {
   getCraneFocusTarget,
@@ -25,19 +22,6 @@ type CameraFlightProps = {
   controlsRef: RefObject<OrbitControlsImpl | null>;
 };
 
-type FlightCamera = {
-  position: Vector3;
-  quaternion: Quaternion;
-  lookAt: (v: Vector3) => void;
-};
-
-type FocusProfile = {
-  distance: number;
-  height: number;
-  /** radial: 야드 중심 방향 — 줌/현재 시점과 무관하게 동일 bearing */
-  bearing?: "camera" | "radial";
-};
-
 function setControlsEnabled(
   controlsRef: RefObject<OrbitControlsImpl | null>,
   enabled: boolean,
@@ -46,38 +30,22 @@ function setControlsEnabled(
   if (controls) controls.enabled = enabled;
 }
 
+/** 현재 카메라→대상 방향 유지, 대상 기준 거리만 맞춤 */
 function focusCameraPosition(
   target: Vector3,
   currentCameraPos: Vector3,
-  profile: FocusProfile,
+  distance: number,
 ) {
-  if (profile.bearing === "radial") {
-    const bearing = new Vector3(target.x, 0, target.z);
-    if (bearing.lengthSq() < 1e-4) {
-      bearing.set(1, 0, 0);
-    } else {
-      bearing.normalize();
-    }
-    const offset = bearing.multiplyScalar(profile.distance);
-    offset.y = profile.height;
-    return target.clone().add(offset);
-  }
-
   const offset = currentCameraPos.clone().sub(target);
   if (offset.lengthSq() < 1e-4) {
     offset.set(1, 0.6, 1);
   }
-  offset.y = 0;
-  if (offset.lengthSq() < 1e-4) {
-    offset.set(1, 0, 1);
-  }
-  offset.normalize().multiplyScalar(profile.distance);
-  offset.y = profile.height;
+  offset.normalize().multiplyScalar(distance);
   return target.clone().add(offset);
 }
 
 function animateLookAtFlight(options: {
-  camera: FlightCamera;
+  camera: { position: Vector3 };
   controls: OrbitControlsImpl;
   toPosition: Vector3;
   toTarget: Vector3;
@@ -93,20 +61,16 @@ function animateLookAtFlight(options: {
 
   const fromTarget = controls.target.clone();
   const targetProxy = { x: fromTarget.x, y: fromTarget.y, z: fromTarget.z };
-  const lookAtPoint = new Vector3();
 
   controls.enabled = false;
 
   const timeline = gsap.timeline({
     onUpdate: () => {
-      lookAtPoint.set(targetProxy.x, targetProxy.y, targetProxy.z);
-      camera.lookAt(lookAtPoint);
-      controls.target.copy(lookAtPoint);
+      controls.target.set(targetProxy.x, targetProxy.y, targetProxy.z);
       controls.update();
     },
     onComplete: () => {
       camera.position.copy(toPosition);
-      camera.lookAt(toTarget);
       controls.target.copy(toTarget);
       controls.update();
       controls.enabled = true;
@@ -140,11 +104,11 @@ function animateLookAtFlight(options: {
   return timeline;
 }
 
-function resolveFocusTarget(
+function resolveTrackingTarget(
   selectedContainerId: string | null,
   selectedShipKey: string | null,
   selectedCraneIndex: number | null,
-): { target: Vector3; profile: FocusProfile } | null {
+): Vector3 | null {
   if (selectedContainerId) {
     const { blocks, containers, deckY, yardOffset } = useYardStore.getState();
     const container = containers.find((item) => item.id === selectedContainerId);
@@ -154,47 +118,27 @@ function resolveFocusTarget(
     if (!block) return null;
 
     const grid = getBlockSlotGrid(block);
-    return {
-      target: getContainerWorldPosition(
-        block.origin,
-        Number(container.location.slot.row) - 1,
-        Number(container.location.slot.bay) - 1,
-        Number(container.location.slot.tier),
-        deckY,
-        yardOffset,
-        block.yaw ?? 0,
-        grid.rowPitch,
-        grid.bayPitch,
-        grid.padX,
-        grid.padZ,
-      ),
-      profile: {
-        distance: CONTAINER_FOCUS_DISTANCE,
-        height: CONTAINER_FOCUS_HEIGHT,
-      },
-    };
+    return getContainerWorldPosition(
+      block.origin,
+      Number(container.location.slot.row) - 1,
+      Number(container.location.slot.bay) - 1,
+      Number(container.location.slot.tier),
+      deckY,
+      yardOffset,
+      block.yaw ?? 0,
+      grid.rowPitch,
+      grid.bayPitch,
+      grid.padX,
+      grid.padZ,
+    );
   }
 
   if (selectedShipKey) {
-    const target = getShipFocusTarget(selectedShipKey);
-    if (!target) return null;
-    return {
-      target,
-      profile: { distance: SHIP_FOCUS_DISTANCE, height: SHIP_FOCUS_HEIGHT },
-    };
+    return getShipFocusTarget(selectedShipKey);
   }
 
   if (selectedCraneIndex != null) {
-    const target = getCraneFocusTarget(selectedCraneIndex);
-    if (!target) return null;
-    return {
-      target,
-      profile: {
-        distance: CRANE_FOCUS_DISTANCE,
-        height: CRANE_FOCUS_HEIGHT,
-        bearing: "radial",
-      },
-    };
+    return getCraneFocusTarget(selectedCraneIndex);
   }
 
   return null;
@@ -207,9 +151,19 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   const selectedShipKey = useViewportStore((s) => s.selectedShipKey);
   const selectedCraneIndex = useViewportStore((s) => s.selectedCraneIndex);
   const focusNonce = useViewportStore((s) => s.focusNonce);
-  const tweenRef = useRef<gsap.core.Timeline | null>(null);
+  const quayCranes = useYardStore((s) => s.quayCranes);
+  const ships = useYardStore((s) => s.ships);
+  const blocks = useYardStore((s) => s.blocks);
+  const tweenRef = useRef<gsap.core.Timeline | gsap.core.Tween | null>(null);
+  const preTrackingCameraRef = useRef<Vector3 | null>(null);
   const prevMonitorModeRef = useRef<boolean | null>(null);
-  const prevFocusNonceRef = useRef(0);
+  const prevYardDataRef = useRef({ quayCranes, ships, blocks });
+  const prevSelectionRef = useRef({
+    selectedContainerId: null as string | null,
+    selectedShipKey: null as string | null,
+    selectedCraneIndex: null as number | null,
+    focusNonce: 0,
+  });
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -235,40 +189,123 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
-    if (focusNonce === prevFocusNonceRef.current) return;
-    prevFocusNonceRef.current = focusNonce;
 
-    const resolved = resolveFocusTarget(
+    const prev = prevSelectionRef.current;
+    const prevYard = prevYardDataRef.current;
+    const selectionChanged =
+      prev.selectedContainerId !== selectedContainerId ||
+      prev.selectedShipKey !== selectedShipKey ||
+      prev.selectedCraneIndex !== selectedCraneIndex;
+    const focusRetrigger = prev.focusNonce !== focusNonce;
+    const trackingDataUpdated =
+      (selectedCraneIndex != null && prevYard.quayCranes !== quayCranes) ||
+      (selectedShipKey != null && prevYard.ships !== ships) ||
+      (selectedContainerId != null && prevYard.blocks !== blocks);
+    prevYardDataRef.current = { quayCranes, ships, blocks };
+
+    prevSelectionRef.current = {
+      selectedContainerId,
+      selectedShipKey,
+      selectedCraneIndex,
+      focusNonce,
+    };
+
+    if (!selectionChanged && !focusRetrigger && !trackingDataUpdated) return;
+
+    const wasTracking =
+      prev.selectedContainerId != null ||
+      prev.selectedShipKey != null ||
+      prev.selectedCraneIndex != null;
+    const isTracking =
+      selectedContainerId != null ||
+      selectedShipKey != null ||
+      selectedCraneIndex != null;
+
+    const toTarget = resolveTrackingTarget(
       selectedContainerId,
       selectedShipKey,
       selectedCraneIndex,
     );
-    if (!resolved) return;
-
-    const { target: toTarget, profile } = resolved;
-    const toPosition = focusCameraPosition(toTarget, camera.position, profile);
 
     tweenRef.current?.kill();
-    const timeline = animateLookAtFlight({
-      camera,
-      controls,
-      toPosition,
-      toTarget,
-    });
-    tweenRef.current = timeline;
 
-    return () => {
-      timeline.kill();
-      setControlsEnabled(controlsRef, true);
-    };
+    if (toTarget && isTracking) {
+      if (!wasTracking) {
+        preTrackingCameraRef.current = camera.position.clone();
+      }
+
+      const toPosition = focusCameraPosition(
+        toTarget,
+        camera.position,
+        TRACKING_FOCUS_DISTANCE,
+      );
+      const timeline = animateLookAtFlight({
+        camera,
+        controls,
+        toPosition,
+        toTarget,
+      });
+      tweenRef.current = timeline;
+
+      return () => {
+        timeline.kill();
+        setControlsEnabled(controlsRef, true);
+      };
+    }
+
+    if (wasTracking && !isTracking) {
+      const toPosition =
+        preTrackingCameraRef.current?.clone() ?? INITIAL_CAMERA_POSITION.clone();
+      preTrackingCameraRef.current = null;
+
+      const timeline = animateLookAtFlight({
+        camera,
+        controls,
+        toPosition,
+        toTarget: INITIAL_CAMERA_TARGET.clone(),
+      });
+      tweenRef.current = timeline;
+
+      return () => {
+        timeline.kill();
+        setControlsEnabled(controlsRef, true);
+      };
+    }
   }, [
     selectedContainerId,
     selectedShipKey,
     selectedCraneIndex,
     focusNonce,
+    quayCranes,
+    ships,
+    blocks,
     controlsRef,
     camera,
   ]);
+
+  useFrame(() => {
+    if (tweenRef.current?.isActive()) return;
+
+    const isTracking =
+      selectedContainerId != null ||
+      selectedShipKey != null ||
+      selectedCraneIndex != null;
+    if (!isTracking) return;
+
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const target = resolveTrackingTarget(
+      selectedContainerId,
+      selectedShipKey,
+      selectedCraneIndex,
+    );
+    if (!target) return;
+
+    if (controls.target.distanceToSquared(target) > 1e-6) {
+      controls.target.copy(target);
+    }
+  });
 
   return null;
 }

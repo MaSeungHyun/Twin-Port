@@ -20,16 +20,13 @@ export default function ContentTrackButton({
       type="button"
       onClick={active ? onClearTrack : onTrack}
       className={cn(
-        "cyber-btn inline-flex shrink-0 items-center gap-1 py-1 text-lg font-semibold",
+        "cyber-btn inline-flex shrink-0 items-center justify-center gap-1 py-1 text-lg font-semibold",
         className,
       )}
     >
       <Icon
         icon={active ? "CircleX" : "Focus"}
-        className={cn(
-          "size-md",
-          active ? "stroke-white/80" : "stroke-cyber-glow",
-        )}
+        className="size-lg stroke-current"
       />
       {active ? "Cancel" : "Tracking"}
     </Button>

@@ -6,6 +6,10 @@ import {
 } from "@/constants/model";
 import { yawToward } from "@/constants/shipCargo";
 import { findQuayCraneRoot } from "@/domain/hoverOutline";
+import {
+  formatQuayCraneGlbName,
+  parseQuayCraneGlbIndex,
+} from "@/domain/quayCraneIndex";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import {
   Box3,
@@ -44,6 +48,8 @@ type CraneSpot = {
   boomZ: number;
   /** 3D hover / tracking outline id (rootUuid or rootUuid:instanceId) */
   hoverId?: string;
+  /** GLB 노드명 crane.052 → 52 */
+  glbIndex?: number;
 };
 
 function namesOf(object: Object3D) {
@@ -137,6 +143,8 @@ function collectSpots(
             : craneRoot.uuid;
       }
 
+      const glbIndex = parseQuayCraneGlbIndex(child);
+
       spots.push({
         kind,
         mesh,
@@ -153,6 +161,7 @@ function collectSpots(
         boomX: boom.x,
         boomZ: boom.z,
         hoverId,
+        glbIndex: glbIndex ?? undefined,
       });
     };
 
@@ -391,6 +400,8 @@ export function extractQuayBerths(root: Object3D): QuayBerth[] {
 }
 
 export type QuayCranePlacement = {
+  /** GLB 노드 crane.NNN 숫자 — tracking·UI 키 */
+  glbIndex: number;
   kind: "crane" | "kran" | "unknown";
   mesh: string;
   /** GLB bbox center — camera look-at */
@@ -443,29 +454,69 @@ function clusterQuayCraneSpots(spots: CraneSpot[]): CraneSpot[] {
     baseX /= n;
     baseY /= n;
     baseZ /= n;
-    const focusY = baseY + anchor.height * 0.55;
     return {
       ...anchor,
       baseX,
       baseY,
       baseZ,
-      x: baseX,
-      y: focusY,
-      z: baseZ,
     };
   });
+}
+
+/** 동일 glbIndex(crane.052) 부품 mesh를 하나로 합침 */
+function mergeSpotGroup(group: CraneSpot[]): CraneSpot {
+  const anchor = group.reduce((best, spot) =>
+    spot.height > best.height ? spot : best,
+  );
+  let baseX = 0;
+  let baseY = 0;
+  let baseZ = 0;
+  for (const spot of group) {
+    baseX += spot.baseX;
+    baseY += spot.baseY;
+    baseZ += spot.baseZ;
+  }
+  const n = group.length;
+  return {
+    ...anchor,
+    baseX: baseX / n,
+    baseY: baseY / n,
+    baseZ: baseZ / n,
+    glbIndex: anchor.glbIndex,
+  };
+}
+
+function groupSpotsByGlbIndex(spots: CraneSpot[]): CraneSpot[] {
+  const withIndex = spots.filter((spot) => spot.glbIndex != null);
+  const withoutIndex = spots.filter((spot) => spot.glbIndex == null);
+
+  const groups = new Map<number, CraneSpot[]>();
+  for (const spot of withIndex) {
+    const list = groups.get(spot.glbIndex!) ?? [];
+    list.push(spot);
+    groups.set(spot.glbIndex!, list);
+  }
+
+  const merged = [...groups.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, group]) => mergeSpotGroup(group));
+
+  if (withoutIndex.length === 0) return merged;
+  return [...merged, ...clusterQuayCraneSpots(withoutIndex)];
 }
 
 export function extractQuayCranePlacements(
   root: Object3D,
 ): QuayCranePlacement[] {
-  const clustered = clusterQuayCraneSpots(quayCraneSpots(root));
-  const sorted = [...clustered].sort((a, b) => b.z - a.z || a.x - b.x);
-  return sorted.map((spot) => ({
-    kind: spot.kind,
-    mesh: spot.mesh,
-    position: [spot.baseX, spot.baseY + spot.height * 0.55, spot.baseZ],
-    height: spot.height,
-    hoverId: spot.hoverId,
-  }));
+  const grouped = groupSpotsByGlbIndex(quayCraneSpots(root));
+  return grouped
+    .filter((spot) => spot.glbIndex != null)
+    .map((spot) => ({
+      glbIndex: spot.glbIndex!,
+      kind: spot.kind,
+      mesh: formatQuayCraneGlbName(spot.glbIndex!),
+      position: [spot.x, spot.y, spot.z],
+      height: spot.height,
+      hoverId: spot.hoverId,
+    }));
 }

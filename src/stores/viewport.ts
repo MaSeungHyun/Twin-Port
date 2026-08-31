@@ -16,12 +16,16 @@ type ViewportState = {
   selectedCraneIndex: number | null;
   /** 같은 대상 재선택 시에도 카메라 비행이 다시 돌도록 */
   focusNonce: number;
+  /** GLB crane index — 상세 화면 outline 전용 (카메라 이동 없음) */
+  focusedCraneGlbIndex: number | null;
   selectContainer: (id: string) => void;
   clearContainerSelection: () => void;
   selectShip: (key: string) => void;
   clearShipSelection: () => void;
   selectCrane: (index: number) => void;
   clearCraneSelection: () => void;
+  focusCraneDetail: (glbIndex: number) => void;
+  clearCraneDetailFocus: () => void;
   /** 헤더 DANGEROUS — 위험 블록 BlockHoverArea 카드 전체 표시 */
   showDangerousBlockCards: boolean;
   toggleShowDangerousBlockCards: () => void;
@@ -43,12 +47,14 @@ export const useViewportStore = create<ViewportState>((set) => ({
   selectedContainerId: null,
   selectedShipKey: null,
   selectedCraneIndex: null,
+  focusedCraneGlbIndex: null,
   focusNonce: 0,
   selectContainer: (id) => {
     set((state) => ({
       selectedContainerId: id,
       selectedShipKey: null,
       selectedCraneIndex: null,
+      focusedCraneGlbIndex: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
@@ -58,6 +64,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedShipKey: key,
       selectedContainerId: null,
       selectedCraneIndex: null,
+      focusedCraneGlbIndex: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
@@ -65,22 +72,35 @@ export const useViewportStore = create<ViewportState>((set) => ({
   selectCrane: (index) => {
     set((state) => ({
       selectedCraneIndex: index,
+      focusedCraneGlbIndex: index,
       selectedContainerId: null,
       selectedShipKey: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
   clearCraneSelection: () => set({ selectedCraneIndex: null }),
+  focusCraneDetail: (glbIndex) =>
+    set({
+      focusedCraneGlbIndex: glbIndex,
+      selectedContainerId: null,
+      selectedShipKey: null,
+    }),
+  clearCraneDetailFocus: () => set({ focusedCraneGlbIndex: null }),
   showDangerousBlockCards: false,
   toggleShowDangerousBlockCards: () =>
     set((state) => ({ showDangerousBlockCards: !state.showDangerousBlockCards })),
 }));
 
-/** 컨테이너·선박·크레인 중 하나라도 3D tracking 중 */
+/** 컨테이너·선박·크레인 Tracking 중 */
 export function isViewportTracking(state: ViewportState): boolean {
   return (
     Boolean(state.selectedContainerId) ||
     Boolean(state.selectedShipKey) ||
     state.selectedCraneIndex != null
   );
+}
+
+/** outline — Tracking 또는 상세 포커스 */
+export function getActiveCraneGlbIndex(state: ViewportState): number | null {
+  return state.selectedCraneIndex ?? state.focusedCraneGlbIndex;
 }

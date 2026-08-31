@@ -1,3 +1,4 @@
+import { bindQuayCraneModel } from "@/domain/cameraFocus";
 import groundUrl from "@/assets/model/BUSAN.glb";
 import { enableGlbShadows } from "@/domain/glb";
 import {
@@ -32,12 +33,13 @@ import {
   portHoverOut,
   portHoverOver,
   quayTargetMatches,
+  quayTargetMatchesGlbIndex,
   resolveQuayCraneHoverId,
   subscribePortHover,
   unpinPortHover,
   writeQuayOutlineMatrix,
 } from "@/domain/hoverOutline";
-import { useViewportStore } from "@/stores/viewport";
+import { useViewportStore, isViewportTracking, getActiveCraneGlbIndex } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
@@ -216,7 +218,7 @@ export default function Ground({
           `[Ground] ${quayCranes.length} quay cranes`,
           quayCranes.map(
             (crane, index) =>
-              `${index}: ${crane.kind} @ ${crane.position.map((n) => n.toFixed(1)).join(",")}`,
+              `${index}: ${crane.mesh} (#${crane.glbIndex}) @ ${crane.position.map((n) => n.toFixed(1)).join(",")}`,
           ),
         );
       }
@@ -257,9 +259,15 @@ export default function Ground({
   ]);
 
   useLayoutEffect(() => {
+    bindQuayCraneModel(model);
+    return () => bindQuayCraneModel(null);
+  }, [model]);
+
+  useLayoutEffect(() => {
     model.updateMatrixWorld(true);
     const view = extractGlbViewCamera(model);
     if (!view) return;
+    if (isViewportTracking(useViewportStore.getState())) return;
     applyGlbViewCamera(camera, view, controls ?? null);
   }, [model, position, rotation, scale, camera, controls]);
 
@@ -330,12 +338,12 @@ export default function Ground({
 function QuayCraneTrackingHover({ model }: { model: Object3D }) {
   useLayoutEffect(() => {
     const sync = () => {
-      const index = useViewportStore.getState().selectedCraneIndex;
-      if (index == null) {
+      const glbIndex = useViewportStore.getState().selectedCraneIndex;
+      if (glbIndex == null) {
         unpinPortHover("quayCrane");
         return;
       }
-      const id = resolveQuayCraneHoverId(model, index);
+      const id = resolveQuayCraneHoverId(model, glbIndex);
       if (id) pinPortHover({ kind: "quayCrane", id });
       else unpinPortHover("quayCrane");
     };
@@ -367,17 +375,35 @@ function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
     const apply = () => {
       const hover = getPortHover();
       const hoverId = hover?.kind === "quayCrane" ? hover.id : null;
+      const glbIndex = getActiveCraneGlbIndex(useViewportStore.getState());
       targets.forEach((target, index) => {
         const outline = outlineRefs.current[index];
         if (!outline) return;
-        const show = hoverId != null && quayTargetMatches(target, hoverId);
+        const showByHover =
+          hoverId != null && quayTargetMatches(target, hoverId);
+        const showByCrane =
+          glbIndex != null && quayTargetMatchesGlbIndex(target.source, glbIndex);
+        const show = showByHover || showByCrane;
         outline.visible = show;
         if (show) writeQuayOutlineMatrix(target, outline, hoverId);
       });
     };
 
     apply();
-    return subscribePortHover(apply);
+    const unsubHover = subscribePortHover(apply);
+    const unsubViewport = useViewportStore.subscribe((state, prev) => {
+      if (
+        state.selectedCraneIndex === prev.selectedCraneIndex &&
+        state.focusedCraneGlbIndex === prev.focusedCraneGlbIndex
+      ) {
+        return;
+      }
+      apply();
+    });
+    return () => {
+      unsubHover();
+      unsubViewport();
+    };
   }, [targets, model]);
 
   return (
