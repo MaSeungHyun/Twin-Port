@@ -1,0 +1,9 @@
+services:
+  twin-port:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: twin-port
+    ports:
+      - "${PORT:-8080}:80"
+    restart: unless-stopped
