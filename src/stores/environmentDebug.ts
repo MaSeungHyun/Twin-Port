@@ -21,19 +21,30 @@ const INITIAL_ROTATION_DEG: EnvironmentRotationDeg = {
   z: radToDeg(ENVIRONMENT_ROTATION.z),
 };
 
+const INITIAL_ROTATION_DEG_LOADED: EnvironmentRotationDeg = { ...INITIAL_ROTATION_DEG };
+
 type EnvironmentDebugState = {
   rotationDeg: EnvironmentRotationDeg;
   setRotationDeg: (axis: keyof EnvironmentRotationDeg, value: number) => void;
   resetRotationDeg: () => void;
 };
 
+// [slider] HDR Y 회전 저장 (0~360°)
+const ENV_ROT_KEY = "tp.envRotY.v1";
+function loadEnvRotY() { try { const v = parseFloat(localStorage.getItem(ENV_ROT_KEY) ?? ""); return Number.isFinite(v) ? v : null; } catch { return null; } }
+const _savedY = loadEnvRotY();
+if (_savedY != null) INITIAL_ROTATION_DEG_LOADED.y = _savedY;
+
 export const useEnvironmentDebugStore = create<EnvironmentDebugState>((set) => ({
-  rotationDeg: INITIAL_ROTATION_DEG,
+  rotationDeg: INITIAL_ROTATION_DEG_LOADED,
   setRotationDeg: (axis, value) =>
-    set((state) => ({
+    set((state) => {
+      if (axis === "y") { try { localStorage.setItem(ENV_ROT_KEY, String(value)); } catch { /* ignore */ } }
+      return {
       rotationDeg: { ...state.rotationDeg, [axis]: value },
-    })),
-  resetRotationDeg: () => set({ rotationDeg: INITIAL_ROTATION_DEG }),
+      };
+    }),
+  resetRotationDeg: () => { try { localStorage.removeItem(ENV_ROT_KEY); } catch { /* ignore */ } set({ rotationDeg: INITIAL_ROTATION_DEG }); },
 }));
 
 export function environmentRotationRad(rotationDeg: EnvironmentRotationDeg) {

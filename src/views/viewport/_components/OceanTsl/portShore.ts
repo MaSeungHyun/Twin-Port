@@ -11,8 +11,8 @@ const MAX_ABOVE = 10;
 /** [twin-port] 수면 교차 밴드(m): 이 범위를 가로지르는 면(수직 안벽 등)은 수면 교차선을 해안선으로 추가로 찍음 (육지 채움은 그대로) */
 export const WATERLINE_BAND = 1.5;
 const EXCLUDE = /(crane|WSE_|container|fence|bush|sky|water|^Cube)/i;
-// [twin-port] 해안선 = Ground + 위성지형(EXPORT_GOOGLE_SAT_WM.001, GLTFLoader 가 "." 제거) 풋프린트만
-const LAND = /^(Ground|EXPORT_GOOGLE_SAT_WM\.?001)$/;
+// [satfade] 파도 접촉면 = Ground + Plane.002 만 (GLTFLoader 가 "." 제거). EXPORT_GOOGLE_SAT_WM 은 해안 아님
+const LAND = /^(Ground|Plane\.?002)$/;
 /** 베이크 범위 기준(해상도): 항만 Ground 바운드 + margin. 위성/지형 판(6.4km)이 rect 를 키워 셀이 7m 로 뭉개지던 문제 해결 */
 const RECT_REF = /^Ground$/i;
 

@@ -1,4 +1,4 @@
-import { Color, Mesh, MeshStandardMaterial, type Object3D, type Texture } from "three";
+import { BackSide, DoubleSide, FrontSide, Color, Mesh, MeshStandardMaterial, type Object3D, type Texture } from "three";
 import type { MaterialSettings } from "@/constants/materials";
 
 const ORIGINAL_MAP = new WeakMap<MeshStandardMaterial, Texture | null>();
@@ -6,7 +6,7 @@ const ORIGINAL_MAP = new WeakMap<MeshStandardMaterial, Texture | null>();
 /** MaterialSettings → MeshStandardMaterial 적용 (map on/off는 원본 텍스처 보존) */
 export function applyMaterialSettings(
   mat: MeshStandardMaterial,
-  s: MaterialSettings & { toneMapped?: boolean },
+  s: MaterialSettings & { toneMapped?: boolean; side?: "front" | "back" | "double" },
 ) {
   if (!ORIGINAL_MAP.has(mat)) ORIGINAL_MAP.set(mat, mat.map);
   const map = ORIGINAL_MAP.get(mat) ?? null;
@@ -30,6 +30,13 @@ export function applyMaterialSettings(
   if (mat.transparent !== s.transparent) {
     mat.transparent = s.transparent;
     mat.needsUpdate = true;
+  }
+  if (s.side !== undefined) {
+    const side = s.side === "back" ? BackSide : s.side === "double" ? DoubleSide : FrontSide;
+    if (mat.side !== side) {
+      mat.side = side;
+      mat.needsUpdate = true;
+    }
   }
   if (s.toneMapped !== undefined && mat.toneMapped !== s.toneMapped) {
     mat.toneMapped = s.toneMapped;

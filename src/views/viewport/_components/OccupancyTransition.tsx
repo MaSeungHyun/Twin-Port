@@ -24,8 +24,11 @@ type AtmosphereTargets = {
   water: Object3D | null;
 };
 
+// [perf] 대상이 씬에 없으면(ambient 주석 처리 등) 매 프레임 전체 traverse 하던 것 → 60프레임마다만 재탐색
+let _scanTick = 0;
 function cacheTargets(scene: Scene, cache: AtmosphereTargets) {
   if (cache.ambient && cache.water) return;
+  if (_scanTick++ % 60 !== 0) return;
   scene.traverse((obj) => {
     if (!cache.ambient && obj instanceof AmbientLight) cache.ambient = obj;
     if (!cache.water && obj.userData?.sim) cache.water = obj;
@@ -40,12 +43,16 @@ function applyAtmosphere(
   scene.backgroundIntensity = lerp(T.backgroundFrom, T.backgroundTo, t);
   scene.environmentIntensity = lerp(T.environmentFrom, T.environmentTo, t);
 
-  if (scene.fog instanceof FogExp2) {
+  // 수중 안개(Ocean.tsx, name="underwater")는 수면 위에서 밀도 0 이어야 하므로 건드리지 않음
+  if (scene.fog instanceof FogExp2 && scene.fog.name !== "underwater") {
     scene.fog.density = lerp(T.fogFrom, T.fogTo, t);
   }
 
   const overlay = occupancyDimRef.current;
-  if (overlay) overlay.style.opacity = String(overlayOpacity(t));
+  if (overlay) {
+    const op = String(overlayOpacity(t));
+    if (overlay.style.opacity !== op) overlay.style.opacity = op; // [perf] 변화 시에만 DOM 쓰기
+  }
 
   if (cache.ambient) cache.ambient.intensity = lerp(T.ambientFrom, T.ambientTo, t);
   if (cache.water) cache.water.visible = t < T.waterHideAt;

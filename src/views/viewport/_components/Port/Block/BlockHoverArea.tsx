@@ -101,6 +101,8 @@ export default function BlockHoverArea({
           transparent
           opacity={0}
           depthWrite={false}
+          // [perf] 히트 판정 전용(투명도 0) → 렌더 생략. Mesh.raycast 는 material.visible 을 보지 않으므로 호버 유지
+          visible={false}
         />
       </mesh>
 

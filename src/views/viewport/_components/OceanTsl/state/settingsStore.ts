@@ -128,6 +128,12 @@ function savePerf(quality: Quality, perf: Perf) {
 export interface UnderLook {
   color: string;
   density: number;
+  darkRange: number;
+  minBright: number;
+  bubbles: boolean;
+  bubbleAmount: number;
+  bubbleSize: number;
+  bubbleSpeed: number;
 }
 // 부유 큐브 설정: add/reset은 버튼 카운터
 export interface CubeCfg {
@@ -137,9 +143,21 @@ export interface CubeCfg {
   reset: number;
   caustics: boolean;
 }
-export const UNDER_DEFAULT: UnderLook = { color: "#0f7f86", density: 0.09 };
+export const UNDER_DEFAULT: UnderLook = { color: "#0f7f86", density: 0.014, darkRange: 400, minBright: 0.25, bubbles: true, bubbleAmount: 400, bubbleSize: 0.05, bubbleSpeed: 0.5 };
+
+// [fog] 수면 위(대기) 안개 — 렌더 패널. near~far(m) 선형 구간에서 0→100%. localStorage 저장
+export interface AirFog { on: boolean; color: string; near: number; far: number }
+export const AIRFOG_DEFAULT: AirFog = { on: false, color: "#c9d6df", near: 300, far: 3000 };
+const AIRFOG_KEY = "tp.airFog.v2";
+function loadAirFog(): AirFog {
+  try { const j = JSON.parse(localStorage.getItem(AIRFOG_KEY) ?? "null"); if (j && typeof j === "object") return { ...AIRFOG_DEFAULT, ...j }; } catch { /* ignore */ }
+  return AIRFOG_DEFAULT;
+}
 
 export interface Settings {
+  airFog: AirFog;
+  setAirFog: <K extends keyof AirFog>(k: K, v: AirFog[K]) => void;
+  resetAirFog: () => void;
   params: OceanParams;
   look: WaterLook;
   shore: ShoreLook;
@@ -186,6 +204,9 @@ export const useSettings = create<Settings>()(
     look: WATER_PRESETS["먼바다"],
     shore: SHORE_DEFAULT,
     under: UNDER_DEFAULT,
+    airFog: loadAirFog(),
+    setAirFog: (k, v) => set((s) => { const airFog = { ...s.airFog, [k]: v }; localStorage.setItem(AIRFOG_KEY, JSON.stringify(airFog)); return { airFog }; }),
+    resetAirFog: () => { localStorage.removeItem(AIRFOG_KEY); set({ airFog: AIRFOG_DEFAULT }); },
     cube: {
       size: 1.5,
       density: 0.5,

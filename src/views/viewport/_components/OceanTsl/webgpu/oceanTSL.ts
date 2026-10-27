@@ -51,6 +51,12 @@ import {
   dFdx,
   dFdy,
 } from "three/tsl";
+import { renderGroup as _rgAF } from "three/tsl";
+// [fog2] 수면 위 대기 안개(렌더 패널) — 바다/하늘/섬에도 적용. 전역 유니폼, 슬라이더 변경 시 재컴파일 없음
+export const airFogU = { on: uniform(0).setGroup(_rgAF), col: uniform(new THREE.Color(0xc9d6df)).setGroup(_rgAF), near: uniform(300).setGroup(_rgAF), far: uniform(3000).setGroup(_rgAF) };
+// [occ] 점유율 전환 시 바다/섬 밝기 배율 (1=원래, 전역 유니폼)
+export const oceanDimU = uniform(1).setGroup(_rgAF);
+const airFogMix = (c, dist, under) => mix(c, airFogU.col, airFogU.on.mul(float(1).sub(under)).mul(smoothstep(airFogU.near, airFogU.far, dist)));
 import { CASCADE_L, CASCADE_OFF, CASCADE_ROT } from "../spectrum";
 import { MAX_PTS, SHORE, STRIP, probeRT, shoreTex } from "../scene/resources";
 
@@ -271,6 +277,7 @@ export const skyU = () => ({
   uUWCol: uniform(new THREE.Color()),
   uUWDens: uniform(0.09),
   uCamDepth: uniform(0),
+  uUWFloor: uniform(0.25),
 });
 const shoreU = () => ({
   uShoreA: uniform(0.6),
@@ -320,7 +327,7 @@ function lib(u) {
       .mul(0.55)
       .add(u.uZenith.mul(0.4))
       .add(u.uHorizon.mul(0.15))
-      .mul(exp(uwExt().negate().mul(max(u.uCamDepth, 0.0)).mul(0.6)));
+      .mul(max(exp(uwExt().negate().mul(max(u.uCamDepth, 0.0)).mul(0.6)), u.uUWFloor)); // [twin-port] 최소 밝기
     const c = u.uUWCol
       .mul(light)
       .mul(mix(0.25, 1.25, smoothstep(-0.9, 0.8, dir.y)))
@@ -1017,7 +1024,7 @@ export function makeOceanMatGPU(g) {
       const lt = select(u.uShipProf.x.greaterThan(0.5), pl.x, pl.y).toVar();
       const tb = clamp(ax.sub(u.uShipProf.y).div(u.uShipProf.z.sub(u.uShipProf.y)).mul(64.0).sub(0.5), 0.0, 63.0).toVar();
       const i0 = int(floor(tb)).toVar();
-      const i1 = min(i0.add(1), int(63));
+      const i1 = int(min(floor(tb).add(1.0), 63.0)); // [twin-port] WebGL2: int/float min 오버로드 없음
       const fr = tb.sub(floor(tb));
       const lh = mix(u.uShipBins.element(i0), u.uShipBins.element(i1), fr).toVar();
       const dl = max(lh.x.sub(lt), lt.sub(lh.y));
@@ -1064,6 +1071,7 @@ export function makeOceanMatGPU(g) {
         pow(fog, 1.4),
       ),
     );
+    col.assign(airFogMix(col, dist, uw.under).mul(oceanDimU)); // [fog2][occ]
     const alpha = smoothstep(0.0, 0.35, vW.y.sub(si.x)).toVar();
     // [twin-port] 선체 내부에는 물을 그리지 않음
     // [twin-port] 안벽: SDF 상 육지(d<0) 인 물 프래그먼트는 그리지 않음 (부드러운 경계)
@@ -1118,6 +1126,8 @@ export function makeSkyMatGPU() {
     const uw = L.uwInit(vW, u.uCam);
     const d = normalize(vW.sub(u.uCam)).toVar();
     const c = L.sky(d, 5, 1).toVar();
+    // [fog2] 지평선 부근 하늘을 안개색으로 (수평선 경계 숨김)
+    c.assign(mix(c, airFogU.col, airFogU.on.mul(float(1).sub(uw.under)).mul(float(1).sub(smoothstep(0.0, 0.12, d.y)))));
     If(uw.under.greaterThan(0.001), () => {
       c.assign(mix(c, L.uwMedium(d), uw.under));
     });
@@ -1239,6 +1249,7 @@ export function makeIslandMatGPU() {
         ),
       );
     });
+    col.assign(airFogMix(col, length(vWp.sub(u.uCam)), uw.under).mul(oceanDimU)); // [fog2][occ]
     return L.meniscus(col, uw.men);
   })();
   return withUniforms(m, u);

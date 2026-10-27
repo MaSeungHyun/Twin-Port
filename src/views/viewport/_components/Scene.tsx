@@ -74,6 +74,9 @@ import CamParam from "@/debug/CamParam";
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
+  // [perf] DPR 상한 (4K 에서 픽셀 수 감소). Render 패널 슬라이더로 조정
+  const renderScale = useRendererStore((s) => s.renderScale);
+  const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, renderScale);
 
   return (
     <div className="relative h-full w-full">
@@ -91,6 +94,7 @@ function Scene() {
         // R3F 9 는 async gl 팩토리 지원 (타입 정의는 동기만 선언)
         gl={createRenderer as never}
         frameloop="always"
+        dpr={dpr}
         onPointerMissed={(e) => { if ((e as MouseEvent).type === "click") useShipDebugStore.getState().clearSelection(); }}
         camera={initialCamera}
       >

@@ -43,7 +43,8 @@ import { useViewportStore, isViewportTracking, getActiveCraneGlbIndex } from "@/
 import { useYardStore } from "@/stores/yard";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
-import { useThree, type ThreeEvent } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { occupancyTransitionProgressRef } from "@/constants/occupancyTransition";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   Material,
@@ -96,6 +97,11 @@ function isGroundMesh(mesh: Mesh) {
   );
 }
 
+const SAT_RE = /^EXPORT_GOOGLE_SAT_WM\.?001$/;
+function isSatMesh(mesh: Mesh) {
+  return [mesh.name, mesh.parent?.name ?? ""].some((n) => SAT_RE.test(n));
+}
+
 function isCraneMesh(mesh: Mesh) {
   return namesOf(mesh).some((name) => /crane/i.test(name));
 }
@@ -112,6 +118,7 @@ function collectOccupancyMeshes(root: Object3D): OccupancyMeshCache {
     if (!(child instanceof Mesh)) return;
     if (child.name.endsWith("-occupancy")) return;
     if (isCraneMesh(child)) return;
+    if (isSatMesh(child)) return; // [satfade] 위성지형은 occupancy 전환 진행도로 페이드 (가시성 저장/복원 대상 아님)
     if (isGroundMesh(child)) ground.push(child);
     else others.push(child);
   });
@@ -197,15 +204,40 @@ export default function Ground({
     // [twin-port] 바다와 맞닿는 지면(Ground, 위성지형)은 깊이를 써서 투명 바다/거품을 가림
     cloned.traverse((o) => {
       if (!(o instanceof Mesh)) return;
-      if (![o.name, o.parent?.name ?? ""].some((n) => /^(Ground|EXPORT_GOOGLE_SAT_WM\.?001)$/.test(n))) return;
+      // [satfade] 육지 가림(depthWrite): 파도 접촉면 Ground/Plane.002 + 위성지형(기존 렌더 유지)
+      if (![o.name, o.parent?.name ?? ""].some((n) => /^(Ground|Plane\.?002|EXPORT_GOOGLE_SAT_WM\.?001)$/.test(n))) return;
       o.renderOrder = -1;
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
         if (m instanceof Material) { m.depthWrite = true; m.needsUpdate = true; }
       }
     });
+    // [satfade] 위성지형 머티리얼은 Plane/Plane.002 와 공유(M_Grid) → 전용 복제 후 transparent 1회 설정 (이후 opacity 만 트윈, 재컴파일 없음)
+    cloned.traverse((o) => {
+      if (!(o instanceof Mesh) || !isSatMesh(o)) return;
+      const mk = (m: Material) => { const c = m.clone(); c.transparent = true; c.opacity = 1; c.needsUpdate = true; return c; };
+      o.material = Array.isArray(o.material) ? o.material.map(mk) : mk(o.material as Material);
+    });
     applyGroundPointerFilter(cloned);
     return cloned;
   }, [scene]);
+
+  // [satfade] occupancy 전환 진행도(t)에 맞춰 위성지형 페이드 아웃/인
+  const satMeshes = useMemo(() => {
+    const out: Mesh[] = [];
+    model.traverse((o) => { if (o instanceof Mesh && isSatMesh(o)) out.push(o); });
+    return out;
+  }, [model]);
+  const satLast = useRef(-1);
+  useFrame(() => {
+    const t = occupancyTransitionProgressRef.current.t;
+    if (t === satLast.current) return;
+    satLast.current = t;
+    const a = 1 - t;
+    for (const m of satMeshes) {
+      m.visible = a > 0.005;
+      for (const mat of Array.isArray(m.material) ? m.material : [m.material]) (mat as Material).opacity = a;
+    }
+  });
 
   const occupancyMeshes = useMemo(() => collectOccupancyMeshes(model), [model]);
 

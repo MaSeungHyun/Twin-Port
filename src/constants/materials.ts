@@ -66,10 +66,21 @@ export const SHIP_MATERIAL: Record<string, MaterialSettings> = {
 /** busan.glb "sky" 메시 표시 여부 (기본 숨김) */
 export const SKY_VISIBLE = true;
 
-/** busan.glb "sky" 메시 머티리얼 adskMatsky */
-export const SKY_MATERIAL: MaterialSettings & { toneMapped: boolean } = {
+export type MaterialSide = "front" | "back" | "double";
+export type SkyMaterialSettings = MaterialSettings & { toneMapped: boolean; side: MaterialSide };
+
+/** busan.glb "sky" 오브젝트 하위 머티리얼 기본값(이름 → 값). 목록에 없는 머티리얼은 SKY_MATERIAL_DEFAULT 사용 */
+export const SKY_MATERIAL_DEFAULT: SkyMaterialSettings = {
   ...TEX,
   metalness: 0,
   roughness: 0,
   toneMapped: true,
+  side: "front",
 };
+export const SKY_MATERIALS: Record<string, SkyMaterialSettings> = {
+  adskMatsky: { ...SKY_MATERIAL_DEFAULT },
+};
+/** @deprecated 단일 하늘 머티리얼 (호환용) */
+export const SKY_MATERIAL = SKY_MATERIALS.adskMatsky!;
+/** busan.glb "sky" 오브젝트 회전(도)/스케일 기본값 */
+export const SKY_TRANSFORM = { rotationY: 0, scale: 1 };

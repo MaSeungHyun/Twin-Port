@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as THREE from "three";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import { button, setPanelValues, useControls } from "@/debug/controls";
 import type { OceanSim } from "./fft";
@@ -15,6 +15,9 @@ import { Sky } from "./scene/Sky";
 import { WATER_PRESETS } from "./spectrum";
 import { oceanState } from "./oceanApi";
 import { useShoreReady } from "./portShore";
+import { occupancyTransitionProgressRef } from "@/constants/occupancyTransition";
+import { oceanDimU } from "./webgpu/oceanTSL";
+import { useOccupancyStore } from "@/stores/occupancy";
 
 /** 항구 수면 높이 (m) */
 export const OCEAN_LEVEL = 15.29;
@@ -29,7 +32,7 @@ export default function OceanTsl() {
   // ocean-tsl main 설정 패널(Panel.tsx 섹션) 1:1 — 키/범위/기본값/프리셋 동일, 기본값은 원본 settingsStore 에서 읽음
   const lookBtns = Object.fromEntries(
     Object.entries(WATER_PRESETS).map(([k, v]) => [
-      `프리셋: ${k}`,
+      k,
       button(() => setPanelValues("Ocean", { deep: v.deep, shallow: v.shallow, turbidity: v.turbidity, clarity: v.clarity, depth: v.depth, preset: k }, true)),
     ]),
   );
@@ -67,7 +70,13 @@ export default function OceanTsl() {
     foamBright: { value: D.shore.foamBright, min: 0.3, max: 2, step: 0.05 },
     // 수중 (UnderSection)
     uwColor: D.under.color,
-    uwDensity: { value: D.under.density, min: 0.01, max: 0.4, step: 0.01 },
+    uwDensity: { value: D.under.density, min: 0.002, max: 0.2, step: 0.001 },
+    uwDarkRange: { value: D.under.darkRange, min: 20, max: 2000, step: 10 },
+    uwMinBright: { value: D.under.minBright, min: 0, max: 1, step: 0.05 },
+    bubbles: D.under.bubbles,
+    bubbleAmount: { value: D.under.bubbleAmount, min: 0, max: 1000, step: 10 },
+    bubbleSize: { value: D.under.bubbleSize, min: 0.01, max: 0.3, step: 0.005 },
+    bubbleSpeed: { value: D.under.bubbleSpeed, min: 0.05, max: 3, step: 0.05 },
     // 성능 (PerfSection, 앱 단위 항목 제외)
     quality: {
       value: D.quality,
@@ -82,10 +91,19 @@ export default function OceanTsl() {
     detail: { value: D.perf.detail, min: 50, max: 3000, step: 10 },
   });
 
+  // [occ] 점유율 모드: OccupancyTransition 진행도(t)에 맞춰 바다를 어둡게 → t≈1 에서 숨김 (visible=false, 언마운트 X → 재컴파일 없음)
+  const grpRef = useRef<THREE.Group>(null);
+  const visRef = useRef(c.visible); visRef.current = c.visible;
+  useFrame(() => {
+    const t = occupancyTransitionProgressRef.current.t;
+    oceanDimU.value = 1 - 0.85 * t;
+    const vis = visRef.current && t < 0.995;
+    oceanState.visible = vis;
+    if (grpRef.current) grpRef.current.visible = vis;
+  });
   // 패널 → 원본 settings store (원본 effect 들이 GPU 유니폼/FFT 에 반영)
   useEffect(() => {
     oceanState.level = c.level;
-    oceanState.visible = c.visible;
     oceanState.buoyancy = c.buoyancy;
     const s = useSettings.getState();
     useSettings.setState({
@@ -95,7 +113,7 @@ export default function OceanTsl() {
         shoreFoam: c.shoreFoam, wallFoamW: c.wallFoamW, shoreWave: c.shoreWave, shoreLen: c.shoreLen, foamColor: c.foamColor,
         foamBright: c.foamBright, sharp: c.sharp, collFoam: c.collFoam, persist: c.persist,
       },
-      under: { color: c.uwColor, density: c.uwDensity },
+      under: { color: c.uwColor, density: c.uwDensity, darkRange: c.uwDarkRange, minBright: c.uwMinBright, bubbles: c.bubbles, bubbleAmount: c.bubbleAmount, bubbleSize: c.bubbleSize, bubbleSpeed: c.bubbleSpeed },
       quality: c.quality as Quality,
       perf: { ...s.perf, n: [+c.fft0, +c.fft1, +c.fft2], mode: c.mode, nth: c.nth, detail: c.detail },
     });
@@ -105,7 +123,12 @@ export default function OceanTsl() {
   const scene = useThree((s) => s.scene);
   useEffect(() => {
     scene.traverse((o) => {
-      if (o.name === "Plane" && (o as THREE.Mesh).isMesh) o.visible = !(c.hidePortPlane && c.visible);
+      if (o.name === "Plane" && (o as THREE.Mesh).isMesh) {
+        const v = !(c.hidePortPlane && c.visible);
+        // [reshow] Ground occupancy 룩이 해제 시 occupancyOriginalVisible 로 복원 → 숨긴 값으로 맞춰야 바다와 z-파이팅 안 함
+        o.userData.occupancyOriginalVisible = v;
+        if (!useOccupancyStore.getState().occupancyLook) o.visible = v;
+      }
     });
   });
 
@@ -118,7 +141,7 @@ export default function OceanTsl() {
   }, []);
   if (!ready && !timeout) return null;
   return (
-    <group visible={c.visible}>
+    <group ref={grpRef}>
       <PortOceanScene skyDome={false} />
     </group>
   );

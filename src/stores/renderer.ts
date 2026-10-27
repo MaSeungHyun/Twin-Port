@@ -20,6 +20,18 @@ function readPref(): RendererPref {
   return "webgpu";
 }
 
+/** [perf] 렌더 해상도 배율(DPR 상한). 기본 1.5, localStorage 저장 */
+const SCALE_KEY = "twin-port.renderScale";
+function readScale(): number {
+  try {
+    const v = Number(localStorage.getItem(SCALE_KEY));
+    if (Number.isFinite(v) && v >= 0.5 && v <= 2) return v;
+  } catch {
+    /* noop */
+  }
+  return 1.5;
+}
+
 export const hasWebGPU = () => typeof navigator !== "undefined" && "gpu" in navigator && !!(navigator as { gpu?: unknown }).gpu;
 
 interface RendererState {
@@ -27,11 +39,23 @@ interface RendererState {
   /** 실제 활성 백엔드 (init 후 확정) */
   active: "webgpu" | "webgl2" | null;
   setActive: (a: "webgpu" | "webgl2") => void;
+  renderScale: number;
+  setRenderScale: (v: number) => void;
 }
 export const useRendererStore = create<RendererState>()((set) => ({
   pref: readPref(),
   active: null,
   setActive: (active) => set({ active }),
+  renderScale: readScale(),
+  setRenderScale: (v) => {
+    const r = Math.min(2, Math.max(0.5, v));
+    try {
+      localStorage.setItem(SCALE_KEY, String(r));
+    } catch {
+      /* noop */
+    }
+    set({ renderScale: r });
+  },
 }));
 
 /** 선택 저장 + URL 파라미터 갱신 후 리로드 */

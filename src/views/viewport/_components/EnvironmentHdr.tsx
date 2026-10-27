@@ -46,6 +46,14 @@ export default function EnvironmentHdr() {
         (["x", "y", "z"] as const).forEach((a) => st.setRotationDeg(a, v[a]));
       },
     },
+    // [slider] HDR Y 회전 단일 슬라이더 (0~360°, 저장) — 배경/환경 회전 모두 적용
+    hdrRotY: {
+      value: ((useEnvironmentDebugStore.getState().rotationDeg.y % 360) + 360) % 360,
+      min: 0,
+      max: 360,
+      step: 0.1,
+      onChange: (v: number) => useEnvironmentDebugStore.getState().setRotationDeg("y", v),
+    },
     // 기본 false: HDR은 조명/반사에만 사용, 배경은 캔버스 검정(#000)
     background: { value: false, label: "background (HDR 표시)" },
     backgroundIntensity: {
