@@ -502,7 +502,7 @@ export function extractGroundBlocks(root: Object3D): BlockDefinition[] {
   const used = new Set<string>();
   const blocks: BlockDefinition[] = [];
   const sorted = [...found].sort((a, b) => {
-    if (Math.abs(a.origin[2] - b.origin[2]) > 0.01)
+    if (Math.abs(a.origin[2] - b.origin[2]) > 0.626)
       return a.origin[2] - b.origin[2];
     return a.origin[0] - b.origin[0];
   });

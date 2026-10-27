@@ -94,7 +94,7 @@ export function shipsFromPlacements(): QuayBerth[] {
       outward: outwardFromYaw(yaw),
       position: [...ship.position] as [number, number, number],
       rotation: [0, yaw, 0] as [number, number, number],
-      scale: ship.scale,
+      scale: 1,
     };
   });
 }

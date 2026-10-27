@@ -1,5 +1,4 @@
 import { CONTAINER_COLORS, CONTAINER_W, type ContainerColorKey } from "./container";
-import { SHIP_SCALE } from "./model";
 
 /** 선박 화물창 격자 (bay=길이, row=폭, tier=단) */
 export const SHIP_CARGO = {
@@ -24,7 +23,7 @@ export type ShipCargoGrid = {
 
 /** 선체 스케일에 비례해 갑판을 채우는 격자. 컨테이너 월드 크기는 유지 */
 export function shipCargoGrid(scale: number): ShipCargoGrid {
-  const ratio = scale / SHIP_SCALE;
+  const ratio = scale;
   const bays = Math.max(1, Math.round(SHIP_CARGO.bays * ratio));
   const rows = Math.max(1, Math.round(SHIP_CARGO.rows * ratio));
   const tiers = Math.max(1, Math.round(SHIP_CARGO.tiers * ratio));

@@ -5,11 +5,10 @@ import {
   getBlockLabelSize,
 } from "@/domain/blockFootprint";
 import type { BlockOccupancy } from "@/domain/occupancy";
-import { Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useCallback, useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { Group, Material, Mesh } from "three";
-import { Vector3 } from "three";
+import { CanvasTexture, LinearMipmapLinearFilter, SRGBColorSpace, Vector3 } from "three";
 import { useYardStore } from "@/stores/yard";
 import {
   BLOCK_LABEL_MAX_SCALE,
@@ -18,6 +17,45 @@ import {
 } from "./constants";
 
 const _labelWorld = new Vector3();
+
+/**
+ * drei Text(troika, GLSL 파생 머티리얼) 대체: 캔버스 텍스처 평면 라벨.
+ * troika 와 같은 룩 — fill #f8fafc 0.9, outline 0.08em #0f172a 0.55, letterSpacing 0.04em, 중앙 정렬.
+ */
+const LABEL_PX = 128;
+const labelCache = new Map<string, { tex: CanvasTexture; aspect: number }>();
+function getLabelTexture(text: string) {
+  let e = labelCache.get(text);
+  if (e) return e;
+  const font = `600 ${LABEL_PX}px "Pretendard", "Malgun Gothic", system-ui, sans-serif`;
+  const pad = LABEL_PX * 0.2;
+  const cv = document.createElement("canvas");
+  let ctx = cv.getContext("2d")!;
+  ctx.font = font;
+  (ctx as unknown as { letterSpacing: string }).letterSpacing = "0.04em";
+  const w = Math.ceil(ctx.measureText(text).width + pad * 2);
+  const h = Math.ceil(LABEL_PX * 1.25 + pad * 2);
+  cv.width = w;
+  cv.height = h;
+  ctx = cv.getContext("2d")!;
+  ctx.font = font;
+  (ctx as unknown as { letterSpacing: string }).letterSpacing = "0.04em";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = LABEL_PX * 0.08 * 2;
+  ctx.strokeStyle = "rgba(15,23,42,0.55)";
+  ctx.strokeText(text, w / 2, h / 2);
+  ctx.fillStyle = "rgba(248,250,252,0.9)";
+  ctx.fillText(text, w / 2, h / 2);
+  const tex = new CanvasTexture(cv);
+  tex.colorSpace = SRGBColorSpace;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.anisotropy = 8;
+  e = { tex, aspect: w / h };
+  labelCache.set(text, e);
+  return e;
+}
 
 function applyAlwaysOnTop(material: Material | Material[] | undefined) {
   if (!material) return;
@@ -53,11 +91,10 @@ export default function BlockFloorLabel({
   const alongBay = depth >= width;
   const groupRef = useRef<Group>(null);
   const textRef = useRef<Mesh>(null);
+  const label = useMemo(() => getLabelTexture(block.code), [block.code]);
+  // 캔버스 높이 = 1.25em + 패딩 0.4em → 평면 높이를 fontSize 기준으로 환산
+  const planeH = fontSize * ((LABEL_PX * 1.25 + LABEL_PX * 0.4) / LABEL_PX);
 
-  const handleSync = useCallback((text: Mesh) => {
-    text.renderOrder = 10000;
-    applyAlwaysOnTop(text.material);
-  }, []);
 
   useFrame(({ camera }) => {
     const group = groupRef.current;
@@ -83,24 +120,10 @@ export default function BlockFloorLabel({
         (block.yaw ?? 0) + (alongBay ? 0 : Math.PI / 2),
       ]}
     >
-      <Text
-        ref={textRef}
-        raycast={() => null}
-        fontSize={fontSize}
-        letterSpacing={0.04}
-        color="#f8fafc"
-        fillOpacity={0.9}
-        outlineWidth={fontSize * 0.08}
-        outlineColor="#0f172a"
-        outlineOpacity={0.55}
-        anchorX="center"
-        anchorY="middle"
-        renderOrder={10000}
-        depthOffset={2}
-        onSync={handleSync}
-      >
-        {block.code}
-      </Text>
+      <mesh ref={textRef} raycast={() => null} renderOrder={10000} scale={[planeH * label.aspect, planeH, 1]}>
+        <planeGeometry />
+        <meshBasicMaterial map={label.tex} transparent depthTest={false} depthWrite={false} toneMapped={false} />
+      </mesh>
     </group>
   );
 }

@@ -13,15 +13,10 @@ import {
   applyGlbViewCamera,
   extractGlbViewCamera,
 } from "@/domain/extractGlbCamera";
-import { bakeLandMask } from "@/domain/bakeLandMask";
-import { enableGroundWaveResponse } from "@/domain/groundWaveMaterial";
-import { bindLandTexture, resetLandTexture } from "@/domain/waterSim";
 import {
   GROUND_POSITION,
   GROUND_ROTATION,
-  GROUND_SCALE,
 } from "@/constants/ground";
-import { OCEAN_SIM_EXTENT, OCEAN_SIM_SIZE } from "@/constants/ocean";
 import { getOccupancySurfaceMaterial } from "@/domain/occupancyLook/occupancySurfaceMaterial";
 import { warmupOccupancyPrograms } from "@/domain/occupancyLook/warmupOccupancyPrograms";
 import {
@@ -59,6 +54,7 @@ import {
 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import HoverOutlineMesh from "./HoverOutlineMesh";
+import { bakePortShoreOnce } from "../OceanTsl/portShore";
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
 function enableGroundAlpha(root: Object3D) {
@@ -172,13 +168,11 @@ function applyOccupancyGroundLook(
 type GroundProps = {
   position?: Vector3Tuple;
   rotation?: Vector3Tuple;
-  scale?: Vector3Tuple;
 };
 
 export default function Ground({
   position = GROUND_POSITION,
   rotation = GROUND_ROTATION,
-  scale = [GROUND_SCALE, GROUND_SCALE, GROUND_SCALE],
 }: GroundProps) {
   const setModelBlocks = useYardStore((s) => s.setModelBlocks);
   const setModelShips = useYardStore((s) => s.setModelShips);
@@ -200,7 +194,15 @@ export default function Ground({
     cloned.updateMatrixWorld(true);
     enableGlbShadows(cloned);
     enableGroundAlpha(cloned);
-    enableGroundWaveResponse(cloned);
+    // [twin-port] 바다와 맞닿는 지면(Ground, 위성지형)은 깊이를 써서 투명 바다/거품을 가림
+    cloned.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      if (![o.name, o.parent?.name ?? ""].some((n) => /^(Ground|EXPORT_GOOGLE_SAT_WM\.?001)$/.test(n))) return;
+      o.renderOrder = -1;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (m instanceof Material) { m.depthWrite = true; m.needsUpdate = true; }
+      }
+    });
     applyGroundPointerFilter(cloned);
     return cloned;
   }, [scene]);
@@ -210,7 +212,6 @@ export default function Ground({
   useLayoutEffect(() => {
     model.position.set(...position);
     model.rotation.set(...rotation);
-    model.scale.set(...scale);
     model.updateMatrixWorld(true);
     const blocks = extractGroundBlocks(model);
     const berths = shipsFromPlacements();
@@ -244,18 +245,16 @@ export default function Ground({
         listObjectNames(model),
       );
     }
-    const land = bakeLandMask(gl, model, OCEAN_SIM_SIZE, OCEAN_SIM_EXTENT);
-    bindLandTexture(land.texture, OCEAN_SIM_SIZE);
+    // 지형 land/거리장은 CPU shore bake 로 일원화 (구 bakeLandMask GPU 패스 대체, TSL 오션 해안 거품이 사용)
+    // ocean-tsl 해안 거품용 지형 거리장 (1회)
+    bakePortShoreOnce(model);
     return () => {
       resetBlocks();
-      land.dispose();
-      resetLandTexture();
     };
   }, [
     model,
     position,
     rotation,
-    scale,
     setModelBlocks,
     setModelShips,
     setQuayCranes,
@@ -274,7 +273,7 @@ export default function Ground({
     if (!view) return;
     if (isViewportTracking(useViewportStore.getState())) return;
     applyGlbViewCamera(camera, view, controls ?? null);
-  }, [model, position, rotation, scale, camera, controls]);
+  }, [model, position, rotation, camera, controls]);
 
   useLayoutEffect(() => {
     const clones = attachOccupancyClones(
@@ -288,7 +287,7 @@ export default function Ground({
 
     if (!occupancyWarmed.current) {
       apply(true);
-      warmupOccupancyPrograms(gl, threeScene, camera);
+      warmupOccupancyPrograms(gl as never, threeScene, camera);
       gl.compile(threeScene, camera);
       occupancyWarmed.current = true;
     }
@@ -313,7 +312,6 @@ export default function Ground({
         object={model}
         position={position}
         rotation={rotation}
-        scale={scale}
         onPointerOver={(event: ThreeEvent<PointerEvent>) => {
           const root = findQuayCraneRoot(event.object);
           if (!root) return;
@@ -337,6 +335,7 @@ export default function Ground({
           portHoverOut(event, "quayCrane", id);
         }}
         onClick={(event: ThreeEvent<PointerEvent>) => {
+    if (event.delta > 4) return; // [twin-port] 드래그(궤도 회전) 후 놓은 경우는 선택 안 함
           const glbIndex = pickCraneGlbIndexFromClick(event);
           if (glbIndex == null) return;
           event.stopPropagation();

@@ -1,21 +1,26 @@
-import { memo, Suspense, useMemo, useRef } from "react";
+import { memo, Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
-import { Environment, StatsGl } from "@react-three/drei";
+import { WebGPURenderer } from "three/webgpu";
+import DebugUI from "@/debug/DebugUI";
+import CameraPanel from "@/debug/CameraPanel";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import Controls from "./Controls";
 import Models from "./Models";
 import SunLight from "./SunLight";
 import OccupancyTransition from "./OccupancyTransition";
+import SkyMeshDebug from "./SkyMeshDebug";
+import OceanTsl from "./OceanTsl/OceanTsl";
+import EnvironmentHdr from "./EnvironmentHdr";
+import { useShipDebugStore } from "@/stores/shipDebug";
+import { hasWebGPU, useRendererStore } from "@/stores/renderer";
 
 // 모니터링 모드일 때, Scene의 렌더링을 멈추고 싶을 때 적용
 // 성능 향상이나 현재 60fps로 잘 나오므로 우선 제거
 // import MonitorFrameLoopGate from "./MonitorFrameLoopGate";
 
-import skybox from "@/assets/image/port_hdr.hdr";
+// HDR 선택/적용은 EnvironmentHdr.tsx 로 이동
 
 import {
-  ENVIRONMENT_BACKGROUND_INTENSITY,
-  ENVIRONMENT_MESH_INTENSITY,
   TONE_MAPPING,
   TONE_MAPPING_EXPOSURE,
 } from "@/constants/environment";
@@ -28,12 +33,8 @@ import {
   INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
 
-import {
-  environmentRotationRad,
-  useEnvironmentDebugStore,
-} from "@/stores/environmentDebug";
 
-import { SRGBColorSpace, VSMShadowMap } from "three";
+import { PCFSoftShadowMap, SRGBColorSpace } from "three";
 import CameraFlight from "./CameraFlight";
 
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
@@ -46,17 +47,39 @@ const initialCamera = {
   far: INITIAL_CAMERA_FAR,
 } as const;
 
+/**
+ * ocean-tsl/r3f 방식: WebGPURenderer (WebGPU 미지원 브라우저는 자동으로 WebGL2 백엔드 폴백)
+ */
+const createRenderer = async (props: { canvas: unknown }) => {
+  // 체크 해제(webgl) 또는 WebGPU 미지원 → forceWebGL (WebGL2 백엔드, TSL 그대로)
+  const forceWebGL = useRendererStore.getState().pref === "webgl" || !hasWebGPU();
+  const r = new WebGPURenderer({
+    forceWebGL,
+    canvas: props.canvas as HTMLCanvasElement,
+    antialias: true,
+    alpha: true,
+    powerPreference: "high-performance",
+  });
+  await r.init();
+  r.toneMapping = TONE_MAPPING;
+  r.toneMappingExposure = TONE_MAPPING_EXPOSURE;
+  r.outputColorSpace = SRGBColorSpace;
+  const backend = (r as unknown as { backend?: { isWebGPUBackend?: boolean } }).backend;
+  useRendererStore.getState().setActive(backend?.isWebGPUBackend ? "webgpu" : "webgl2");
+  console.info(`[Scene] renderer: WebGPURenderer (${backend?.isWebGPUBackend ? "WebGPU" : "WebGL2"} backend, pref=${useRendererStore.getState().pref})`);
+  return r as unknown as import("three").WebGLRenderer;
+};
+
+import CamParam from "@/debug/CamParam";
+
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const rotationDeg = useEnvironmentDebugStore((s) => s.rotationDeg);
-  const environmentRotation = useMemo(
-    () => environmentRotationRad(rotationDeg),
-    [rotationDeg],
-  );
 
   return (
     <div className="relative h-full w-full">
       {/* {import.meta.env.DEV && <EnvironmentRotationPanel />} */}
+      {/* 디버그 패널: 개발 모드 또는 ?debug 일 때만 표시 */}
+      <DebugUI />
       <R3FCanvas
         className="h-full w-full touch-none"
         style={{
@@ -64,31 +87,18 @@ function Scene() {
           overflow: "hidden",
           backgroundColor: "#000",
         }}
-        shadows={{ type: VSMShadowMap }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          toneMapping: TONE_MAPPING,
-          toneMappingExposure: TONE_MAPPING_EXPOSURE,
-          outputColorSpace: SRGBColorSpace,
-        }}
+        shadows={{ type: PCFSoftShadowMap }}
+        // R3F 9 는 async gl 팩토리 지원 (타입 정의는 동기만 선언)
+        gl={createRenderer as never}
         frameloop="always"
+        onPointerMissed={(e) => { if ((e as MouseEvent).type === "click") useShipDebugStore.getState().clearSelection(); }}
         camera={initialCamera}
       >
         {/* <MonitorFrameLoopGate /> */}
         {/* 로딩 UI는 App의 ViewLoader(React DOM)에서 처리 */}
         {/* <fogExp2 attach="fog" args={["#000000", OCCUPANCY_TRANSITION.fogFrom]} /> */}
         <Suspense fallback={null}>
-          <Environment
-            files={skybox}
-            background
-            blur={0}
-            backgroundRotation={environmentRotation}
-            backgroundBlurriness={0}
-            backgroundIntensity={ENVIRONMENT_BACKGROUND_INTENSITY}
-            environmentRotation={environmentRotation}
-            environmentIntensity={ENVIRONMENT_MESH_INTENSITY}
-          />
+          <EnvironmentHdr />
           <OccupancyTransition />
           <Controls controlsRef={controlsRef} />
           <CameraFlight controlsRef={controlsRef} />
@@ -104,9 +114,13 @@ function Scene() {
           </directionalLight> */}
           {/* <Water /> */}
           <Models />
+          <SkyMeshDebug />
+          <OceanTsl />
+          <CameraPanel />
+          <CamParam />
         </Suspense>
 
-        {import.meta.env.DEV && <StatsGl className="absolute top-24 right-4" />}
+        {/* StatsGl 은 WebGL 전용이라 WebGPU 전환 시 제거 */}
       </R3FCanvas>
     </div>
   );

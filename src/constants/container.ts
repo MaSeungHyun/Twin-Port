@@ -5,10 +5,9 @@ import { GROUND_Y } from "./ground";
  * 실제: L6.06 × W2.44 × H2.59 (m)
  * Ground scale 1 기준 (이전 Ground 5일 때 0.2)
  */
-export const CONTAINER_SCALE = 0.04;
-export const CONTAINER_W = 0.98 * CONTAINER_SCALE; // Row 피치
-export const CONTAINER_H = 1.04 * CONTAINER_SCALE; // Tier 높이
-export const CONTAINER_D = 2.42 * CONTAINER_SCALE; // Bay 피치
+export const CONTAINER_W = 2.456; // Row 피치
+export const CONTAINER_H = 2.606; // Tier 높이
+export const CONTAINER_D = 6.065; // Bay 피치
 
 export const MAX_PER_COLOR = 20000;
 export const DECK_Y = (GROUND_Y + 0.2) / 2;

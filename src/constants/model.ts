@@ -1,19 +1,13 @@
-import { CONTAINER_SCALE } from "@/constants/container";
 import type { CraneInstance } from "@/views/viewport/_components/Port/Crane";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 
-/** 야드 컨테이너 스케일의 절반 */
-export const SHIP_SCALE = CONTAINER_SCALE / 2;
-export const CRANE_SCALE = 0.1;
 /**
  * overhead_crane.glb 로컬 X 폭(스팬).
  * 인스턴스 스케일 = 블록 sizeX / 이 값.
  */
 export const OVERHEAD_CRANE_SPAN_X = 8.53;
-/** 1이면 크레인 스팬이 블록 폭과 같음 */
-export const OVERHEAD_CRANE_SCALE = 1;
-/** 수면(y=0) 기준. 선체 스케일에 비례 */
-export const SHIP_POSITION_Y = 0.02 * SHIP_SCALE;
+/** 수면 기준 선박 pivot Y (GLB 원본 크기, 월드 m) */
+export const SHIP_POSITION_Y = 10.36; // ship.glb 기준: 선저 y≈10.36, busan 수면 Plane y≈15.29 (흘수≈5m)
 
 /**
  * 안벽 배 위치 튜닝.
@@ -24,7 +18,7 @@ export const SHIP_POSITION_Y = 0.02 * SHIP_SCALE;
  * 콘솔 `[Quay] 0: ...` 번호로 SHIP_BERTH_OFFSETS[번호] 지정.
  */
 export const SHIP_BERTH_TUNE = {
-  out: 0.27,
+  out: 16.916,
   along: 0,
   yaw: 0,
 };
@@ -40,7 +34,6 @@ export const SHIP_BERTH_OFFSETS: Record<number, ShipBerthOffset> = {
 };
 
 const YAW_180: [number, number, number] = [0, Math.PI, 0];
-const MERGED_SHIP_SCALE = SHIP_SCALE * 1.85;
 
 export type ShipPlacement = {
   label: string;
@@ -50,7 +43,6 @@ export type ShipPlacement = {
   position: [number, number, number];
   /** 월드 yaw (도). 선수 +X */
   yawDeg: number;
-  scale: number;
 };
 
 /** Ground Y 90° → 0° 보정: x'=-z, z'=x, yaw-90° */
@@ -58,82 +50,76 @@ export const SHIP_PLACEMENTS: readonly ShipPlacement[] = [
   {
     label: "Ship",
     locators: [0],
-    position: [-8.46598, SHIP_POSITION_Y, 0.37198],
-    yawDeg: -19.736,
-    scale: SHIP_SCALE,
+    // 기준 선석: ship.glb busan 원위치 (선체 중심 x,z / 선저 y)
+    position: [-5.06, SHIP_POSITION_Y, -158.68],
+    yawDeg: 0,
   },
   {
     label: "001",
     locators: [1],
-    position: [-3.5811, SHIP_POSITION_Y, 2.00706],
+    position: [-218.256, SHIP_POSITION_Y, 83.152],
     yawDeg: -19.736,
-    scale: SHIP_SCALE,
   },
   {
     label: "002",
     locators: [2],
-    position: [-8.6851, SHIP_POSITION_Y, -2.11384],
+    position: [-538.022, SHIP_POSITION_Y, -175.022],
     yawDeg: 0,
-    scale: SHIP_SCALE,
   },
   {
     label: "003",
     locators: [3],
-    position: [-3.25046, SHIP_POSITION_Y, -2.11384],
+    position: [-197.541, SHIP_POSITION_Y, -175.022],
     yawDeg: 0,
-    scale: SHIP_SCALE,
   },
   {
     label: "005",
     locators: [5],
-    position: [3.48168, SHIP_POSITION_Y, -0.0516],
+    position: [224.227, SHIP_POSITION_Y, -45.823],
     yawDeg: -90,
-    scale: SHIP_SCALE,
   },
   {
     label: "006+007",
     locators: [6, 7],
-    position: [7.84586, SHIP_POSITION_Y, 4.59694],
+    position: [497.643, SHIP_POSITION_Y, 245.408],
     yawDeg: -28,
-    scale: MERGED_SHIP_SCALE,
   },
   {
     label: "008+009",
     locators: [8, 9],
-    position: [15.20962, SHIP_POSITION_Y, -1.49624],
+    position: [958.983, SHIP_POSITION_Y, -136.329],
     yawDeg: -90,
-    scale: MERGED_SHIP_SCALE,
   },
 ];
 
 export const SHIP_INSTANCES: ShipInstance[] = SHIP_PLACEMENTS.map((ship) => ({
   position: [ship.position[0], ship.position[1], ship.position[2]],
   rotation: [0, (ship.yawDeg * Math.PI) / 180, 0],
-  scale: ship.scale,
+  scale: 1,
 }));
 
 export const CRANE_INSTANCES: CraneInstance[] = [
-  { position: [11.6, 0, 14], scale: CRANE_SCALE },
-  { position: [11.6, 0, 16], scale: CRANE_SCALE },
-  { position: [11.6, 0, 18], scale: CRANE_SCALE },
+  { position: [732.84, -0.2, 834.51] },
+  { position: [732.84, -0.2, 959.81] },
+  { position: [732.84, -0.2, 1085.11] },
 
-  { position: [-11, 0, 14], rotation: YAW_180, scale: CRANE_SCALE },
-  { position: [-11, 0, 16], rotation: YAW_180, scale: CRANE_SCALE },
-  { position: [-11, 0, 18], rotation: YAW_180, scale: CRANE_SCALE },
+  { position: [-683.05, -0.2, 834.51], rotation: YAW_180 },
+  { position: [-683.05, -0.2, 959.81], rotation: YAW_180 },
+  { position: [-683.05, -0.2, 1085.11], rotation: YAW_180 },
 
-  { position: [11.6, 0, 0], scale: CRANE_SCALE },
-  { position: [11.6, 0, 2], scale: CRANE_SCALE },
-  { position: [11.6, 0, 4], scale: CRANE_SCALE },
+  { position: [732.84, -0.2, -42.59] },
+  { position: [732.84, -0.2, 82.71] },
+  { position: [732.84, -0.2, 208.01] },
 
-  { position: [-11, 0, 0], rotation: YAW_180, scale: CRANE_SCALE },
-  { position: [-11, 0, 2], rotation: YAW_180, scale: CRANE_SCALE },
-  { position: [-11, 0, 4], rotation: YAW_180, scale: CRANE_SCALE },
+  { position: [-683.05, -0.2, -42.59], rotation: YAW_180 },
+  { position: [-683.05, -0.2, 82.71], rotation: YAW_180 },
+  { position: [-683.05, -0.2, 208.01], rotation: YAW_180 },
 
-  { position: [11.6, 0, -10], scale: CRANE_SCALE },
-  { position: [11.6, 0, -12], scale: CRANE_SCALE },
-  { position: [11.6, 0, -14], scale: CRANE_SCALE },
+  { position: [732.84, -0.2, -669.09] },
+  { position: [732.84, -0.2, -794.39] },
+  { position: [732.84, -0.2, -919.69] },
 
-  { position: [-11, 0, -10], rotation: YAW_180, scale: CRANE_SCALE },
-  { position: [-11, 0, -12], rotation: YAW_180, scale: CRANE_SCALE },
-  { position: [-11, 0, -14], rotation: YAW_180, scale: CRANE_SCALE },
+  { position: [-683.05, -0.2, -669.09], rotation: YAW_180 },
+  { position: [-683.05, -0.2, -794.39], rotation: YAW_180 },
+  { position: [-683.05, -0.2, -919.69], rotation: YAW_180 },
 ];

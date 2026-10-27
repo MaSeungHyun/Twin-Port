@@ -1,8 +1,8 @@
 import { Euler, MathUtils, Quaternion, Vector3 } from "three";
 
 /** BUSAN.glb CAMERA world — GLB 로드 전 Canvas 초기값 */
-export const INITIAL_CAMERA_POSITION = new Vector3(11.829, 32.038, 42.3);
-export const INITIAL_CAMERA_TARGET = new Vector3(0, 0, 0);
+export const INITIAL_CAMERA_POSITION = new Vector3(747.187, 2006.981, 2607.505);
+export const INITIAL_CAMERA_TARGET = new Vector3(6.1, -0.2, -42.59);
 
 /** Blender CAMERA world quaternion (lookAt(0,0,0)과 ~2° 차이) */
 export const INITIAL_CAMERA_QUATERNION = new Quaternion(
@@ -35,11 +35,11 @@ export const INITIAL_CAMERA_FOV = horizontalFovToVertical(
 /** @deprecated OrbitControls/quaternion 사용. degree 값을 radian Euler로 넣으면 안 맞음 */
 export const INITIAL_CAMERA_ROTATION = new Euler(-36.53, 14.47, 10.49);
 
-export const INITIAL_CAMERA_NEAR = 0.1;
-export const INITIAL_CAMERA_FAR = 1000;
+export const INITIAL_CAMERA_NEAR = 1;
+export const INITIAL_CAMERA_FAR = 50000;
 
 /** Block 점유율 / 관제모드 공통 — 위에서 내려다보는 시점 */
-export const OCCUPANCY_CAMERA_POSITION = new Vector3(0, 26, -1);
+export const OCCUPANCY_CAMERA_POSITION = new Vector3(6.1, 1628.7, -105.24);
 
 export const OCCUPANCY_CAMERA_QUATERNION = new Quaternion(
   -0.5005234916311332,
@@ -55,7 +55,7 @@ export const CONTROL_MODE_CAMERA_QUATERNION = OCCUPANCY_CAMERA_QUATERNION;
 export const CAMERA_FLIGHT_DURATION = 1;
 
 /** OrbitControls maxDistance */
-export const ORBIT_MAX_DISTANCE = 70;
+export const ORBIT_MAX_DISTANCE = 15000;
 
 /**
  * 컨테이너 검색 포커스 — 카메라가 목표에서 얼마나 떨어져 볼지
@@ -66,13 +66,13 @@ export const ORBIT_MAX_DISTANCE = 70;
  * Ship / Container / Crane 트래킹 공통 — 대상으로부터 카메라까지 거리
  * (현재 시점 방향은 유지, OrbitControls pivot만 대상으로 이동)
  */
-export const TRACKING_FOCUS_DISTANCE = 14;
+export const TRACKING_FOCUS_DISTANCE = 877.1;
 
 /** 컨테이너 tracking — 슬롯 근접 뷰 (Ship/Crane보다 가깝게) */
-export const CONTAINER_TRACKING_FOCUS_DISTANCE = 7;
+export const CONTAINER_TRACKING_FOCUS_DISTANCE = 438.55;
 
 /** 선박 tracking pivot — berth y 기준 추가 높이 (낮을수록 수선면 쪽) */
-export const SHIP_TRACKING_TARGET_Y_OFFSET = 0.5;
+export const SHIP_TRACKING_TARGET_Y_OFFSET = 31.325;
 
 /** position + quaternion → 지면(y=0) 교차점으로 lookAt 타겟 계산 */
 export function cameraLookAtTarget(
@@ -81,8 +81,8 @@ export function cameraLookAtTarget(
 ): Vector3 {
   const forward = new Vector3(0, 0, -1).applyQuaternion(quaternion).normalize();
   if (Math.abs(forward.y) < 1e-5) {
-    return position.clone().add(forward.multiplyScalar(100));
+    return position.clone().add(forward.multiplyScalar(6000));
   }
   const t = -position.y / forward.y;
-  return position.clone().add(forward.multiplyScalar(Math.max(t, 1)));
+  return position.clone().add(forward.multiplyScalar(Math.max(t, 50)));
 }

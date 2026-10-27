@@ -6,7 +6,6 @@ import {
 import { DECK_Y } from "@/constants/container";
 import type { Vec3 } from "@/constants/geometry";
 import {
-  OVERHEAD_CRANE_SCALE,
   OVERHEAD_CRANE_SPAN_X,
 } from "@/constants/model";
 
@@ -53,7 +52,7 @@ export function createBlockCenterCraneInstances(
     const yaw = block.yaw ?? 0;
     const y = deckY + block.origin[1];
     const scale =
-      OVERHEAD_CRANE_SCALE * (width / OVERHEAD_CRANE_SPAN_X);
+      width / OVERHEAD_CRANE_SPAN_X;
     const localX = width / 2;
     const start = blockLocalToWorld(block.origin, yaw, localX, y, inset);
     const end = blockLocalToWorld(block.origin, yaw, localX, y, length - inset);

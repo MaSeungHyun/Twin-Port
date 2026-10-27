@@ -1,4 +1,4 @@
-import { SHIP_POSITION_Y, SHIP_SCALE } from "./model";
+import { SHIP_POSITION_Y } from "./model";
 import { yawToward } from "./shipCargo";
 
 export type SeaTrafficShip = {
@@ -32,11 +32,11 @@ export function createSeaTrafficShips(count = 7): SeaTrafficShip[] {
     const c = hash01(i + 41);
     const d = hash01(i + 73);
     const dir: 1 | -1 = c > 0.5 ? 1 : -1;
-    const xMin = -52;
-    const xMax = 52;
+    const xMin = -3251.7;
+    const xMax = 3263.9;
     const x = xMin + a * (xMax - xMin);
-    const z = 42 + b * 28;
-    const speed = 0.7 + d * 1.1;
+    const z = 2588.71 + b * 1754.2;
+    const speed = 43.855 + d * 68.915;
 
     ships.push({
       z,
@@ -46,7 +46,7 @@ export function createSeaTrafficShips(count = 7): SeaTrafficShip[] {
       y: SHIP_POSITION_Y,
       dir,
       speed,
-      scale: SHIP_SCALE,
+      scale: 1,
       yaw: yawToward(dir, 0),
     });
   }

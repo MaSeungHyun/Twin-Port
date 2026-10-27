@@ -1,12 +1,12 @@
 /** jeantimex/threejs-water GPU 높이장. https://github.com/jeantimex/threejs-water */
 
 /** 화면에 그리는 수면 평면 한 변 길이 (월드). 클수록 먼 바다까지 물이 보임 */
-export const OCEAN_PLANE_SIZE = 1000;
+export const OCEAN_PLANE_SIZE = 60000;
 /**
  * 수면 월드 Y. 0이면 원점 높이.
  * 낮출수록 선체에 물이 덜 참. 배 pivot(SHIP_POSITION_Y) 기준 흘수
  */
-export const OCEAN_POSITION_Y = -0.06;
+export const OCEAN_POSITION_Y = -3.759;
 /**
  * 수면 메시 가로·세로 분할 수.
  * 클수록 물결·안벽 반사가 잘 보임. 격자 간격 ≈ OCEAN_PLANE_SIZE / 이 값
@@ -21,24 +21,24 @@ export const OCEAN_SIM_SIZE = 2048;
  * 파동 시뮬이 돌아가는 월드 반경.
  * 이 원 안의 배만 물을 밀 수 있음. 시뮬 영역 한 변 ≈ 이 값 × 2
  */
-export const OCEAN_SIM_EXTENT = 32;
+export const OCEAN_SIM_EXTENT = 2004.8;
 /** 동시에 항적을 계산하는 최대 선박 수 */
 export const OCEAN_SHIP_MAX = 8;
 /** 시뮬 높이 → 월드 Y 배율. 클수록 물결이 높게 보임 */
-export const OCEAN_HEIGHT_SCALE = 0.84;
+export const OCEAN_HEIGHT_SCALE = 52.626;
 /** 항적 주변 거울 반사를 일그러뜨리는 정도. 0이면 일그러짐 없음 */
 export const OCEAN_WAKE_DISTORT = 0.35;
 /** 잔잔한 수면 잔물결 세기. 지금은 플랫이라 미사용. 다시 쓰려면 Water.tsx distortionScale에 넣으면 됨 */
 export const OCEAN_CALM_DISTORT = 2.6;
 
 /** 선체 길이의 절반 (월드). 물이 밀리는 선수~선미 범위 */
-export const OCEAN_HULL_HALF_LEN = 1.36;
+export const OCEAN_HULL_HALF_LEN = 85.204;
 /** 선체 폭의 절반. 물이 밀리는 좌우 범위 */
-export const OCEAN_HULL_HALF_WIDTH = 0.11;
+export const OCEAN_HULL_HALF_WIDTH = 6.891;
 /** 선체 높이의 절반. 흘수(잠긴 깊이)에 해당 */
-export const OCEAN_HULL_HALF_HEIGHT = 0.27;
+export const OCEAN_HULL_HALF_HEIGHT = 16.916;
 /** 수면(y=0) 기준 선체 중심 높이. 음수면 수면 아래로 잠긴 것 */
-export const OCEAN_HULL_Y = -0.09;
+export const OCEAN_HULL_Y = -5.638;
 /** 배가 한 칸 움직일 때 물을 밀어내는 세기. 클수록 첫 물결이 큼 */
 export const OCEAN_WAKE_STRENGTH = 0.55;
 /**
@@ -47,18 +47,18 @@ export const OCEAN_WAKE_STRENGTH = 0.55;
  */
 export const OCEAN_WAKE_FOAM = 0.32;
 /** 이 거리(월드) 미만 이동은 정지로 보고 항적을 안 만듦 */
-export const OCEAN_MOVE_THRESHOLD = 0.003;
+export const OCEAN_MOVE_THRESHOLD = 0.188;
 /** 한 프레임에 이 거리 넘게 뛰면 텔레포트로 보고 스플래시 생략 */
-export const OCEAN_TELEPORT_THRESHOLD = 2;
+export const OCEAN_TELEPORT_THRESHOLD = 125.3;
 /** 이 스케일보다 작은 배는 항적을 만들지 않음 */
 export const OCEAN_WAKE_MIN_SCALE = 0.002;
 /**
  * 이 월드 Y보다 아래인 Ground는 육지(벽)로 안 봄.
  * 해저가 항만 전체를 육지로 덮지 않게 함
  */
-export const OCEAN_LAND_MIN_Y = -0.09;
+export const OCEAN_LAND_MIN_Y = -5.838;
 /** 이 월드 Y보다 위인 메시는 안벽 마스크에서 제외 */
-export const OCEAN_LAND_MAX_Y = 3.6;
+export const OCEAN_LAND_MAX_Y = 225.34;
 /** 물결이 안벽에 닿을 때 Ground 위 흰 포말 세기. 0이면 없음 */
 export const OCEAN_SHORE_FOAM = 1;
 /** 수변 Ground를 어둡게 젖은 느낌으로 만드는 세기 */

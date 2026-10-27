@@ -2,7 +2,6 @@ import {
   SHIP_BERTH_OFFSETS,
   SHIP_BERTH_TUNE,
   SHIP_POSITION_Y,
-  SHIP_SCALE,
 } from "@/constants/model";
 import { yawToward } from "@/constants/shipCargo";
 import { findQuayCraneRoot } from "@/domain/hoverOutline";
@@ -157,8 +156,8 @@ function collectSpots(
         baseX: origin.x,
         baseY: origin.y,
         baseZ: origin.z,
-        boomReach: Math.max(boomReach, 0.2),
-        boomBack: Math.max(boomBack, 0.2),
+        boomReach: Math.max(boomReach, 12.53),
+        boomBack: Math.max(boomBack, 12.53),
         boomX: boom.x,
         boomZ: boom.z,
         hoverId,
@@ -255,7 +254,7 @@ function clusterSpots(spots: CraneSpot[]): CraneSpot[][] {
   });
   const gapSorted = [...gaps].sort((a, b) => a - b);
   const medianGap = gapSorted[Math.floor(gapSorted.length / 2)] ?? 8;
-  const splitGap = Math.max(medianGap * 2.4, 1e-3);
+  const splitGap = Math.max(medianGap * 2.4, 0.063);
   const size = preferredSize(spots[0]?.kind ?? "unknown", spots.length);
 
   const groups: CraneSpot[][] = [];
@@ -323,7 +322,7 @@ function berthFromGroup(
       cz + oz * standoff + lz * along,
     ],
     rotation: [0, yawToward(lx, lz) + SHIP_BERTH_TUNE.yaw, 0],
-    scale: SHIP_SCALE,
+    scale: 1,
   };
 }
 
@@ -367,7 +366,7 @@ export function extractQuayBerths(root: Object3D): QuayBerth[] {
   }
 
   berths.sort((a, b) => {
-    if (Math.abs(a.position[2] - b.position[2]) > 0.5)
+    if (Math.abs(a.position[2] - b.position[2]) > 31.325)
       return a.position[2] - b.position[2];
     return a.position[0] - b.position[0];
   });

@@ -2,7 +2,7 @@ import Header from "./views/View/header";
 import ViewLoader from "./views/View/ViewLoader";
 import Viewport from "./views/viewport";
 import MonitoringOverlay from "./views/viewport/_components/MonitoringOverlay";
-import Toaster from "@/components/Toaster";
+// import Toaster from "@/components/Toaster";
 
 function App() {
   return (
@@ -11,7 +11,7 @@ function App() {
       <Header />
       <Viewport />
       <MonitoringOverlay />
-      <Toaster />
+      {/* <Toaster /> */}
     </main>
   );
 }

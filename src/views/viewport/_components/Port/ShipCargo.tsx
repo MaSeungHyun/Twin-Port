@@ -4,7 +4,6 @@ import {
   MAX_PER_COLOR,
   type ContainerColorKey,
 } from "@/constants/container";
-import { SHIP_SCALE } from "@/constants/model";
 import {
   bowOffset,
   cargoSlotOrder,
@@ -323,7 +322,7 @@ export default function ShipCargo({
       const travelYaw = berthYaw + (tween.turnDeg * Math.PI / 180);
       const side = sidestepWorldDelta(tween, berthYaw);
       const bow = bowOffset(travelYaw, tween.departDistance);
-      const scale = typeof ship.scale === "number" ? ship.scale : SHIP_SCALE;
+      const scale = typeof ship.scale === "number" ? ship.scale : 1;
 
       motions.push({
         index: shipIndex,
@@ -587,6 +586,7 @@ export default function ShipCargo({
                   portHoverOut(event, "ship", String(shipIndex));
                 }}
                 onClick={(event: ThreeEvent<PointerEvent>) => {
+    if (event.delta > 4) return; // [twin-port] 드래그(궤도 회전) 후 놓은 경우는 선택 안 함
                   const key = resolveShipKeyFromInstanceIndex(shipIndex);
                   if (!key) return;
                   event.stopPropagation();

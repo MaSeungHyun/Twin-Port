@@ -1,17 +1,16 @@
 import { CONTAINER_D, CONTAINER_H, CONTAINER_W } from "@/constants/container";
-import { SHIP_SCALE } from "@/constants/model";
 import { SHIP_CARGO } from "@/constants/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 
 export function shipWorldScale(ship: Pick<ShipInstance, "scale">) {
-  const scale = ship.scale ?? SHIP_SCALE;
+  const scale = ship.scale ?? 1;
   return typeof scale === "number" ? scale : scale[0];
 }
 
 /** 선박 월드 행렬. target에 기록하고 그대로 반환(clone 없음). */
 export function composeShipWorldMatrix(ship: ShipInstance, target: Matrix4) {
-  const scale = ship.scale ?? SHIP_SCALE;
+  const scale = ship.scale ?? 1;
   if (typeof scale === "number") {
     _shipScale.setScalar(scale);
   } else {
@@ -65,7 +64,7 @@ export function composeShipContainerMatrix(
   tierIndex: number,
   dropProgress = 1,
   appearScale = 1,
-  dropHeight = 4,
+  dropHeight = 250.6,
   target: Matrix4 = _worldMatrix,
 ) {
   composeShipWorldMatrix(ship, _shipMatrix);

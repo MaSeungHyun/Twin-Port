@@ -2,7 +2,6 @@ import terrainUrl from "@/assets/model/busan_geometry.glb";
 import {
   TERRAIN_POSITION,
   TERRAIN_ROTATION,
-  TERRAIN_SCALE,
 } from "@/constants/terrain";
 import { enableGlbShadows } from "@/domain/glb";
 import { useGLTF } from "@react-three/drei";
@@ -35,7 +34,10 @@ function prepareTerrain(root: Object3D, maxAnisotropy: number) {
 
 export default function Terrain({ visible = true }: { visible?: boolean }) {
   const maxAnisotropy = useThree((state) =>
-    state.gl.capabilities.getMaxAnisotropy(),
+    // WebGPURenderer 는 capabilities 대신 getMaxAnisotropy()
+    (state.gl as unknown as { getMaxAnisotropy?: () => number }).getMaxAnisotropy?.() ??
+      state.gl.capabilities?.getMaxAnisotropy() ??
+      1,
   );
   const { scene } = useGLTF(terrainUrl);
 
@@ -50,7 +52,6 @@ export default function Terrain({ visible = true }: { visible?: boolean }) {
       object={model}
       position={TERRAIN_POSITION}
       rotation={TERRAIN_ROTATION}
-      scale={TERRAIN_SCALE}
       visible={visible}
     />
   );

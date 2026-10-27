@@ -5,6 +5,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
+import { INITIAL_CAMERA_FAR } from "@/constants/camera";
 
 export type GlbViewCamera = {
   position: Vector3;
@@ -69,7 +70,7 @@ export function applyGlbViewCamera(
   if (camera instanceof PerspectiveCamera) {
     if (view.fov != null) camera.fov = view.fov;
     if (view.near != null) camera.near = view.near;
-    if (view.far != null) camera.far = view.far;
+    if (view.far != null) camera.far = Math.max(view.far, INITIAL_CAMERA_FAR);
     // camera.aspect = 1920 / 1080;
     camera.updateProjectionMatrix();
   }

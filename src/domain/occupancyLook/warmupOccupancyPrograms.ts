@@ -8,9 +8,9 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   type Camera,
-  type Scene,
-  type WebGLRenderer,
+  Scene,
 } from "three";
+import type { Renderer } from "three/webgpu";
 import { getOccupancyContainerMaterial } from "./occupancyContainerMaterial";
 import { getOccupancyShipMaterial } from "./occupancyShipMaterial";
 import { getOccupancySurfaceMaterial } from "./occupancySurfaceMaterial";
@@ -22,7 +22,7 @@ let programsWarmed = false;
  * 페인트 전에 호출해야 화면에 occupancy 룩이 비치지 않음.
  */
 export function warmupOccupancyPrograms(
-  gl: WebGLRenderer,
+  gl: Renderer,
   scene: Scene,
   camera: Camera,
 ) {
@@ -70,24 +70,19 @@ export function warmupOccupancyPrograms(
     }),
   );
 
-  scene.add(instanced, shipInstanced, containerInstanced, shell, fill, line);
-  gl.compile(scene, camera);
-  scene.remove(
-    instanced,
-    shipInstanced,
-    containerInstanced,
-    shell,
-    fill,
-    line,
-  );
-
-  shell.material.dispose();
-  fill.material.dispose();
-  line.material.dispose();
-  line.geometry.dispose();
-  instanced.dispose();
-  shipInstanced.dispose();
-  containerInstanced.dispose();
-  geo.dispose();
+  // 임시 씬에 넣어 compileAsync (targetScene=scene → 실제 조명 기준). 본 씬에는 추가하지 않으므로 화면 노출 없음
+  const tmp = new Scene();
+  tmp.add(instanced, shipInstanced, containerInstanced, shell, fill, line);
   programsWarmed = true;
+  const cleanup = () => {
+    shell.material.dispose();
+    fill.material.dispose();
+    line.material.dispose();
+    line.geometry.dispose();
+    instanced.dispose();
+    shipInstanced.dispose();
+    containerInstanced.dispose();
+    geo.dispose();
+    };
+  gl.compileAsync(tmp, camera, scene).then(cleanup, cleanup);
 }

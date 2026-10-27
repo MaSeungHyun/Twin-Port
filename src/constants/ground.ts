@@ -1,14 +1,12 @@
-/** Ground GLB 인스턴스 스케일. 블록 추출은 matrixWorld 기준 */
-export const GROUND_SCALE = 1;
 export const GROUND_POSITION: [number, number, number] = [0, 0, 0];
 export const GROUND_ROTATION: [number, number, number] = [0, 0, 0];
 
-export const GROUND_X = 24;
-export const GROUND_Y = 0.6;
-export const GROUND_Z = 60;
+export const GROUND_X = 1503.6;
+export const GROUND_Y = 37.59;
+export const GROUND_Z = 3759;
 
 /** asphalt_02 1타일 월드 크기 (클수록 덜 반복) */
-export const TILE_SIZE = 12;
+export const TILE_SIZE = 751.8;
 
 /** asphalt normal 강도 */
 export const GROUND_NORMAL_SCALE = 1.4;

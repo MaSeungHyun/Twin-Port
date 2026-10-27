@@ -21,7 +21,7 @@ export default function Controls({ controlsRef }: ControlsProps) {
       enablePan={interactive}
       enableZoom={interactive}
       enableRotate={interactive}
-      maxPolarAngle={Math.PI * 0.475}
+      // maxPolarAngle={Math.PI * 0.475}
       enableDamping={false}
       maxDistance={ORBIT_MAX_DISTANCE}
     />
