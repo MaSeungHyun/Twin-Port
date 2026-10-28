@@ -87,6 +87,14 @@ function enableGroundAlpha(root: Object3D) {
         cloned.depthWrite = true;
         if ("alphaTest" in cloned && cloned.alphaTest < 0.5) cloned.alphaTest = 0.5;
       }
+      // [lodzfight] WSE_11_LOD3.* (and siblings sharing these materials): Glass / window frame / sign / vent faces are
+      // exactly coplanar with the Metal Tiles / PVC walls (356+ overlapping tris per mesh) -> view-angle z-fighting sparkle.
+      // Pull these overlay layers toward the camera in depth so the wall never wins the tie.
+      if (/glass|window\s*frame|wndow\s*frame|fire\s*exit|vent/i.test(mat.name)) {
+        cloned.polygonOffset = true;
+        cloned.polygonOffsetFactor = -2;
+        cloned.polygonOffsetUnits = -4;
+      }
       cloned.needsUpdate = true;
       return cloned;
     });

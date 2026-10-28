@@ -20,10 +20,7 @@ import { hasWebGPU, useRendererStore } from "@/stores/renderer";
 
 // HDR 선택/적용은 EnvironmentHdr.tsx 로 이동
 
-import {
-  TONE_MAPPING,
-  TONE_MAPPING_EXPOSURE,
-} from "@/constants/environment";
+import { TONE_MAPPING, TONE_MAPPING_EXPOSURE } from "@/constants/environment";
 
 import {
   INITIAL_CAMERA_FAR,
@@ -32,7 +29,6 @@ import {
   INITIAL_CAMERA_POSITION,
   INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
-
 
 import { PCFSoftShadowMap, SRGBColorSpace } from "three";
 import CameraFlight from "./CameraFlight";
@@ -52,7 +48,8 @@ const initialCamera = {
  */
 const createRenderer = async (props: { canvas: unknown }) => {
   // 체크 해제(webgl) 또는 WebGPU 미지원 → forceWebGL (WebGL2 백엔드, TSL 그대로)
-  const forceWebGL = useRendererStore.getState().pref === "webgl" || !hasWebGPU();
+  const forceWebGL =
+    useRendererStore.getState().pref === "webgl" || !hasWebGPU();
   const r = new WebGPURenderer({
     forceWebGL,
     canvas: props.canvas as HTMLCanvasElement,
@@ -64,21 +61,28 @@ const createRenderer = async (props: { canvas: unknown }) => {
   r.toneMapping = TONE_MAPPING;
   r.toneMappingExposure = TONE_MAPPING_EXPOSURE;
   r.outputColorSpace = SRGBColorSpace;
-  const backend = (r as unknown as { backend?: { isWebGPUBackend?: boolean } }).backend;
-  useRendererStore.getState().setActive(backend?.isWebGPUBackend ? "webgpu" : "webgl2");
-  console.info(`[Scene] renderer: WebGPURenderer (${backend?.isWebGPUBackend ? "WebGPU" : "WebGL2"} backend, pref=${useRendererStore.getState().pref})`);
+  const backend = (r as unknown as { backend?: { isWebGPUBackend?: boolean } })
+    .backend;
+  useRendererStore
+    .getState()
+    .setActive(backend?.isWebGPUBackend ? "webgpu" : "webgl2");
+  console.info(
+    `[Scene] renderer: WebGPURenderer (${backend?.isWebGPUBackend ? "WebGPU" : "WebGL2"} backend, pref=${useRendererStore.getState().pref})`,
+  );
   return r as unknown as import("three").WebGLRenderer;
 };
 
 import CamParam from "@/debug/CamParam";
 import CameraSlots from "@/debug/CameraSlots";
-import { OutlineDebug } from "./Port/HoverOutlineMesh";
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   // [perf] DPR 상한 (4K 에서 픽셀 수 감소). Render 패널 슬라이더로 조정
   const renderScale = useRendererStore((s) => s.renderScale);
-  const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, renderScale);
+  const dpr = Math.min(
+    typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+    renderScale,
+  );
 
   return (
     <div className="relative h-full w-full">
@@ -97,7 +101,10 @@ function Scene() {
         gl={createRenderer as never}
         frameloop="always"
         dpr={dpr}
-        onPointerMissed={(e) => { if ((e as MouseEvent).type === "click") useShipDebugStore.getState().clearSelection(); }}
+        onPointerMissed={(e) => {
+          if ((e as MouseEvent).type === "click")
+            useShipDebugStore.getState().clearSelection();
+        }}
         camera={initialCamera}
       >
         {/* <MonitorFrameLoopGate /> */}
@@ -125,7 +132,6 @@ function Scene() {
           <CameraPanel />
           <CamParam />
           <CameraSlots />
-          <OutlineDebug />
         </Suspense>
 
         {/* StatsGl 은 WebGL 전용이라 WebGPU 전환 시 제거 */}

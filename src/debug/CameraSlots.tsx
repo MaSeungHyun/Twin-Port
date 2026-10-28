@@ -2,7 +2,6 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { button, useControls } from "@/debug/controls";
 import { useViewportStore } from "@/stores/viewport";
 import {
   CAMERA_INTRO_DURATION,
@@ -10,6 +9,9 @@ import {
   CAMERA_INTRO_SLOT1,
   CAMERA_INTRO_SLOT2,
   CAMERA_INTRO_START_EVENT,
+  INTRO_ORBIT_DIRECTION,
+  INTRO_ORBIT_DURATION,
+  INTRO_ORBIT_EXTRA_DEG,
 } from "@/constants/cameraIntro";
 
 /**
@@ -20,7 +22,6 @@ import {
 type Slot = { p: [number, number, number]; t: [number, number, number] };
 type Slots = Record<string, Slot>;
 const KEY = "tp_cam_slots";
-const SLOT_IDS = ["home", "1", "2", "3", "4"] as const;
 
 function readSlots(): Slots {
   try {
@@ -42,14 +43,14 @@ const isTyping = (el: EventTarget | null) => {
 
 const DURATION = 0.8;
 /** [camintro] stored slot first, then code constant */
-const introSlot = (id: "1" | "2"): Slot | null => readSlots()[id] ?? (id === "1" ? CAMERA_INTRO_SLOT1 : CAMERA_INTRO_SLOT2);
+const introSlot = (id: "1" | "2"): Slot | null => (id === "1" ? CAMERA_INTRO_SLOT1 : CAMERA_INTRO_SLOT2) ?? readSlots()[id] ?? null; // [pt125u] hard-coded intro wins
 const fmt = (v: [number, number, number]) => `[${v.join(", ")}]`;
 const slotTs = (s: Slot | undefined) => (s ? `{ p: ${fmt(s.p)}, t: ${fmt(s.t)} }` : "null");
 
 export default function CameraSlots() {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
-  const anim = useRef<{ fp: Vector3; ft: Vector3; tp: Vector3; tt: Vector3; t: number; d: number; done?: () => void } | null>(null);
+  const anim = useRef<{ fp: Vector3; ft: Vector3; tp: Vector3; tt: Vector3; t: number; d: number; done?: () => void; orbit?: { r1: number; r2: number; ph1: number; ph2: number; az1: number; daz: number } } | null>(null);
   const homeDone = useRef(0);
   const intro1 = useRef<Slot | null>(null);
 
@@ -72,28 +73,22 @@ export default function CameraSlots() {
     }
     return true;
   };
-  const clear = (id: string) => { const s = readSlots(); delete s[id]; writeSlots(s); };
   const saveRef = useRef(save); saveRef.current = save;
   const recallRef = useRef(recall); recallRef.current = recall;
 
-  useControls("Camera Slots", () => {
-    const o: Record<string, ReturnType<typeof button>> = {};
-    for (const id of SLOT_IDS) {
-      o[`Save ${id}`] = button(() => saveRef.current(id));
-      o[`Go ${id}`] = button(() => recallRef.current(id));
-    }
-    o["Clear home"] = button(() => clear("home"));
-    o["현재 슬롯을 코드용으로 복사"] = button(() => {
+  // [pt121u] Camera Slots panel removed. Keyboard (Shift+1..4 save, 1..4 go, Shift+0/0 Home) still works.
+  // Copy slots 1/2 as a TS snippet from the console: window.__copyCamSlots()
+  useEffect(() => {
+    const w = window as unknown as { __copyCamSlots?: () => string };
+    w.__copyCamSlots = () => {
       const s = readSlots();
       const ts = `export const CAMERA_INTRO_SLOT1: CameraSlotValue | null = ${slotTs(s["1"])};\nexport const CAMERA_INTRO_SLOT2: CameraSlotValue | null = ${slotTs(s["2"])};\n`;
-      console.info("[camslots] code snippet\n" + ts);
-      navigator.clipboard?.writeText(ts).then(
-        () => window.alert("슬롯 1/2 코드가 클립보드에 복사되었습니다.\n\n" + ts),
-        () => window.prompt("복사 실패 — 아래 내용을 직접 복사하세요", ts),
-      );
-    });
-    return o;
-  });
+      void navigator.clipboard?.writeText(ts).catch(() => undefined);
+      console.info("[camslots] code snippet (copied)\n" + ts);
+      return ts;
+    };
+    return () => { delete w.__copyCamSlots; };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -125,7 +120,19 @@ export default function CameraSlots() {
     const go = () => {
       const slot = CAMERA_INTRO_ENABLED ? introSlot("2") : null;
       const ready = () => useViewportStore.getState().setInteractionReady(true);
-      if (slot && recallRef.current("2", false, slot, CAMERA_INTRO_DURATION) && anim.current) anim.current.done = ready;
+      if (slot && recallRef.current("2", false, slot, INTRO_ORBIT_DURATION) && anim.current) {
+        const a = anim.current;
+        a.done = ready;
+        // [pt126u] spherical offsets (camera - target) at both ends; azimuth = shorter path + extra sweep
+        const o1 = a.fp.clone().sub(a.ft), o2 = a.tp.clone().sub(a.tt);
+        const r1 = Math.max(1e-3, o1.length()), r2 = Math.max(1e-3, o2.length());
+        const ph1 = Math.acos(Math.min(1, Math.max(-1, o1.y / r1))), ph2 = Math.acos(Math.min(1, Math.max(-1, o2.y / r2)));
+        const az1 = Math.atan2(o1.x, o1.z), az2 = Math.atan2(o2.x, o2.z);
+        let d = az2 - az1;
+        d = ((((d + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI; // shorter path
+        const sgn = (d >= 0 ? 1 : -1) * INTRO_ORBIT_DIRECTION;
+        a.orbit = { r1, r2, ph1, ph2, az1, daz: d + (sgn * INTRO_ORBIT_EXTRA_DEG * Math.PI) / 180 };
+      }
       else ready(); // no slot 2 → enable immediately
     };
     window.addEventListener(CAMERA_INTRO_START_EVENT, go);
@@ -160,8 +167,14 @@ export default function CameraSlots() {
     if (!a || !controls) return;
     a.t = Math.min(1, a.t + dt / a.d);
     const k = a.t < 0.5 ? 4 * a.t ** 3 : 1 - (-2 * a.t + 2) ** 3 / 2;
-    camera.position.lerpVectors(a.fp, a.tp, k);
     controls.target.lerpVectors(a.ft, a.tt, k);
+    const o = a.orbit;
+    if (o && a.t < 1) {
+      // [pt126u] orbit around the moving target: log-eased radius, eased polar, azimuth sweep
+      const r = o.r1 * Math.pow(o.r2 / o.r1, k), ph = o.ph1 + (o.ph2 - o.ph1) * k, az = o.az1 + o.daz * k;
+      const sp = Math.sin(ph);
+      camera.position.set(controls.target.x + r * sp * Math.sin(az), controls.target.y + r * Math.cos(ph), controls.target.z + r * sp * Math.cos(az));
+    } else camera.position.lerpVectors(a.fp, a.tp, k); // k=1 -> exactly slot 2
     controls.update();
     if (a.t >= 1) { anim.current = null; a.done?.(); }
   }, -2);

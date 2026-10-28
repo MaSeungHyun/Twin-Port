@@ -30,9 +30,9 @@ export default function IntroOverlay() {
 
   const start = () => {
     if (phase !== "show") return;
-    setPhase("fading");
+    // [pt121u] hide instantly (same frame) and unmount; camera flight starts as before
+    setPhase("done");
     window.dispatchEvent(new CustomEvent(CAMERA_INTRO_START_EVENT));
-    window.setTimeout(() => setPhase("done"), FADE_MS);
   };
 
   useEffect(() => {

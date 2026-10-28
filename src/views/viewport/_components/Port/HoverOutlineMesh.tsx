@@ -55,7 +55,9 @@ import { useControls } from "@/debug/controls";
 export const hoverOutlineThickness = uniform(HOVER_OUTLINE_THICKNESS);
 const OUTLINE_KEY = "tp.outlinePx.v1";
 const loadPx = () => { try { const v = parseFloat(localStorage.getItem(OUTLINE_KEY) ?? ""); return Number.isFinite(v) ? v : HOVER_OUTLINE_THICKNESS; } catch { return HOVER_OUTLINE_THICKNESS; } };
-hoverOutlineThickness.value = loadPx();
+// [pt121u] Outline panel removed → always the default thickness (stored tp.outlinePx ignored)
+hoverOutlineThickness.value = HOVER_OUTLINE_THICKNESS;
+void loadPx;
 /** Debug UI slider (mounted once in Scene) */
 export function OutlineDebug() {
   const [v] = useControls("Outline", () => ({ thickness: { value: loadPx(), min: 0, max: 10, step: 0.1, label: "thickness px" } }));
