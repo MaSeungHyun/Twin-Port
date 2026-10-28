@@ -43,7 +43,8 @@ export const useDebugStore = create<DebugStore>()((set) => ({
 export const panelOf = (folder: string) => {
   const map: Record<string, string> = {
     "Directional Light": "Sun Light",
-    "Directional Light.Shadow": "Shadow",
+    "Directional Light.Shadow": "Sun Light",
+    "Directional Light.Target": "Sun Light",
     "Sky Material": "Sky",
   };
   return map[folder] ?? folder;

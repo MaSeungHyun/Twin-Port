@@ -146,6 +146,13 @@ export interface CubeCfg {
 export const UNDER_DEFAULT: UnderLook = { color: "#0f7f86", density: 0.014, darkRange: 400, minBright: 0.25, bubbles: true, bubbleAmount: 400, bubbleSize: 0.05, bubbleSpeed: 0.5 };
 
 // [fog] 수면 위(대기) 안개 — 렌더 패널. near~far(m) 선형 구간에서 0→100%. localStorage 저장
+export interface OceanEdge { start: number; end: number }
+export const OCEANEDGE_DEFAULT: OceanEdge = { start: 0.75, end: 1.0 };
+const OCEANEDGE_KEY = "tp.oceanEdge.v1";
+function loadOceanEdge(): OceanEdge {
+  try { const j = JSON.parse(localStorage.getItem(OCEANEDGE_KEY) ?? "null"); if (j && typeof j === "object") return { ...OCEANEDGE_DEFAULT, ...j }; } catch { /* ignore */ }
+  return OCEANEDGE_DEFAULT;
+}
 export interface AirFog { on: boolean; color: string; near: number; far: number }
 export const AIRFOG_DEFAULT: AirFog = { on: false, color: "#c9d6df", near: 300, far: 3000 };
 const AIRFOG_KEY = "tp.airFog.v2";
@@ -156,6 +163,8 @@ function loadAirFog(): AirFog {
 
 export interface Settings {
   airFog: AirFog;
+  oceanEdge: OceanEdge;
+  setOceanEdge: <K extends keyof OceanEdge>(k: K, v: OceanEdge[K]) => void;
   setAirFog: <K extends keyof AirFog>(k: K, v: AirFog[K]) => void;
   resetAirFog: () => void;
   params: OceanParams;
@@ -205,8 +214,10 @@ export const useSettings = create<Settings>()(
     shore: SHORE_DEFAULT,
     under: UNDER_DEFAULT,
     airFog: loadAirFog(),
+  oceanEdge: loadOceanEdge(),
+  setOceanEdge: (k, v) => set((s) => { const oceanEdge = { ...s.oceanEdge, [k]: v }; localStorage.setItem(OCEANEDGE_KEY, JSON.stringify(oceanEdge)); return { oceanEdge }; }),
     setAirFog: (k, v) => set((s) => { const airFog = { ...s.airFog, [k]: v }; localStorage.setItem(AIRFOG_KEY, JSON.stringify(airFog)); return { airFog }; }),
-    resetAirFog: () => { localStorage.removeItem(AIRFOG_KEY); set({ airFog: AIRFOG_DEFAULT }); },
+    resetAirFog: () => { localStorage.removeItem(AIRFOG_KEY); localStorage.removeItem(OCEANEDGE_KEY); set({ airFog: AIRFOG_DEFAULT, oceanEdge: OCEANEDGE_DEFAULT }); },
     cube: {
       size: 1.5,
       density: 0.5,

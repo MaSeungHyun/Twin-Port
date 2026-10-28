@@ -1,19 +1,78 @@
 import { HOVER_OUTLINE_COLOR, HOVER_OUTLINE_THICKNESS } from "@/constants/hoverOutline";
-import { BackSide, Color, Mesh, MeshBasicMaterial, type BufferGeometry } from "three";
+import { BackSide, BufferAttribute, BufferGeometry, Color, Mesh, MeshBasicMaterial } from "three";
+
+/**
+ * [outline] Inverted hull pushes vertices along normals. Hard-edged meshes (quay cranes: split/flat normals,
+ * thin lattice beams ~1 m vs 3 m thickness) tear apart into floating face planes that look offset from the object.
+ * Build a per-geometry copy whose normals are averaged over vertices sharing a position, so the hull stays closed.
+ * Shares position/index/uv attributes with the source geometry (no extra vertex memory except the normal).
+ */
+const smoothCache = new WeakMap<BufferGeometry, BufferGeometry>();
+export function getOutlineGeometry(src: BufferGeometry): BufferGeometry {
+  const hit = smoothCache.get(src);
+  if (hit) return hit;
+  const pos = src.getAttribute("position");
+  const nrm = src.getAttribute("normal");
+  if (!pos || !nrm) { smoothCache.set(src, src); return src; }
+  const n = pos.count;
+  const acc = new Map<string, [number, number, number]>();
+  const keys: string[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const k = `${pos.getX(i).toFixed(3)},${pos.getY(i).toFixed(3)},${pos.getZ(i).toFixed(3)}`;
+    keys[i] = k;
+    let a = acc.get(k);
+    if (!a) { a = [0, 0, 0]; acc.set(k, a); }
+    a[0] += nrm.getX(i); a[1] += nrm.getY(i); a[2] += nrm.getZ(i);
+  }
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const a = acc.get(keys[i]!)!;
+    const l = Math.hypot(a[0], a[1], a[2]);
+    if (l > 1e-6) { out[i * 3] = a[0] / l; out[i * 3 + 1] = a[1] / l; out[i * 3 + 2] = a[2] / l; }
+    else { out[i * 3] = nrm.getX(i); out[i * 3 + 1] = nrm.getY(i); out[i * 3 + 2] = nrm.getZ(i); }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute("position", pos);
+  g.setAttribute("normal", new BufferAttribute(out, 3));
+  if (src.index) g.setIndex(src.index);
+  for (const gr of src.groups) g.addGroup(gr.start, gr.count, gr.materialIndex);
+  g.drawRange = { ...src.drawRange };
+  if (src.boundingSphere) g.boundingSphere = src.boundingSphere.clone();
+  if (src.boundingBox) g.boundingBox = src.boundingBox.clone();
+  smoothCache.set(src, g);
+  return g;
+}
 import { MeshBasicNodeMaterial } from "three/webgpu";
-import { normalLocal, positionLocal, uniform } from "three/tsl";
+import { cameraPosition, modelWorldMatrix, normalLocal, positionLocal, uniform, vec4 } from "three/tsl";
+import { useEffect } from "react";
+import { useControls } from "@/debug/controls";
 
 /**
  * TSL inverted-hull 외곽선 (drei Outlines 와 같은 방식: 뒷면만 그리고 로컬 노멀 방향으로 thickness 만큼 밀어냄).
  * WebGPU / WebGL2 백엔드 공통. 머티리얼은 전 인스턴스 공유.
  */
+/** [outline] thickness ~ screen pixels (scaled by camera distance, independent of object/parent scale) */
 export const hoverOutlineThickness = uniform(HOVER_OUTLINE_THICKNESS);
+const OUTLINE_KEY = "tp.outlinePx.v1";
+const loadPx = () => { try { const v = parseFloat(localStorage.getItem(OUTLINE_KEY) ?? ""); return Number.isFinite(v) ? v : HOVER_OUTLINE_THICKNESS; } catch { return HOVER_OUTLINE_THICKNESS; } };
+hoverOutlineThickness.value = loadPx();
+/** Debug UI slider (mounted once in Scene) */
+export function OutlineDebug() {
+  const [v] = useControls("Outline", () => ({ thickness: { value: loadPx(), min: 0, max: 10, step: 0.1, label: "thickness px" } }));
+  useEffect(() => { hoverOutlineThickness.value = v.thickness; try { localStorage.setItem(OUTLINE_KEY, String(v.thickness)); } catch { /* ignore */ } }, [v.thickness]);
+  return null;
+}
 let outlineMat: MeshBasicNodeMaterial | null = null;
 function getOutlineMaterial() {
   if (outlineMat) return outlineMat;
   const m = new MeshBasicNodeMaterial({ side: BackSide, toneMapped: false });
   m.color = new Color(HOVER_OUTLINE_COLOR);
-  m.positionNode = positionLocal.add(normalLocal.mul(hoverOutlineThickness));
+  // world offset = px * distance * ~0.001 (about 1 px per unit at 1080p / fov 50); divide by the world length of the
+  // local normal so node/parent scale (e.g. GLB scale) no longer multiplies the thickness.
+  const worldPos = modelWorldMatrix.mul(vec4(positionLocal, 1)).xyz;
+  const dist = cameraPosition.distance(worldPos);
+  const nScale = modelWorldMatrix.mul(vec4(normalLocal, 0)).xyz.length().max(1e-6);
+  m.positionNode = positionLocal.add(normalLocal.mul(hoverOutlineThickness.mul(dist).mul(0.001).div(nScale)));
   outlineMat = m;
   return m;
 }
@@ -37,7 +96,7 @@ function warmOutline(node: Mesh, geometry: BufferGeometry) {
     const parent = node.parent;
     if (!parent) return;
     const dummy = new Mesh(geometry, getHullMaterial());
-    dummy.add(new Mesh(geometry, getOutlineMaterial()));
+    dummy.add(new Mesh(getOutlineGeometry(geometry), getOutlineMaterial()));
     dummy.scale.setScalar(1e-6);
     dummy.frustumCulled = false;
     dummy.children[0].frustumCulled = false;
@@ -77,7 +136,7 @@ export default function HoverOutlineMesh({
       raycast={() => null}
     >
       <primitive object={getHullMaterial()} attach="material" />
-      <mesh geometry={geometry} material={getOutlineMaterial()} frustumCulled={false} raycast={() => null} />
+      <mesh geometry={getOutlineGeometry(geometry)} material={getOutlineMaterial()} frustumCulled={false} raycast={() => null} />
     </mesh>
   );
 }

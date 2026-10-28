@@ -1,6 +1,9 @@
 import { create } from "zustand";
 
 type ViewportState = {
+  /** [hovergate] false until "관제 시작" flight to slot 2 has finished → R3F pointer events (raycast) off */
+  interactionReady: boolean;
+  setInteractionReady: (ready: boolean) => void;
   /** 관제모드 — Block 전체 마크 + 탑뷰 */
   monitorMode: boolean;
   setMonitorMode: (enabled: boolean) => void;
@@ -36,6 +39,8 @@ type ViewportState = {
 };
 
 export const useViewportStore = create<ViewportState>((set) => ({
+  interactionReady: false,
+  setInteractionReady: (ready) => set({ interactionReady: ready }),
   monitorMode: false,
   setMonitorMode: (enabled) =>
     set({

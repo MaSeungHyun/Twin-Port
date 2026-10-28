@@ -12,15 +12,19 @@ import {
 import { applyMaterialSettings } from "@/domain/materialSettings";
 import { occupancyTransitionProgressRef } from "@/constants/occupancyTransition";
 
-type SkyEntry = { obj: Object3D; baseScale: [number, number, number]; baseRotY: number };
+type SkyEntry = { obj: Object3D; baseScale: [number, number, number]; baseRotX: number; baseRotY: number; baseRotZ: number };
 
 const r = (x: number) => +x.toFixed(4);
 const NAMES = Object.keys(SKY_MATERIALS);
 const FIRST = SKY_MATERIALS[NAMES[0]!] ?? SKY_MATERIAL_DEFAULT;
 const SIDES = ["front", "back", "double"];
 // [slider] 하늘 Y 회전 0~360° 저장
-const SKY_ROT_KEY = "tp.skyRotY.v1";
+const SKY_ROT_KEY = "tp.skyRotY.v2";
 const norm360 = (d: number) => ((d % 360) + 360) % 360;
+// [sky] X/Z rotation 0~360 (same persistence style as Y)
+const SKY_ROT_X_KEY = "tp.skyRotX.v1";
+const SKY_ROT_Z_KEY = "tp.skyRotZ.v1";
+const loadDeg = (key: string) => { try { const v = parseFloat(localStorage.getItem(key) ?? ""); return Number.isFinite(v) ? norm360(v) : 0; } catch { return 0; } };
 const loadSkyRot = () => { try { const v = parseFloat(localStorage.getItem(SKY_ROT_KEY) ?? ""); return Number.isFinite(v) ? norm360(v) : norm360(SKY_TRANSFORM.rotationY); } catch { return norm360(SKY_TRANSFORM.rotationY); } };
 
 /**
@@ -67,7 +71,7 @@ export default function SkyMeshDebug() {
           mats.current.get(n)!.add(mat);
         }
       });
-      list.push({ obj: o, baseScale: [o.scale.x, o.scale.y, o.scale.z], baseRotY: o.rotation.y });
+      list.push({ obj: o, baseScale: [o.scale.x, o.scale.y, o.scale.z], baseRotX: o.rotation.x, baseRotY: o.rotation.y, baseRotZ: o.rotation.z });
     });
     if (list.length === 0) return;
     found.current = true;
@@ -85,7 +89,9 @@ export default function SkyMeshDebug() {
   // 오브젝트 단위
   const [o, setObj] = useControls("Sky Material", () => ({
     visible: SKY_VISIBLE,
-    rotationY: { value: loadSkyRot(), min: 0, max: 360, step: 0.1, label: "rotationY°" },
+    rotationX: { value: loadDeg(SKY_ROT_X_KEY), min: 0, max: 360, step: 0.1, label: "rotationX\u00b0" },
+    rotationY: { value: loadSkyRot(), min: 0, max: 360, step: 0.1, label: "rotationY\u00b0" },
+    rotationZ: { value: loadDeg(SKY_ROT_Z_KEY), min: 0, max: 360, step: 0.1, label: "rotationZ\u00b0" },
     scale: { value: SKY_TRANSFORM.scale, min: 0.1, max: 5, step: 0.01 },
   }));
 
@@ -107,7 +113,7 @@ export default function SkyMeshDebug() {
       const n = current.current;
       values.current[n] = { ...(SKY_MATERIALS[n] ?? SKY_MATERIAL_DEFAULT) };
       setPanel(values.current[n]!);
-      setObj({ visible: SKY_VISIBLE, ...SKY_TRANSFORM, rotationY: norm360(SKY_TRANSFORM.rotationY) });
+      setObj({ visible: SKY_VISIBLE, ...SKY_TRANSFORM, rotationX: 0, rotationY: norm360(SKY_TRANSFORM.rotationY), rotationZ: 0 });
     }),
     "Copy values": button(() => {
       const body = Object.entries(values.current)
@@ -116,7 +122,7 @@ export default function SkyMeshDebug() {
       const ol = latestObj.current;
       const text = [
         `export const SKY_VISIBLE = ${ol.visible};`,
-        `export const SKY_TRANSFORM = { rotationY: ${ol.rotationY}, scale: ${r(ol.scale)} };`,
+        `export const SKY_TRANSFORM = { rotationX: ${ol.rotationX}, rotationY: ${ol.rotationY}, rotationZ: ${ol.rotationZ}, scale: ${r(ol.scale)} };`,
         `export const SKY_MATERIALS: Record<string, SkyMaterialSettings> = {\n${body}\n};`,
       ].join("\n");
       console.info("[Sky]\n" + text);
@@ -127,12 +133,15 @@ export default function SkyMeshDebug() {
   latestObj.current = o;
 
   useEffect(() => { try { localStorage.setItem(SKY_ROT_KEY, String(o.rotationY)); } catch { /* ignore */ } }, [o.rotationY]);
+  useEffect(() => { try { localStorage.setItem(SKY_ROT_X_KEY, String(o.rotationX)); localStorage.setItem(SKY_ROT_Z_KEY, String(o.rotationZ)); } catch { /* ignore */ } }, [o.rotationX, o.rotationZ]);
   useEffect(() => {
     if (skies.length === 0) return;
     for (const s of skies) {
       s.obj.visible = o.visible;
       s.obj.scale.set(...s.baseScale).multiplyScalar(o.scale);
+      s.obj.rotation.x = s.baseRotX + (o.rotationX * Math.PI) / 180;
       s.obj.rotation.y = s.baseRotY + (o.rotationY * Math.PI) / 180;
+      s.obj.rotation.z = s.baseRotZ + (o.rotationZ * Math.PI) / 180;
     }
     invalidate();
   }, [o, skies, invalidate]);

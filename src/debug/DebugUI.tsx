@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getValue, resetPanel, setPanelValues, useDebugStore, type FieldSpec } from "./controls";
 
 // 표시 패널만 (Ocean/Camera/Ship 포즈 패널은 UI에서 제거 — 컨트롤은 코드에 등록된 채 현재 기본값 유지)
-export const PANELS = ["Sky", "Environment HDR", "Ship Material", "Sun Light", "Ocean", "Render"] as const;
+export const PANELS = ["Sky", "Environment HDR", "Ship Material", "Sun Light", "Ocean", "Render", "Camera Slots", "Outline"] as const;
 /** 패널별 UI 숨김 필드 (값은 그대로 유지·적용됨) */
 const HIDDEN_FIELDS: Record<string, string[]> = { "Sun Light": ["shadowCameraHelper"] };
 const PANEL_KO: Record<string, string> = {
@@ -178,13 +178,17 @@ const FOG_TIP = {
 function FogPanel() {
   const af = useSettings((s) => s.airFog);
   const setAirFog = useSettings((s) => s.setAirFog);
+  const oe = useSettings((s) => s.oceanEdge);
+  const setOceanEdge = useSettings((s) => s.setOceanEdge);
   const lab = (t: string, tip: string) => <span className="dbg-label">{t}<i className="dbg-info" tabIndex={0} data-tip={tip}>ⓘ</i></span>;
   return (
     <>
       <label className="dbg-row">{lab("안개", FOG_TIP.on)}<input type="checkbox" checked={af.on} onChange={(e) => setAirFog("on", e.target.checked)} /></label>
       <label className="dbg-row">{lab("안개 색", FOG_TIP.color)}<input type="color" value={af.color} onChange={(e) => setAirFog("color", e.target.value)} /><code>{af.color}</code></label>
-      <NumberRow f={{ min: 0, max: 5000, step: 0.1 }} v={af.near} set={(x) => setAirFog("near", x)} label={lab("안개 시작 거리(m)", FOG_TIP.near)} />
-      <NumberRow f={{ min: 0, max: 5000, step: 0.1 }} v={af.far} set={(x) => setAirFog("far", x)} label={lab("안개 끝 거리(m)", FOG_TIP.far)} />
+      <NumberRow f={{ min: 0, max: 100000, step: 1 }} v={af.near} set={(x) => setAirFog("near", x)} label={lab("안개 시작 거리(m)", FOG_TIP.near)} />
+      <NumberRow f={{ min: 0, max: 100000, step: 1 }} v={af.far} set={(x) => setAirFog("far", x)} label={lab("안개 끝 거리(m)", FOG_TIP.far)} />
+      <NumberRow f={{ min: 0, max: 1, step: 0.01 }} v={oe.start} set={(x) => setOceanEdge("start", x)} label={lab("바다 끝 페이드 시작", "바다 반경(26km) 대비 비율. 여기서부터 수평선 색으로 섞이기 시작")} />
+      <NumberRow f={{ min: 0, max: 1, step: 0.01 }} v={oe.end} set={(x) => setOceanEdge("end", x)} label={lab("바다 끝 페이드 끝", "바다 반경 대비 비율. 여기서 완전히 하늘색/투명")} />
     </>
   );
 }
@@ -354,7 +358,7 @@ function NumberRow({ f, v, set, label }: { f: any; v: number; set: (x: number) =
         onPointerDown={(e) => { if (!e.shiftKey) return; e.preventDefault(); (e.target as Element).setPointerCapture(e.pointerId); drag.current = { x: e.clientX, v }; }}
         onPointerMove={(e) => { const d = drag.current; if (!d) return; const w = (e.target as HTMLElement).clientWidth || 200; set(clamp(d.v + ((e.clientX - d.x) / w) * span * 0.1)); }}
         onPointerUp={() => { drag.current = null; }} />
-      <input className="dbg-num" type="number" step={step} value={Number.isInteger(+v) ? +v : (+v).toFixed(1)} onChange={(e) => { const x = +e.target.value; if (Number.isFinite(x)) set(x); }}
+      <input className="dbg-num" type="number" step={step} value={Number.isInteger(+v) ? +v : +(+v).toFixed(Math.max(1, dec))} onChange={(e) => { const x = +e.target.value; if (Number.isFinite(x)) set(x); }}
         onKeyDown={(e) => { const d = e.key === "ArrowUp" ? 1 : e.key === "ArrowDown" ? -1 : 0; if (d) { e.preventDefault(); nudge(d, e.shiftKey); } }} />
     </label>
   );

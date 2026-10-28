@@ -10,7 +10,7 @@ import { probeRT } from "./resources";
 import { Bubbles } from "./Bubbles";
 import { oceanClock, oceanState, sampleOceanY } from "../oceanApi";
 import * as THREE_U from "three";
-import { airFogU } from "../webgpu/oceanTSL";
+import { airFogU, oceanEdgeU } from "../webgpu/oceanTSL";
 import { cameraPosition, exp, fog, length, mix, normalize, positionView, positionWorld, renderGroup, smoothstep, uniform } from "three/tsl";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 
@@ -237,6 +237,9 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
     airFogU.col.value.set(af.color);
     airFogU.near.value = Math.max(af.near, 0);
     airFogU.far.value = Math.max(af.far, af.near + 0.1);
+    const oe = useSettings.getState().oceanEdge;
+    oceanEdgeU.start.value = oe.start;
+    oceanEdgeU.end.value = oe.end;
     uw.f++;
     if (UWDBG && uw.f === 1) Object.assign(window, { __cam: camera, __scene: scene, __uwo: uw, __uwFog: uwFogU, __gl: gl });
     if (UWLOG) {

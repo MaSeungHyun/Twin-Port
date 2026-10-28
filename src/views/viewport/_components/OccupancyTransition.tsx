@@ -25,10 +25,13 @@ type AtmosphereTargets = {
 };
 
 // [perf] 대상이 씬에 없으면(ambient 주석 처리 등) 매 프레임 전체 traverse 하던 것 → 60프레임마다만 재탐색
+// [camintro/perf] ambient is commented out in Scene → this used to full-traverse the scene every 60 frames forever (periodic hitch). Give up after 5 scans.
 let _scanTick = 0;
+let _scans = 0;
 function cacheTargets(scene: Scene, cache: AtmosphereTargets) {
   if (cache.ambient && cache.water) return;
-  if (_scanTick++ % 60 !== 0) return;
+  if (_scans >= 5 || _scanTick++ % 60 !== 0) return;
+  _scans++;
   scene.traverse((obj) => {
     if (!cache.ambient && obj instanceof AmbientLight) cache.ambient = obj;
     if (!cache.water && obj.userData?.sim) cache.water = obj;

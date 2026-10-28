@@ -11,6 +11,8 @@ export default function ViewLoader() {
   const [dismissed, setDismissed] = useState(false);
   const [displayPercent, setDisplayPercent] = useState(0);
   const displayRef = useRef(0);
+  // [loader] monotonic: drei useProgress resets loaded/total when new items queue → never show a lower value (resets only on page load)
+  const maxTargetRef = useRef(0);
 
   if ((active || loaded > 0) && !started) {
     setStarted(true);
@@ -19,11 +21,14 @@ export default function ViewLoader() {
     setDismissed(false);
   }
 
-  const targetPercent = !active
+  const rawPercent = !active
     ? 100
     : total > 0
       ? Math.min(100, (loaded / total) * 100)
       : 0;
+  // while still active, cap below 100 so a late queue can't make it look finished; hide logic still needs !active
+  const targetPercent = Math.max(maxTargetRef.current, active ? Math.min(rawPercent, 99) : rawPercent);
+  maxTargetRef.current = targetPercent;
 
   useEffect(() => {
     if (!started) return;

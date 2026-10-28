@@ -11,7 +11,7 @@ export function sunShadowRadiusFromAngleDeg(angleDeg: number) {
 export const SUN_SHADOW_RADIUS =
   sunShadowRadiusFromAngleDeg(SUN_SHADOW_ANGLE_DEG);
 
-export const SUN_INTENSITY = 3;
+export const SUN_INTENSITY = 9;
 export const SUN_COLOR = 0xffffff;
 
 // export const SUN_POSITION: [number, number, number] = [10, 10, 45];

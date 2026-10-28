@@ -56,6 +56,9 @@ import { renderGroup as _rgAF } from "three/tsl";
 export const airFogU = { on: uniform(0).setGroup(_rgAF), col: uniform(new THREE.Color(0xc9d6df)).setGroup(_rgAF), near: uniform(300).setGroup(_rgAF), far: uniform(3000).setGroup(_rgAF) };
 // [occ] 점유율 전환 시 바다/섬 밝기 배율 (1=원래, 전역 유니폼)
 export const oceanDimU = uniform(1).setGroup(_rgAF);
+// [edge] ocean grid edge fade (fraction of grid radius 26000m)
+export const OCEAN_RADIUS = 26000;
+export const oceanEdgeU = { start: uniform(0.75).setGroup(_rgAF), end: uniform(1.0).setGroup(_rgAF) };
 const airFogMix = (c, dist, under) => mix(c, airFogU.col, airFogU.on.mul(float(1).sub(under)).mul(smoothstep(airFogU.near, airFogU.far, dist)));
 import { CASCADE_L, CASCADE_OFF, CASCADE_ROT } from "../spectrum";
 import { MAX_PTS, SHORE, STRIP, probeRT, shoreTex } from "../scene/resources";
@@ -1072,7 +1075,14 @@ export function makeOceanMatGPU(g) {
       ),
     );
     col.assign(airFogMix(col, dist, uw.under).mul(oceanDimU)); // [fog2][occ]
+    // [edge] fade far ocean into the sky horizon colour (same formula as sky: horizon + air fog near y~0)
+    const edgeR = length(vW.xz.sub(u.uCam.xz)).div(OCEAN_RADIUS);
+    const edgeF = smoothstep(oceanEdgeU.start, max(oceanEdgeU.end, oceanEdgeU.start.add(0.001)), edgeR).mul(float(1).sub(uw.under)).toVar();
+    const edgeSky = L.sky(normalize(vec3(V.x.negate(), 0.015, V.z.negate())), 0, 0).toVar();
+    edgeSky.assign(mix(edgeSky, airFogU.col, airFogU.on.mul(float(1).sub(uw.under)).mul(float(1).sub(smoothstep(0.0, 0.12, 0.015)))));
+    col.assign(mix(col, edgeSky.mul(oceanDimU), edgeF));
     const alpha = smoothstep(0.0, 0.35, vW.y.sub(si.x)).toVar();
+    alpha.mulAssign(float(1).sub(smoothstep(0.6, 1.0, edgeF)));
     // [twin-port] 선체 내부에는 물을 그리지 않음
     // [twin-port] 안벽: SDF 상 육지(d<0) 인 물 프래그먼트는 그리지 않음 (부드러운 경계)
     alpha.mulAssign(mix(1.0, smoothstep(-0.6, 0.4, d), wlF));

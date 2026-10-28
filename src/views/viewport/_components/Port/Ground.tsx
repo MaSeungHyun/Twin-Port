@@ -74,10 +74,18 @@ function enableGroundAlpha(root: Object3D) {
       if (!mat.transparent && !hasOpacity && !hasAlphaMap) return mat;
 
       const cloned = mat.clone();
-      cloned.transparent = true;
-      cloned.depthWrite = false;
-      if ("alphaTest" in cloned && cloned.alphaTest < 0.08) {
-        cloned.alphaTest = 0.08;
+      // [renderorder] busan.glb exports almost every material as BLEND (opacity 1). As transparent+depthWrite:false
+      // they wrote no depth, so later passes (ocean/foam/overlays) painted over them while opaque meshes (Fence.001)
+      // kept their depth -> fence looked drawn in front. Only real translucency stays blended; the rest -> opaque cutout.
+      const realBlend = hasOpacity || hasAlphaMap || /glass/i.test(mat.name);
+      if (realBlend) {
+        cloned.transparent = true;
+        cloned.depthWrite = false;
+        if ("alphaTest" in cloned && cloned.alphaTest < 0.08) cloned.alphaTest = 0.08;
+      } else {
+        cloned.transparent = false;
+        cloned.depthWrite = true;
+        if ("alphaTest" in cloned && cloned.alphaTest < 0.5) cloned.alphaTest = 0.5;
       }
       cloned.needsUpdate = true;
       return cloned;

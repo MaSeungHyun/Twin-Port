@@ -1,6 +1,7 @@
 import ToasterTestTrigger from "@/components/Toaster/ToasterTestTrigger";
 
 import Scene from "./_components/Scene";
+import IntroOverlay from "./_components/IntroOverlay";
 
 import Content from "../View/content/Content";
 import ContentPanel from "../View/content/ContentPanel";
@@ -17,6 +18,7 @@ export default function Viewport() {
           <Scene />
         </ViewportLayout>
 
+        <IntroOverlay />
         <ContentPanel />
         <ToasterTestTrigger />
       </div>

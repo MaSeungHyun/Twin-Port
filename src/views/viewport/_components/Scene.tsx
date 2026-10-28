@@ -71,6 +71,8 @@ const createRenderer = async (props: { canvas: unknown }) => {
 };
 
 import CamParam from "@/debug/CamParam";
+import CameraSlots from "@/debug/CameraSlots";
+import { OutlineDebug } from "./Port/HoverOutlineMesh";
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -122,6 +124,8 @@ function Scene() {
           <OceanTsl />
           <CameraPanel />
           <CamParam />
+          <CameraSlots />
+          <OutlineDebug />
         </Suspense>
 
         {/* StatsGl 은 WebGL 전용이라 WebGPU 전환 시 제거 */}
