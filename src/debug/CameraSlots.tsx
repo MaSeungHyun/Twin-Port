@@ -9,9 +9,6 @@ import {
   CAMERA_INTRO_SLOT1,
   CAMERA_INTRO_SLOT2,
   CAMERA_INTRO_START_EVENT,
-  INTRO_ORBIT_DIRECTION,
-  INTRO_ORBIT_DURATION,
-  INTRO_ORBIT_EXTRA_DEG,
 } from "@/constants/cameraIntro";
 
 /**
@@ -50,7 +47,7 @@ const slotTs = (s: Slot | undefined) => (s ? `{ p: ${fmt(s.p)}, t: ${fmt(s.t)} }
 export default function CameraSlots() {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
-  const anim = useRef<{ fp: Vector3; ft: Vector3; tp: Vector3; tt: Vector3; t: number; d: number; done?: () => void; orbit?: { r1: number; r2: number; ph1: number; ph2: number; az1: number; daz: number } } | null>(null);
+  const anim = useRef<{ fp: Vector3; ft: Vector3; tp: Vector3; tt: Vector3; t: number; d: number; done?: () => void } | null>(null);
   const homeDone = useRef(0);
   const intro1 = useRef<Slot | null>(null);
 
@@ -120,19 +117,7 @@ export default function CameraSlots() {
     const go = () => {
       const slot = CAMERA_INTRO_ENABLED ? introSlot("2") : null;
       const ready = () => useViewportStore.getState().setInteractionReady(true);
-      if (slot && recallRef.current("2", false, slot, INTRO_ORBIT_DURATION) && anim.current) {
-        const a = anim.current;
-        a.done = ready;
-        // [pt126u] spherical offsets (camera - target) at both ends; azimuth = shorter path + extra sweep
-        const o1 = a.fp.clone().sub(a.ft), o2 = a.tp.clone().sub(a.tt);
-        const r1 = Math.max(1e-3, o1.length()), r2 = Math.max(1e-3, o2.length());
-        const ph1 = Math.acos(Math.min(1, Math.max(-1, o1.y / r1))), ph2 = Math.acos(Math.min(1, Math.max(-1, o2.y / r2)));
-        const az1 = Math.atan2(o1.x, o1.z), az2 = Math.atan2(o2.x, o2.z);
-        let d = az2 - az1;
-        d = ((((d + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI; // shorter path
-        const sgn = (d >= 0 ? 1 : -1) * INTRO_ORBIT_DIRECTION;
-        a.orbit = { r1, r2, ph1, ph2, az1, daz: d + (sgn * INTRO_ORBIT_EXTRA_DEG * Math.PI) / 180 };
-      }
+      if (slot && recallRef.current("2", false, slot, CAMERA_INTRO_DURATION) && anim.current) anim.current.done = ready;
       else ready(); // no slot 2 → enable immediately
     };
     window.addEventListener(CAMERA_INTRO_START_EVENT, go);
@@ -167,14 +152,8 @@ export default function CameraSlots() {
     if (!a || !controls) return;
     a.t = Math.min(1, a.t + dt / a.d);
     const k = a.t < 0.5 ? 4 * a.t ** 3 : 1 - (-2 * a.t + 2) ** 3 / 2;
+    camera.position.lerpVectors(a.fp, a.tp, k);
     controls.target.lerpVectors(a.ft, a.tt, k);
-    const o = a.orbit;
-    if (o && a.t < 1) {
-      // [pt126u] orbit around the moving target: log-eased radius, eased polar, azimuth sweep
-      const r = o.r1 * Math.pow(o.r2 / o.r1, k), ph = o.ph1 + (o.ph2 - o.ph1) * k, az = o.az1 + o.daz * k;
-      const sp = Math.sin(ph);
-      camera.position.set(controls.target.x + r * sp * Math.sin(az), controls.target.y + r * Math.cos(ph), controls.target.z + r * sp * Math.cos(az));
-    } else camera.position.lerpVectors(a.fp, a.tp, k); // k=1 -> exactly slot 2
     controls.update();
     if (a.t >= 1) { anim.current = null; a.done?.(); }
   }, -2);

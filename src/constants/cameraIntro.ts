@@ -15,11 +15,5 @@ export const CAMERA_INTRO_DURATION = 1.8;
 export const CAMERA_INTRO_SLOT1: CameraSlotValue | null = { p: [118.766, 23.41, -108.594], t: [90.693, 24.728, -123.252] };
 // placeholder: null = not locked yet (no move on monitor mode)
 export const CAMERA_INTRO_SLOT2: CameraSlotValue | null = { p: [787.866, 1582.676, 1755.024], t: [162.967, -14.926, -36.442] };
-/** [pt126u] '관제 시작' intro flight: cinematic orbiting pull-back (slot 1 → 2) */
-export const INTRO_ORBIT_DURATION = 3.2;
-/** extra azimuth sweep (deg) on top of the shorter path */
-export const INTRO_ORBIT_EXTRA_DEG = 120;
-/** 1 = extra sweep continues the shorter direction, -1 = opposite */
-export const INTRO_ORBIT_DIRECTION: 1 | -1 = 1;
 /** window event fired by the '관제 시작' intro overlay → CameraSlots flies to slot 2 */
 export const CAMERA_INTRO_START_EVENT = "tp:intro-start";
