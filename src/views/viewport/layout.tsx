@@ -1,5 +1,6 @@
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
+import { useFailureStore } from "@/stores/useFailureStore";
 import { cn } from "@/utils/style";
 
 type ViewportLayoutProps = {
@@ -12,6 +13,11 @@ export default function ViewportLayout({ children }: ViewportLayoutProps) {
   const showDangerousBlockCards = useViewportStore(
     (s) => s.showDangerousBlockCards,
   );
+  // [failure] 고장 장비가 있으면 DANGEROUS 와 같은 빨강 테두리 (블록 카드는 X)
+  const anyFailure = useFailureStore((s) =>
+    Object.values(s.active).some((a) => a.state === "failure"),
+  );
+  const dangerRim = showDangerousBlockCards || anyFailure;
 
   return (
     <div className="relative h-full min-h-0 w-full">
@@ -20,12 +26,12 @@ export default function ViewportLayout({ children }: ViewportLayoutProps) {
         aria-hidden
         className={cn(
           "pointer-events-none absolute inset-0 z-10 border border-primary/80",
-          showDangerousBlockCards && "border-danger/80",
-          showDangerousBlockCards && "dangerous-rim-pulse",
-          occupancyMode && !showDangerousBlockCards && "occupancy-rim-pulse",
+          dangerRim && "border-danger/80",
+          dangerRim && "dangerous-rim-pulse",
+          occupancyMode && !dangerRim && "occupancy-rim-pulse",
         )}
         style={
-          occupancyMode || showDangerousBlockCards
+          occupancyMode || dangerRim
             ? undefined
             : { boxShadow: "inset 0 0 50px rgba(0,0,0,0.9)" }
         }

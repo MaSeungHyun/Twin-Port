@@ -58,6 +58,9 @@ import {
 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import HoverOutlineMesh from "./HoverOutlineMesh";
+import { parseCraneNameIndex, parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
+import { rememberQuayHoverIndex } from "@/domain/hoverTooltip";
+import { getFailedIndices } from "@/stores/useFailureStore";
 import { bakePortShoreOnce } from "../OceanTsl/portShore";
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
@@ -410,6 +413,7 @@ export default function Ground({
             event.instanceId != null
               ? `${root.uuid}:${event.instanceId}`
               : root.uuid;
+          rememberQuayHoverIndex(id, parseQuayCraneGlbIndex(event.object));
           portHoverOver(event, "quayCrane", id);
         }}
         onPointerOut={(event: ThreeEvent<PointerEvent>) => {
@@ -433,6 +437,56 @@ export default function Ground({
       />
       <QuayCraneHoverOutlines model={model} />
       <QuayCraneTrackingHover model={model} />
+      <QuayCraneFailureOutlines model={model} />
+    </>
+  );
+}
+
+/** [failure] 고장 크레인 — 해당 GLB index 의 모든 부품에 빨강 깜빡임 outline */
+function QuayCraneFailureOutlines({ model }: { model: Object3D }) {
+  const targets = useMemo(() => collectQuayHoverTargets(model), [model]);
+  const targetIndex = useMemo(
+    () =>
+      targets.map((target) => {
+        let node: Object3D | null = target.source;
+        while (node) {
+          const idx = parseCraneNameIndex(node.name);
+          if (idx != null) return idx;
+          node = node.parent;
+        }
+        return null;
+      }),
+    [targets],
+  );
+  const outlineRefs = useRef<(Mesh | null)[]>([]);
+
+  useFrame(() => {
+    const failed = getFailedIndices("quayCrane");
+    targets.forEach((target, i) => {
+      const outline = outlineRefs.current[i];
+      if (!outline) return;
+      const idx = targetIndex[i];
+      const show = idx != null && failed.includes(idx);
+      outline.visible = show;
+      if (!show) return;
+      outline.matrixAutoUpdate = false;
+      outline.matrix.copy(target.source.matrixWorld);
+      outline.matrixWorldNeedsUpdate = true;
+    });
+  });
+
+  return (
+    <>
+      {targets.map((target, index) => (
+        <HoverOutlineMesh
+          key={`fail-${target.rootId}-${index}`}
+          variant="failure"
+          geometry={target.geometry}
+          meshRef={(node) => {
+            outlineRefs.current[index] = node;
+          }}
+        />
+      ))}
     </>
   );
 }
@@ -500,7 +554,8 @@ function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
     const unsubViewport = useViewportStore.subscribe((state, prev) => {
       if (
         state.selectedCraneIndex === prev.selectedCraneIndex &&
-        state.focusedCraneGlbIndex === prev.focusedCraneGlbIndex
+        state.focusedCraneGlbIndex === prev.focusedCraneGlbIndex &&
+        state.outlineSuppressed === prev.outlineSuppressed
       ) {
         return;
       }

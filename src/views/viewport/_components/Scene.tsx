@@ -13,6 +13,10 @@ import SkyMeshDebug from "./SkyMeshDebug";
 import OceanTsl from "./OceanTsl/OceanTsl";
 import EnvironmentHdr from "./EnvironmentHdr";
 import { useShipDebugStore } from "@/stores/shipDebug";
+import { useViewportStore } from "@/stores/viewport";
+
+/** 빈 곳 클릭 판정: pointerdown→click 이동이 이 픽셀 이하일 때만 (드래그/오빗 후 해제 방지) */
+const EMPTY_CLICK_MAX_PX = 5;
 import { hasWebGPU, useRendererStore } from "@/stores/renderer";
 
 // 모니터링 모드일 때, Scene의 렌더링을 멈추고 싶을 때 적용
@@ -80,6 +84,7 @@ import CameraSlots from "@/debug/CameraSlots";
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
+  const downPos = useRef<{ x: number; y: number } | null>(null);
   // [perf] DPR 상한 (4K 에서 픽셀 수 감소). Render 패널 슬라이더로 조정
   const renderScale = useRendererStore((s) => s.renderScale);
   const dpr = Math.min(
@@ -88,7 +93,12 @@ function Scene() {
   );
 
   return (
-    <div className="relative h-full w-full">
+    <div
+      className="relative h-full w-full"
+      onPointerDownCapture={(e) => {
+        downPos.current = e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
+      }}
+    >
       {/* {import.meta.env.DEV && <EnvironmentRotationPanel />} */}
       {/* 디버그 패널: 개발 모드 또는 ?debug 일 때만 표시 */}
       <DebugUI />
@@ -105,8 +115,16 @@ function Scene() {
         frameloop="always"
         dpr={dpr}
         onPointerMissed={(e) => {
-          if ((e as MouseEvent).type === "click")
-            useShipDebugStore.getState().clearSelection();
+          const me = e as MouseEvent;
+          if (me.type !== "click") return;
+          useShipDebugStore.getState().clearSelection();
+          // [select] 빈 곳 클릭 → 선택/Tracking/outline 해제, 패널은 유지 (사용자가 직접 닫음)
+          const d = downPos.current;
+          downPos.current = null;
+          if (!d || Math.hypot(me.clientX - d.x, me.clientY - d.y) > EMPTY_CLICK_MAX_PX) return;
+          const viewport = useViewportStore.getState();
+          if (!viewport.interactionReady) return;
+          viewport.clearSceneSelection();
         }}
         camera={initialCamera}
       >

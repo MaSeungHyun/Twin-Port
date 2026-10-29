@@ -2,7 +2,7 @@ import Header from "./views/View/header";
 import ViewLoader from "./views/View/ViewLoader";
 import Viewport from "./views/viewport";
 
-// import Toaster from "@/components/Toaster";
+import Toaster from "@/components/Toaster";
 
 function App() {
   return (
@@ -11,7 +11,7 @@ function App() {
       <Header />
       <Viewport />
       
-      {/* <Toaster /> */}
+      <Toaster />
     </main>
   );
 }

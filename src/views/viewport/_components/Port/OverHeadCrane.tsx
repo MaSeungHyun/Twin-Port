@@ -27,6 +27,10 @@ import {
   type OverHeadCraneInstance,
 } from "./overheadCraneInstances";
 import { useYardStore } from "@/stores/yard";
+import { getFailedIndices } from "@/stores/useFailureStore";
+
+/** [failure] 동시에 고장 표시 가능한 overhead crane 수 (부품당 outline 슬롯) */
+const FAILURE_SLOTS = 3;
 import { getActiveOverheadCraneIndex, useViewportStore } from "@/stores/viewport";
 
 type CranePart = {
@@ -49,6 +53,7 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   const { scene } = useGLTF(overheadCraneUrl, false, true, extendKtx2);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   const outlineRefs = useRef<(Mesh | null)[]>([]);
+  const failureRefs = useRef<(Mesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
   const modelSize = useRef(new Vector3(1, 1, 1));
   const matrix = useMemo(() => new Matrix4(), []);
@@ -100,6 +105,24 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
       instanced.getMatrixAt(hoverIndex, outline.matrix);
       outline.matrixWorldNeedsUpdate = true;
       outline.visible = true;
+    });
+
+    // [failure] 고장 인스턴스 — 빨강 깜빡임 outline
+    const failed = getFailedIndices("overheadCrane");
+    parts.forEach((_, partIndex) => {
+      const instanced = meshRefs.current[partIndex];
+      for (let s = 0; s < FAILURE_SLOTS; s += 1) {
+        const node = failureRefs.current[partIndex * FAILURE_SLOTS + s];
+        if (!node) continue;
+        const idx = failed[s];
+        if (idx == null || !instanced || idx >= instanced.count) {
+          node.visible = false;
+          continue;
+        }
+        instanced.getMatrixAt(idx, node.matrix);
+        node.matrixWorldNeedsUpdate = true;
+        node.visible = true;
+      }
     });
   }, [parts]);
 
@@ -193,6 +216,16 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
               outlineRefs.current[index] = node;
             }}
           />
+          {Array.from({ length: FAILURE_SLOTS }, (_, s) => (
+            <HoverOutlineMesh
+              key={`fail-${s}`}
+              variant="failure"
+              geometry={part.geometry}
+              meshRef={(node) => {
+                failureRefs.current[index * FAILURE_SLOTS + s] = node;
+              }}
+            />
+          ))}
         </group>
       ))}
     </group>

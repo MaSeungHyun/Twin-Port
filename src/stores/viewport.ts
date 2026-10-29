@@ -44,6 +44,19 @@ type ViewportState = {
   /** 헤더 DANGEROUS — 위험 블록 BlockHoverArea 카드 전체 표시 */
   showDangerousBlockCards: boolean;
   toggleShowDangerousBlockCards: () => void;
+  /** [failure] 토스트 클릭 포커스 — 카메라/패널만, 선택 outline 숨김 (다음 선택 시 해제) */
+  outlineSuppressed: boolean;
+  suppressSelectionOutline: () => void;
+  /** Scene 빈 곳 클릭 — 선택/Tracking/outline 해제 (패널은 유지) */
+  clearSceneSelection: () => void;
+  /** [alarm] 알람(토스트) 클릭 카메라 follow — Track 버튼(selected*)과 별개 상태, 카메라 동작은 동일 */
+  alarmFollow: { kind: "quayCrane" | "overheadCrane"; index: number } | null;
+  startAlarmFollow: (kind: "quayCrane" | "overheadCrane", index: number) => void;
+  stopAlarmFollow: () => void;
+  /** 우클릭 팬 → 모든 Tracking/alarm follow 해제 (원래 시점 복귀 비행 없음) */
+  cancelTrackingByPan: () => void;
+  /** CameraFlight 가 1회 소비: true 면 Tracking 해제 시 복귀 비행 생략 */
+  skipReturnFlight: boolean;
 };
 
 export const useViewportStore = create<ViewportState>((set) => ({
@@ -86,6 +99,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedOverheadCraneIndex: null,
       focusedOverheadCraneIndex: null,
       focusNonce: state.focusNonce + 1,
+      outlineSuppressed: false,
+      alarmFollow: null,
     }));
   },
   clearContainerSelection: () => set({ selectedContainerId: null }),
@@ -99,6 +114,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedOverheadCraneIndex: null,
       focusedOverheadCraneIndex: null,
       focusNonce: state.focusNonce + 1,
+      outlineSuppressed: false,
+      alarmFollow: null,
     }));
   },
   clearShipSelection: () => set({ selectedShipKey: null }),
@@ -112,6 +129,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedOverheadCraneIndex: null,
       focusedOverheadCraneIndex: null,
       focusNonce: state.focusNonce + 1,
+      outlineSuppressed: false,
+      alarmFollow: null,
     }));
   },
   clearCraneSelection: () => set({ selectedCraneIndex: null }),
@@ -125,11 +144,15 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedContainerId: null,
       selectedShipKey: null,
       focusNonce: state.focusNonce + 1,
+      outlineSuppressed: false,
+      alarmFollow: null,
     }));
   },
   clearOverheadCraneSelection: () => set({ selectedOverheadCraneIndex: null }),
   focusOverheadCraneDetail: (index) =>
     set({
+      outlineSuppressed: false,
+      alarmFollow: null,
       focusedOverheadCraneIndex: index,
       focusedCraneGlbIndex: null,
       focusedShipKey: null,
@@ -137,9 +160,12 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedShipKey: null,
       selectedCraneIndex: null,
     }),
-  clearOverheadCraneDetailFocus: () => set({ focusedOverheadCraneIndex: null }),
+  clearOverheadCraneDetailFocus: () =>
+    set({ focusedOverheadCraneIndex: null, alarmFollow: null }),
   focusCraneDetail: (glbIndex) =>
     set({
+      outlineSuppressed: false,
+      alarmFollow: null,
       focusedOverheadCraneIndex: null,
       selectedOverheadCraneIndex: null,
       focusedCraneGlbIndex: glbIndex,
@@ -147,9 +173,12 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedContainerId: null,
       selectedShipKey: null,
     }),
-  clearCraneDetailFocus: () => set({ focusedCraneGlbIndex: null }),
+  clearCraneDetailFocus: () =>
+    set({ focusedCraneGlbIndex: null, alarmFollow: null }),
   focusShipDetail: (key) =>
     set({
+      outlineSuppressed: false,
+      alarmFollow: null,
       focusedShipKey: key,
       focusedCraneGlbIndex: null,
       focusedOverheadCraneIndex: null,
@@ -160,6 +189,47 @@ export const useViewportStore = create<ViewportState>((set) => ({
     }),
   clearShipDetailFocus: () => set({ focusedShipKey: null }),
   showDangerousBlockCards: false,
+  outlineSuppressed: false,
+  suppressSelectionOutline: () => set({ outlineSuppressed: true }),
+  // 명시적으로 시작한 Tracking(selected*: Track 버튼/토스트)은 유지, 상세 포커스 + outline 만 해제
+  alarmFollow: null,
+  skipReturnFlight: false,
+  startAlarmFollow: (kind, index) =>
+    set((state) => ({
+      alarmFollow: { kind, index },
+      selectedContainerId: null,
+      selectedShipKey: null,
+      selectedCraneIndex: null,
+      selectedOverheadCraneIndex: null,
+      outlineSuppressed: true,
+      focusNonce: state.focusNonce + 1,
+    })),
+  stopAlarmFollow: () => set({ alarmFollow: null }),
+  cancelTrackingByPan: () =>
+    set((state) => {
+      const tracking =
+        state.alarmFollow != null ||
+        state.selectedContainerId != null ||
+        state.selectedShipKey != null ||
+        state.selectedCraneIndex != null ||
+        state.selectedOverheadCraneIndex != null;
+      if (!tracking) return {};
+      return {
+        alarmFollow: null,
+        selectedContainerId: null,
+        selectedShipKey: null,
+        selectedCraneIndex: null,
+        selectedOverheadCraneIndex: null,
+        skipReturnFlight: true,
+      };
+    }),
+  clearSceneSelection: () =>
+    set({
+      focusedCraneGlbIndex: null,
+      focusedOverheadCraneIndex: null,
+      focusedShipKey: null,
+      outlineSuppressed: true,
+    }),
   toggleShowDangerousBlockCards: () =>
     set((state) => ({ showDangerousBlockCards: !state.showDangerousBlockCards })),
 }));
@@ -176,15 +246,18 @@ export function isViewportTracking(state: ViewportState): boolean {
 
 /** outline — Tracking 또는 상세 포커스 */
 export function getActiveCraneGlbIndex(state: ViewportState): number | null {
+  if (state.outlineSuppressed) return null;
   return state.selectedCraneIndex ?? state.focusedCraneGlbIndex;
 }
 
 /** overhead crane outline — Tracking 또는 상세 포커스 */
 export function getActiveOverheadCraneIndex(state: ViewportState): number | null {
+  if (state.outlineSuppressed) return null;
   return state.selectedOverheadCraneIndex ?? state.focusedOverheadCraneIndex;
 }
 
 /** outline — Tracking 또는 상세 포커스 */
 export function getActiveShipKey(state: ViewportState): string | null {
+  if (state.outlineSuppressed) return null;
   return state.selectedShipKey ?? state.focusedShipKey;
 }

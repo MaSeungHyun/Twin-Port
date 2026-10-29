@@ -18,6 +18,7 @@ type ToastCardProps = {
   border: string;
   iconStyle: string;
   icon: keyof typeof icons;
+  onClick?: () => void;
 };
 
 /** type별 스타일 — 여기서만 수정 */
@@ -58,6 +59,7 @@ function ToastCard({
   border,
   iconStyle,
   icon,
+  onClick,
 }: ToastCardProps) {
   return (
     <div
@@ -70,7 +72,15 @@ function ToastCard({
         <Icon icon={icon} className={cn("size-8", iconStyle)} />
       </div>
 
-      <div className="min-w-0 flex-1 select-none py-0.5">
+      <div
+        className={cn(
+          "min-w-0 flex-1 select-none py-0.5",
+          onClick && "cursor-pointer",
+        )}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick}
+      >
         <p className="text-xl font-semibold tracking-wide text-white">
           {title}
         </p>
@@ -95,6 +105,8 @@ type ToasterOptions = {
   id?: string | number;
   duration?: number;
   message?: string;
+  /** 본문 클릭 시 (예: 장비 위치로 카메라 이동) */
+  onClick?: () => void;
 };
 
 function normalizeOptions(
@@ -120,6 +132,7 @@ function show(
         title={title}
         message={options.message}
         toastId={toastId}
+        onClick={options.onClick}
         {...style}
       />
     ),

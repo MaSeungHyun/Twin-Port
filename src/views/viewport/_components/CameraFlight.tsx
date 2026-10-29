@@ -106,11 +106,14 @@ function animateLookAtFlight(options: {
   return timeline;
 }
 
+type AlarmFollow = { kind: "quayCrane" | "overheadCrane"; index: number } | null;
+
 function resolveTrackingTarget(
   selectedContainerId: string | null,
   selectedShipKey: string | null,
   selectedCraneIndex: number | null,
   selectedOverheadCraneIndex: number | null = null,
+  alarmFollow: AlarmFollow = null,
 ): Vector3 | null {
   if (selectedContainerId) {
     const { blocks, containers, deckY, yardOffset } = useYardStore.getState();
@@ -148,6 +151,13 @@ function resolveTrackingTarget(
     return getOverheadCraneFocusTarget(selectedOverheadCraneIndex);
   }
 
+  // [alarm] 알람 follow — Tracking 과 같은 대상 계산
+  if (alarmFollow) {
+    return alarmFollow.kind === "quayCrane"
+      ? getCraneFocusTarget(alarmFollow.index)
+      : getOverheadCraneFocusTarget(alarmFollow.index);
+  }
+
   return null;
 }
 
@@ -168,6 +178,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     (s) => s.selectedOverheadCraneIndex,
   );
   const focusNonce = useViewportStore((s) => s.focusNonce);
+  const alarmFollow = useViewportStore((s) => s.alarmFollow);
   const quayCranes = useYardStore((s) => s.quayCranes);
   const ships = useYardStore((s) => s.ships);
   const blocks = useYardStore((s) => s.blocks);
@@ -180,6 +191,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     selectedShipKey: null as string | null,
     selectedCraneIndex: null as number | null,
     selectedOverheadCraneIndex: null as number | null,
+    alarmFollow: null as AlarmFollow,
     focusNonce: 0,
   });
 
@@ -214,7 +226,8 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       prev.selectedContainerId !== selectedContainerId ||
       prev.selectedShipKey !== selectedShipKey ||
       prev.selectedCraneIndex !== selectedCraneIndex ||
-      prev.selectedOverheadCraneIndex !== selectedOverheadCraneIndex;
+      prev.selectedOverheadCraneIndex !== selectedOverheadCraneIndex ||
+      prev.alarmFollow !== alarmFollow;
     const focusRetrigger = prev.focusNonce !== focusNonce;
     const trackingDataUpdated =
       (selectedCraneIndex != null && prevYard.quayCranes !== quayCranes) ||
@@ -227,6 +240,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedShipKey,
       selectedCraneIndex,
       selectedOverheadCraneIndex,
+      alarmFollow,
       focusNonce,
     };
 
@@ -236,18 +250,21 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       prev.selectedContainerId != null ||
       prev.selectedShipKey != null ||
       prev.selectedCraneIndex != null ||
-      prev.selectedOverheadCraneIndex != null;
+      prev.selectedOverheadCraneIndex != null ||
+      prev.alarmFollow != null;
     const isTracking =
       selectedContainerId != null ||
       selectedShipKey != null ||
       selectedCraneIndex != null ||
-      selectedOverheadCraneIndex != null;
+      selectedOverheadCraneIndex != null ||
+      alarmFollow != null;
 
     const toTarget = resolveTrackingTarget(
       selectedContainerId,
       selectedShipKey,
       selectedCraneIndex,
       selectedOverheadCraneIndex,
+      alarmFollow,
     );
 
     tweenRef.current?.kill();
@@ -277,6 +294,13 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     }
 
     if (wasTracking && !isTracking) {
+      // [pan] 우클릭 팬으로 해제된 경우 → 현재 시점 유지 (복귀 비행 없음)
+      if (useViewportStore.getState().skipReturnFlight) {
+        useViewportStore.setState({ skipReturnFlight: false });
+        preTrackingCameraRef.current = null;
+        setControlsEnabled(controlsRef, true);
+        return;
+      }
       const toPosition =
         preTrackingCameraRef.current?.clone() ?? INITIAL_CAMERA_POSITION.clone();
       preTrackingCameraRef.current = null;
@@ -299,6 +323,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     selectedShipKey,
     selectedCraneIndex,
     selectedOverheadCraneIndex,
+    alarmFollow,
     focusNonce,
     quayCranes,
     ships,
@@ -314,7 +339,8 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedContainerId != null ||
       selectedShipKey != null ||
       selectedCraneIndex != null ||
-      selectedOverheadCraneIndex != null;
+      selectedOverheadCraneIndex != null ||
+      alarmFollow != null;
     if (!isTracking) return;
 
     const controls = controlsRef.current;
@@ -325,6 +351,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedShipKey,
       selectedCraneIndex,
       selectedOverheadCraneIndex,
+      alarmFollow,
     );
     if (!target) return;
 

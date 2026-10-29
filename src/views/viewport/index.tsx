@@ -1,4 +1,7 @@
 import ToasterTestTrigger from "@/components/Toaster/ToasterTestTrigger";
+import { FAILURE_SCENARIO } from "@/constants/failureScenario";
+import FailureScenarioRunner from "./_components/FailureScenarioRunner";
+import PortHoverTooltip from "./_components/PortHoverTooltip";
 
 import Scene from "./_components/Scene";
 import IntroOverlay from "./_components/IntroOverlay";
@@ -24,7 +27,10 @@ export default function Viewport() {
         <ContentPanel />
         <MonitoringOverlay />
         {import.meta.env.DEV && <PerfOverlay />}
-        <ToasterTestTrigger />
+        {/* [failure] 기존 점유율 mock 토스트는 설정으로만 */}
+        {FAILURE_SCENARIO.keepMockOccupancyToasts && <ToasterTestTrigger />}
+        <FailureScenarioRunner />
+        <PortHoverTooltip />
       </div>
     </div>
   );

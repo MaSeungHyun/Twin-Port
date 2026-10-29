@@ -1,6 +1,7 @@
 
 import { DropdownMenu } from "@/components/DropdownMenu";
-import toastMock from "@/data/toast_mock.json";
+import toastMockData from "@/data/toast_mock.json";
+import { useFailureStore } from "@/stores/useFailureStore";
 import IconButton from "@/components/IconButton";
 import AlarmCard from "./AlarmCard";
 import LevelFilter from "@/components/LevelFilter";
@@ -25,6 +26,12 @@ function matchesAlarmFilter(
 }
 
 export default function Alarm() {
+  // [failure] 시나리오 이벤트(최신순) + 기존 mock
+  const failureEvents = useFailureStore((s) => s.events);
+  const toastMock = useMemo(
+    () => [...failureEvents, ...toastMockData],
+    [failureEvents],
+  );
   const [levelFilter, setLevelFilter] = useState<AlarmLevelFilterState>(
     DEFAULT_ALARM_LEVEL_FILTER,
   );
@@ -41,12 +48,12 @@ export default function Alarm() {
       }
     }
     return counts;
-  }, []);
+  }, [toastMock]);
 
   const filteredItems = useMemo(
     () =>
       toastMock.filter((item) => matchesAlarmFilter(item.level, levelFilter)),
-    [levelFilter],
+    [levelFilter, toastMock],
   );
 
   const toggleLevelFilter = useCallback(

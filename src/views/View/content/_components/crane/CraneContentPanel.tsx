@@ -10,6 +10,7 @@ import {
 import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
+import { isFailed, useFailureStore } from "@/stores/useFailureStore";
 import { cn } from "@/utils/style";
 import { useMemo, type ReactNode } from "react";
 import {
@@ -33,6 +34,7 @@ type CraneListItem = {
 
 function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
   const quayCranes = useYardStore((s) => s.quayCranes);
+  const failures = useFailureStore((s) => s.active);
   const selectedCraneIndex = useViewportStore((s) => s.selectedCraneIndex);
   const selectCrane = useViewportStore((s) => s.selectCrane);
   const clearCraneSelection = useViewportStore((s) => s.clearCraneSelection);
@@ -75,7 +77,10 @@ function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
   }
 
   if (selected) {
-    const twin = getCraneTwinProfile(selected.index);
+    const baseTwin = getCraneTwinProfile(selected.index);
+    const twin = isFailed(failures, "quayCrane", selected.index)
+      ? { ...baseTwin, status: "error" as const }
+      : baseTwin;
 
     return (
       <ContentDetailLayout
@@ -117,8 +122,9 @@ function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
       <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {items.map((item) => {
           const twin = getCraneTwinProfile(item.index);
-          const statusTone = craneOperationalTone(twin.status);
-          const statusLabel = craneStatusLabel(twin.status);
+          const failed = isFailed(failures, "quayCrane", item.index);
+          const statusTone = failed ? "error" : craneOperationalTone(twin.status);
+          const statusLabel = failed ? "고장" : craneStatusLabel(twin.status);
 
           return (
           <li key={item.key}>
@@ -134,11 +140,12 @@ function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
                 <CraneStatusDot
                   tone={statusTone}
                   label={statusLabel}
-                  className="mt-[0.5em] shrink-0"
+                  className={cn("mt-[0.5em] shrink-0", failed && "animate-pulse")}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium leading-snug text-text-primary">
-                    {item.title}
+                  <p className="flex items-center gap-sm truncate font-medium leading-snug text-text-primary">
+                    <span className="truncate">{item.title}</span>
+                    {failed ? <span className="shrink-0 animate-pulse text-danger">고장</span> : null}
                   </p>
                   <p className="mt-0.5 truncate leading-snug text-text-secondary">
                     {item.subtitle}
@@ -209,6 +216,7 @@ type OverheadCraneListItem = {
 
 function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
   const blocks = useYardStore((s) => s.blocks);
+  const failures = useFailureStore((s) => s.active);
   const selectedIndex = useViewportStore((s) => s.selectedOverheadCraneIndex);
   const selectOverheadCrane = useViewportStore((s) => s.selectOverheadCrane);
   const clearOverheadCraneSelection = useViewportStore(
@@ -247,7 +255,10 @@ function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
   }
 
   if (selected) {
-    const twin = getOverheadCraneTwinProfile(selected.index);
+    const baseTwin = getOverheadCraneTwinProfile(selected.index);
+    const twin = isFailed(failures, "overheadCrane", selected.index)
+      ? { ...baseTwin, status: "error" as const }
+      : baseTwin;
 
     return (
       <ContentDetailLayout
@@ -289,8 +300,9 @@ function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
       <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {items.map((item) => {
           const twin = getOverheadCraneTwinProfile(item.index);
-          const statusTone = craneOperationalTone(twin.status);
-          const statusLabel = craneStatusLabel(twin.status);
+          const failed = isFailed(failures, "overheadCrane", item.index);
+          const statusTone = failed ? "error" : craneOperationalTone(twin.status);
+          const statusLabel = failed ? "고장" : craneStatusLabel(twin.status);
 
           return (
             <li key={item.key}>
@@ -306,11 +318,12 @@ function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
                   <CraneStatusDot
                     tone={statusTone}
                     label={statusLabel}
-                    className="mt-[0.5em] shrink-0"
+                    className={cn("mt-[0.5em] shrink-0", failed && "animate-pulse")}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium leading-snug text-text-primary">
-                      {item.title}
+                    <p className="flex items-center gap-sm truncate font-medium leading-snug text-text-primary">
+                      <span className="truncate">{item.title}</span>
+                      {failed ? <span className="shrink-0 animate-pulse text-danger">고장</span> : null}
                     </p>
                     <p className="mt-0.5 truncate leading-snug text-text-secondary">
                       {item.subtitle}

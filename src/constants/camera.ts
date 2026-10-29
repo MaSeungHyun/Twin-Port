@@ -66,10 +66,10 @@ export const ORBIT_MAX_DISTANCE = 15000;
  * Ship / Container / Crane 트래킹 공통 — 대상으로부터 카메라까지 거리
  * (현재 시점 방향은 유지, OrbitControls pivot만 대상으로 이동)
  */
-export const TRACKING_FOCUS_DISTANCE = 877.1;
+export const TRACKING_FOCUS_DISTANCE = 480;
 
 /** 컨테이너 tracking — 슬롯 근접 뷰 (Ship/Crane보다 가깝게) */
-export const CONTAINER_TRACKING_FOCUS_DISTANCE = 438.55;
+export const CONTAINER_TRACKING_FOCUS_DISTANCE = 240;
 
 /** 선박 tracking pivot — berth y 기준 추가 높이 (낮을수록 수선면 쪽) */
 export const SHIP_TRACKING_TARGET_Y_OFFSET = 31.325;

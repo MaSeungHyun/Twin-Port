@@ -43,7 +43,8 @@ export function getOutlineGeometry(src: BufferGeometry): BufferGeometry {
   return g;
 }
 import { MeshBasicNodeMaterial } from "three/webgpu";
-import { cameraPosition, modelWorldMatrix, normalLocal, positionLocal, uniform, vec4 } from "three/tsl";
+import { cameraPosition, color as tslColor, modelWorldMatrix, normalLocal, positionLocal, sin, time, uniform, vec4 } from "three/tsl";
+import { FAILURE_BLINK } from "@/constants/failureScenario";
 import { useEffect } from "react";
 import { useControls } from "@/debug/controls";
 
@@ -79,6 +80,23 @@ function getOutlineMaterial() {
   return m;
 }
 
+/** [failure] 고장 outline — 같은 inverted hull, 빨강 깜빡임(TSL time 기반, CPU 갱신 없음), 두께 hover×scale */
+let failureMat: MeshBasicNodeMaterial | null = null;
+function getFailureOutlineMaterial() {
+  if (failureMat) return failureMat;
+  const m = new MeshBasicNodeMaterial({ side: BackSide, toneMapped: false });
+  const worldPos = modelWorldMatrix.mul(vec4(positionLocal, 1)).xyz;
+  const dist = cameraPosition.distance(worldPos);
+  const nScale = modelWorldMatrix.mul(vec4(normalLocal, 0)).xyz.length().max(1e-6);
+  const px = hoverOutlineThickness.mul(FAILURE_BLINK.thicknessScale);
+  m.positionNode = positionLocal.add(normalLocal.mul(px.mul(dist).mul(0.001).div(nScale)));
+  const pulse = sin(time.mul((2 * Math.PI) / FAILURE_BLINK.periodSec)).mul(0.5).add(0.5);
+  const intensity = pulse.mul(1 - FAILURE_BLINK.minIntensity).add(FAILURE_BLINK.minIntensity);
+  m.colorNode = tslColor(new Color(FAILURE_BLINK.color)).mul(intensity.mul(1.6));
+  failureMat = m;
+  return m;
+}
+
 /** [hover] 깊이용 투명 머티리얼도 전 인스턴스 공유 (인스턴스별 생성 → 개별 파이프라인/바인드그룹 방지) */
 let hullMat: MeshBasicMaterial | null = null;
 function getHullMaterial() {
@@ -91,14 +109,16 @@ function getHullMaterial() {
  * 극소 스케일 더미를 3프레임 그려 파이프라인을 미리 캐시. 실제 outline 의 visible/matrix 는 건드리지 않음.
  */
 const warmedGeoms = new WeakSet<BufferGeometry>();
-function warmOutline(node: Mesh, geometry: BufferGeometry) {
-  if (warmedGeoms.has(geometry)) return;
-  warmedGeoms.add(geometry);
+const warmedFailureGeoms = new WeakSet<BufferGeometry>();
+function warmOutline(node: Mesh, geometry: BufferGeometry, failure = false) {
+  const warmed = failure ? warmedFailureGeoms : warmedGeoms;
+  if (warmed.has(geometry)) return;
+  warmed.add(geometry);
   requestAnimationFrame(() => {
     const parent = node.parent;
     if (!parent) return;
     const dummy = new Mesh(geometry, getHullMaterial());
-    dummy.add(new Mesh(getOutlineGeometry(geometry), getOutlineMaterial()));
+    dummy.add(new Mesh(getOutlineGeometry(geometry), failure ? getFailureOutlineMaterial() : getOutlineMaterial()));
     dummy.scale.setScalar(1e-6);
     dummy.frustumCulled = false;
     dummy.children[0].frustumCulled = false;
@@ -118,17 +138,21 @@ function warmOutline(node: Mesh, geometry: BufferGeometry) {
 export default function HoverOutlineMesh({
   geometry,
   meshRef,
+  variant = "hover",
 }: {
   geometry: BufferGeometry;
   meshRef?: (node: Mesh | null) => void;
+  /** failure = 고장 빨강 깜빡임 outline */
+  variant?: "hover" | "failure";
 }) {
+  const failure = variant === "failure";
   return (
     <mesh
       ref={(node) => {
         if (node && node.userData.hoverOutlineInit !== true) {
           node.visible = false;
           node.userData.hoverOutlineInit = true;
-          warmOutline(node, geometry);
+          warmOutline(node, geometry, failure);
         }
         meshRef?.(node);
       }}
@@ -138,7 +162,7 @@ export default function HoverOutlineMesh({
       raycast={() => null}
     >
       <primitive object={getHullMaterial()} attach="material" />
-      <mesh geometry={getOutlineGeometry(geometry)} material={getOutlineMaterial()} frustumCulled={false} raycast={() => null} />
+      <mesh geometry={getOutlineGeometry(geometry)} material={failure ? getFailureOutlineMaterial() : getOutlineMaterial()} frustumCulled={false} raycast={() => null} />
     </mesh>
   );
 }

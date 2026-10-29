@@ -29,7 +29,7 @@ export const OCEAN_HULL_FOAM_MAX = 16;
 
 /** 배 뒤 항적 거품 (속도 0..1 은 Ship.tsx 항적 메시 스케일과 같은 값) */
 /** 최고 속도일 때 선미 뒤로 남는 길이(m) */
-export const OCEAN_WAKE_LENGTH = 320;
+export const OCEAN_WAKE_LENGTH = 170;
 /**
  * 항적 세기 램프 (선미 거품 + 뱃머리 V + 항적 메시 공통).
  * 속도비(현재 속도 / 최고 출항 속도)를 smoothstep(LO, HI)로 0..1 목표값으로 바꾸고,
@@ -81,8 +81,8 @@ export const OCEAN_HULL_LINE_WIDTH = 1.6;
 export const OCEAN_HULL_LINE_STRENGTH = 0.35;
 export const OCEAN_HULL_LINE_BOW = 1.8;
 /** 선미 항적 폭: 반폭 = NEAR + 선미 뒤 거리 × WIDEN (점점 넓어짐) + 시작부 HEAD_EXTRA (HEAD_LEN 에 걸쳐 사라짐) */
-export const OCEAN_WAKE_NEAR_HALF_WIDTH = 6;
-export const OCEAN_WAKE_WIDEN = 0.16;
+export const OCEAN_WAKE_NEAR_HALF_WIDTH = 12;
+export const OCEAN_WAKE_WIDEN = 0.05;
 export const OCEAN_WAKE_HEAD_LEN = 40;
 export const OCEAN_WAKE_HEAD_EXTRA = 3.5;
 /** 시작부 세기 배율 (선미 바로 뒤 1 + BOOST → HEAD_LEN 에서 1) */
@@ -93,14 +93,28 @@ export const OCEAN_WAKE_START_FORWARD = 0.45;
 export const OCEAN_WAKE_START_FOAM_MARGIN = 7;
 /** 항적 앞머리 둥근 진입 길이(m): 시작점 앞쪽(선체 아래)에서 타원형으로 전체 폭까지 */
 export const OCEAN_WAKE_START_RAMP = 18;
-/** 항적 끝 작은 V(켈빈풍 쉐브런): 개수, 팔 길이(m), 간격(m), 끝에서 떨어진 거리(m), 팔 기울기(tan), 선 두께(m), 세기 */
-export const OCEAN_WAKE_TAIL_V_COUNT = 3;
-export const OCEAN_WAKE_TAIL_V_SIZE = 22;
-export const OCEAN_WAKE_TAIL_V_SPACING = 30;
-export const OCEAN_WAKE_TAIL_V_OFFSET = 25;
-export const OCEAN_WAKE_TAIL_V_TAN = 0.45;
-export const OCEAN_WAKE_TAIL_V_LINE = 1.2;
-export const OCEAN_WAKE_TAIL_V_STRENGTH = 0.35;
+/**
+ * [wake2] 선미 난류 거품 (프로펠러 wash): 짧고 넓은 흰 띠, 내부는 얼룩/줄무늬 노이즈 (항적 끝 V 제거됨)
+ * FADE_POW: 길이방향 감쇠 지수 (클수록 빨리 옅어짐)
+ * FROTH_SPEED: 거품 노이즈가 끓는 속도 / FROTH_SCALE: 얼룩 크기(1/m, 클수록 잘게)
+ * STREAK_SCALE: 뒤쪽 줄무늬 (x: 진행방향 1/m 작을수록 길게, y: 횡방향 1/m)
+ * FROTH_NEAR/FAR: 거품 임계 (낮을수록 빽빽) — 선미 근처 / 끝
+ * EDGE_JITTER: 가장자리 반폭 흔들림 비율
+ */
+export const OCEAN_WAKE_FADE_POW = 1.6;
+export const OCEAN_WAKE_FROTH_SPEED = 0.6;
+export const OCEAN_WAKE_FROTH_SCALE = 0.11;
+export const OCEAN_WAKE_STREAK_SCALE = { x: 0.035, y: 0.35 } as const;
+export const OCEAN_WAKE_FROTH_NEAR = 0.15;
+export const OCEAN_WAKE_FROTH_FAR = 0.55;
+export const OCEAN_WAKE_EDGE_JITTER = 0.25;
+/** 띠 옆 가는 거품 실선: 휨(m), 뒤로 갈수록 바깥 이동(m/m), 간격(m), 두께(m), 퍼지는 범위(반폭 배수), 세기 */
+export const OCEAN_WAKE_FILAMENT_WARP = 14;
+export const OCEAN_WAKE_FILAMENT_DRIFT = 0.12;
+export const OCEAN_WAKE_FILAMENT_SPACING = 7;
+export const OCEAN_WAKE_FILAMENT_LINE = 0.6;
+export const OCEAN_WAKE_FILAMENT_REACH = 2.6;
+export const OCEAN_WAKE_FILAMENT_STRENGTH = 0.45;
 /** 뱃머리 V: 팔이 바깥으로 휘는 정도 (반폭에 sqrt(뒤 거리)*CURVE 추가) */
 /** 뱃머리 V: 뒤로 1m 갈 때 팔 두께 증가(m) — 멀수록 넓고 부드러워짐 */
 /** 뱃머리 V: 선수(stem) 흰 물 부풂 반경(m)과 세기 */
