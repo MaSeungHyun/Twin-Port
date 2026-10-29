@@ -23,6 +23,12 @@ let pointerHover: PortHover = null;
 let pinnedHover: PortHover = null;
 let pointerClearToken = 0;
 const outlineAppliers = new Set<() => void>();
+/** 카메라 드래그 중이면 새 hover 무시 (Controls 에서 설정) */
+let cameraDragging = false;
+
+export function setCameraDragging(next: boolean) {
+  cameraDragging = next;
+}
 
 function notifyOutlineAppliers() {
   for (const fn of outlineAppliers) fn();
@@ -77,6 +83,7 @@ export function portHoverOver(
 ) {
   if (id == null) return;
   event.stopPropagation();
+  if (cameraDragging) return;
   pointerClearToken += 1;
   setPointerHover({ kind, id });
 }

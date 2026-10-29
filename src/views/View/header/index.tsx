@@ -4,6 +4,7 @@ import Alarm from "./Alarm";
 
 import OccupancyMode from "./OccupancyMode";
 import ViewOption from "./ViewOption";
+import RenderSettings from "./RenderSettings";
 import Monitoring from "./Monitoring";
 
 export default function Header() {
@@ -21,6 +22,7 @@ export default function Header() {
         <OccupancyMode />
         <ViewOption />
         <Alarm />
+        <RenderSettings />
       </div>
     </div>
   );

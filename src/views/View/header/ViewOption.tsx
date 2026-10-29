@@ -10,6 +10,8 @@ export default function ViewOption() {
   const setContainerVisible = useObjectStore((s) => s.setContainerVisible);
   const heatmapVisible = useObjectStore((s) => s.heatmapVisible);
   const setHeatmapVisible = useObjectStore((s) => s.setHeatmapVisible);
+  const reflectionVisible = useObjectStore((s) => s.reflectionVisible);
+  const setReflectionVisible = useObjectStore((s) => s.setReflectionVisible);
 
   return (
     <DropdownMenu>
@@ -35,6 +37,12 @@ export default function ViewOption() {
             label="HeatMap"
             checked={heatmapVisible}
             onCheckedChange={(checked) => setHeatmapVisible(checked === true)}
+          />
+          <Checkbox
+            id="view-option-reflection"
+            label="Reflection"
+            checked={reflectionVisible}
+            onCheckedChange={(checked) => setReflectionVisible(checked === true)}
           />
         </div>
       </DropdownMenu.Content>

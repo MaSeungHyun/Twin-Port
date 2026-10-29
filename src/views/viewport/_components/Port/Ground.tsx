@@ -58,6 +58,7 @@ import {
 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import HoverOutlineMesh from "./HoverOutlineMesh";
+import { QuayCraneReflection, SceneWarmup } from "./WaterReflection";
 import { parseCraneNameIndex, parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
 import { rememberQuayHoverIndex } from "@/domain/hoverTooltip";
 import { getFailedIndices } from "@/stores/useFailureStore";
@@ -87,6 +88,8 @@ function enableGroundAlpha(root: Object3D) {
       if (realBlend) {
         cloned.transparent = true;
         cloned.depthWrite = false;
+        // [perf] transparent+DoubleSide 는 back/front 2패스로 그려짐 → depthWrite 없는 유리류는 1패스로 충분
+        cloned.forceSinglePass = true;
         if ("alphaTest" in cloned && cloned.alphaTest < 0.08) cloned.alphaTest = 0.08;
       } else {
         cloned.transparent = false;
@@ -222,6 +225,17 @@ export default function Ground({
     const cloned = scene.clone(true);
     cloned.updateMatrixWorld(true);
     enableGlbShadows(cloned);
+    // [shadow] 그림자 생성은 크레인만 (건물/지면/수목/Cube/위성지형은 받기만). LOD 는 같은 Mesh 의 geometry 교체라 유지됨
+    cloned.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      let node: Object3D | null = o;
+      let crane = /crane|kran/i.test(o.geometry?.name ?? "");
+      while (!crane && node) {
+        if (/crane|kran/i.test(node.name)) crane = true;
+        node = node.parent;
+      }
+      o.castShadow = crane;
+    });
     enableGroundAlpha(cloned);
     // [twin-port] 바다와 맞닿는 지면(Ground, 위성지형)은 깊이를 써서 투명 바다/거품을 가림
     cloned.traverse((o) => {
@@ -438,6 +452,8 @@ export default function Ground({
       <QuayCraneHoverOutlines model={model} />
       <QuayCraneTrackingHover model={model} />
       <QuayCraneFailureOutlines model={model} />
+      <QuayCraneReflection model={model} />
+      <SceneWarmup />
     </>
   );
 }

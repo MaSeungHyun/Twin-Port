@@ -58,6 +58,7 @@ import {
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import HoverOutlineMesh from "./HoverOutlineMesh";
+import { ShipReflection } from "./WaterReflection";
 import { useShipDebugStore } from "@/stores/shipDebug";
 
 export type ShipInstance = {
@@ -661,6 +662,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         onPointerOut={(event) => handleShipPointerOut(event, instanceHoverId(event))}
         onClick={handleShipClick}
       />
+      <ShipReflection parts={parts} posesRef={posesRef} />
       {parts.map((part, index) => (
         <group key={index}>
           {(lodGeoms?.[index]?.length ? lodGeoms[index]! : [part.geometry]).map((geo, lv) => (

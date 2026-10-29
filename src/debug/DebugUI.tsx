@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useShipDebugStore } from "@/stores/shipDebug";
-import { hasWebGPU, switchRenderer, useRendererStore } from "@/stores/renderer";
+import { useRendererStore } from "@/stores/renderer";
+import { useViewportSettingsStore } from "@/stores/useViewportSettingsStore";
 import { useSettings } from "@/views/viewport/_components/OceanTsl/state/settingsStore";
 import HdriSection, { hdriCopyInfo } from "./HdriSection";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -333,12 +334,6 @@ function Field({ panel, f, v }: { panel: string; f: FieldSpec; v: any }) {
 }
 
 /** 그림자 패널: on/off 만 (세부 파라미터 mapSize/bias/카메라 범위는 코드 기본값 유지) */
-function ShadowOnly() {
-  const p = useDebugStore((s) => s.panels["Sun Light"]);
-  const f = p?.fields.find((x) => x.key === "castShadow");
-  if (!p || !f) return <p>태양광이 로드되면 표시됩니다.</p>;
-  return <Field panel="Sun Light" f={f} v={p.values.castShadow} />;
-}
 /** [fog] 수면 위(대기) 안개 — OceanTsl settingsStore(airFog, localStorage 저장). 수중에선 수중 안개가 대신 적용 */
 const FOG_TIP = {
   on: "수면 위(대기) 안개를 켜거나 끕니다. 카메라가 물속이면 수중 안개가 대신 적용됩니다. 바다 수면·하늘에는 적용되지 않습니다.",
@@ -411,65 +406,35 @@ function FogPanel() {
     </>
   );
 }
-/** 렌더 패널: 그림자 on/off + WebGPU 사용 (전환 시 페이지 리로드로 캔버스 재생성) */
+/** 렌더 패널 (개발 전용 오버라이드). 품질/그림자/렌더러 선택은 헤더 톱니(Graphics settings)로 이동 */
 function RenderPanel() {
-  const pref = useRendererStore((s) => s.pref);
   const active = useRendererStore((s) => s.active);
-  const ok = hasWebGPU();
-  const scale = useRendererStore((s) => s.renderScale);
-  const setScale = useRendererStore((s) => s.setRenderScale);
+  const scale = useViewportSettingsStore((s) => s.renderScale);
+  const setScale = useViewportSettingsStore((s) => s.setRenderScale);
   return (
     <>
-      <ShadowOnly />
       <NumberRow
         f={{ min: 0.5, max: 2, step: 0.05 }}
         v={scale}
         set={setScale}
         label={
           <span className="dbg-label">
-            렌더 해상도
+            렌더 해상도 (오버라이드)
             <i
               className="dbg-info"
               tabIndex={0}
               data-tip={
-                "픽셀 비율 상한(DPR). 낮추면 빨라지고 흐려집니다. 기본 1.5, 화면 DPR 보다 높게는 적용되지 않습니다."
+                "픽셀 비율 상한(DPR)을 직접 지정합니다. 헤더 품질 프리셋을 다시 고르면 프리셋 값(1 / 1.25 / 1.5)으로 돌아갑니다."
               }
             >
               ⓘ
             </i>
+            <small>
+              {active === "webgpu" ? "현재 WebGPU" : active === "webgl2" ? "현재 WebGL2" : ""}
+            </small>
           </span>
         }
       />
-      <label className="dbg-row">
-        <span className="dbg-label">
-          WebGPU 사용
-          <i
-            className="dbg-info"
-            tabIndex={0}
-            data-tip={
-              "WebGPU 렌더러를 사용합니다. 끄면 WebGL2 로 렌더링합니다(호환성↑, 일부 효과·성능↓). 바꾸면 화면을 다시 불러옵니다." +
-              (ok ? "" : " 이 브라우저는 WebGPU 를 지원하지 않습니다.")
-            }
-          >
-            ⓘ
-          </i>
-          <small>
-            {active === "webgpu"
-              ? "현재 WebGPU"
-              : active === "webgl2"
-                ? "현재 WebGL2"
-                : ""}
-          </small>
-        </span>
-        <input
-          type="checkbox"
-          disabled={!ok}
-          checked={ok && pref === "webgpu"}
-          onChange={(e) =>
-            switchRenderer(e.target.checked ? "webgpu" : "webgl")
-          }
-        />
-      </label>
       <FogPanel />
     </>
   );

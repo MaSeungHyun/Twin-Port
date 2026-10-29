@@ -12,8 +12,10 @@ import {
   SUN_TARGET,
 } from "@/constants/sunLight";
 import { useShipDebugStore } from "@/stores/shipDebug";
+import { SHADOW_PRESET, useViewportSettingsStore } from "@/stores/useViewportSettingsStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  type Camera,
   CameraHelper,
   Color,
   DirectionalLight,
@@ -176,7 +178,7 @@ export default function SunLight() {
     if (!light || !tg.followCamera || !controls?.target) return;
     // [pt109u] auto-scale: frustum grows with camera distance so cranes in view never fall off the shadow edge
     const camDist = camera.position.distanceTo(controls.target);
-    const half = Math.max(tg.followHalfSize, Math.ceil((camDist * 0.9) / 50) * 50);
+    const half = Math.max(followHalfSize, Math.ceil((camDist * 0.9) / 50) * 50);
     const sc = light.shadow.camera;
     if (sc.right !== half) { sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix(); light.shadow.needsUpdate = true; }
     const texel = (2 * half) / light.shadow.mapSize.x;
@@ -253,11 +255,6 @@ export default function SunLight() {
   // castShadow 토글 시 섀도맵 갱신 요청만.
   // WebGPURenderer에서는 ShadowNode가 shadow.map(렌더타깃+DepthTexture)을 소유하고 머티리얼이 그 depthTexture를
   // 직접 바인딩하므로, 여기서 dispose/null 하면 삭제된 텍스처를 계속 샘플링한다(WebGL2: bindTexture deleted object).
-  useEffect(() => {
-    const light = lightRef.current;
-    if (!light) return;
-    light.shadow.needsUpdate = true;
-  }, [c.castShadow]);
 
   const sh = useControls(`${FOLDER}.Shadow`, {
     mapSize: { value: num(SAVED.mapSize, SUN_SHADOW_MAP_SIZE), options: [1024, 2048, 4096, 8192] },
@@ -269,7 +266,38 @@ export default function SunLight() {
     halfHeight: { value: num(SAVED.halfHeight, SUN_SHADOW_CAMERA.top), min: 50, max: 8000, step: 10 },
     near: { value: num(SAVED.near, SUN_SHADOW_CAMERA.near), min: 0.1, max: 1000, step: 0.1 },
     far: { value: num(SAVED.far, 10000), min: 100, max: 30000, step: 10 },
+    devOverride: { value: false, label: "개발 오버라이드", hint: "켜면 castShadow / mapSize / 반경을 이 패널 값으로 사용 (헤더 그림자 설정 무시). 개발 모드 전용." },
   }, { collapsed: true });
+
+  // [shadow] 사용자 프리셋(헤더 Graphics settings)이 leva / tp.sunShadow.v3 보다 우선. leva 는 개발 전용 오버라이드.
+  // 그림자 갱신은 기존처럼 매 프레임(shadow.autoUpdate=true): 움직이는 배/크레인 그림자가 멈추지 않도록 보수적으로 유지.
+  const shadowQuality = useViewportSettingsStore((st) => st.shadowQuality);
+  const devOverride = import.meta.env.DEV && sh.devOverride;
+  const preset = shadowQuality === "off" ? null : SHADOW_PRESET[shadowQuality];
+  const castShadow = devOverride ? c.castShadow : preset !== null;
+  const mapSize = devOverride ? Number(sh.mapSize) : (preset?.mapSize ?? SHADOW_PRESET.low.mapSize);
+  const followHalfSize = devOverride ? tg.followHalfSize : (preset?.followHalfSize ?? tg.followHalfSize);
+
+  useEffect(() => {
+    const light = lightRef.current;
+    if (!light) return;
+    light.shadow.needsUpdate = true;
+  }, [castShadow]);
+
+  // 품질 변경 시 셰이더 워밍업 (castShadow 토글은 리시버 머티리얼 재컴파일을 유발). 최초 마운트는 건너뜀.
+  const gl = useThree((st) => st.gl);
+  const warmed = useRef(false);
+  useEffect(() => {
+    if (!warmed.current) {
+      warmed.current = true;
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      const r = gl as unknown as { compileAsync?: (o: Object3D, cam: Camera) => Promise<unknown> };
+      void r.compileAsync?.(scene, camera)?.catch(() => undefined);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [castShadow, mapSize, gl, scene, camera]);
 
   // 그림자 카메라/맵 변경 반영
   useEffect(() => {
@@ -278,8 +306,8 @@ export default function SunLight() {
     saveSun({ mapSize: Number(sh.mapSize), bias: sh.bias, normalBias: sh.normalBias, radius: sh.radius, strength: sh.strength, halfWidth: sh.halfWidth, halfHeight: sh.halfHeight, near: sh.near, far: sh.far });
     const cam = light.shadow.camera;
     // follow mode: tight square frustum around the look-at point (much higher texel density)
-    const hw = tg.followCamera ? tg.followHalfSize : sh.halfWidth;
-    const hh = tg.followCamera ? tg.followHalfSize : sh.halfHeight;
+    const hw = tg.followCamera ? followHalfSize : sh.halfWidth;
+    const hh = tg.followCamera ? followHalfSize : sh.halfHeight;
     cam.left = -hw;
     cam.right = hw;
     cam.top = hh;
@@ -291,13 +319,13 @@ export default function SunLight() {
     light.shadow.normalBias = sh.normalBias;
     light.shadow.radius = sh.radius;
     light.shadow.intensity = sh.strength;
-    const ms = Number(sh.mapSize);
+    const ms = mapSize;
     if (light.shadow.mapSize.x !== ms) {
       // ShadowNode가 매 업데이트마다 mapSize로 shadowMap.setSize() 하므로 dispose 불필요
       light.shadow.mapSize.set(ms, ms);
     }
     light.shadow.needsUpdate = true;
-  }, [sh, tg.followCamera, tg.followHalfSize]);
+  }, [sh, tg.followCamera, followHalfSize, mapSize]);
 
   const handleRadius = c.handleSize > 0 ? c.handleSize : Math.max(3, c.distance * 0.02);
   const showHandle = c.helper && c.visible;
@@ -329,18 +357,18 @@ export default function SunLight() {
         target={target}
         intensity={c.intensity}
         color={c.color}
-        castShadow={c.castShadow}
-        shadow-mapSize={[Number(sh.mapSize), Number(sh.mapSize)]}
+        castShadow={castShadow}
+        shadow-mapSize={[mapSize, mapSize]}
         shadow-bias={sh.bias * 1e-4}
         shadow-normalBias={sh.normalBias}
         shadow-radius={sh.radius}
         shadow-blurSamples={SUN_SHADOW_BLUR_SAMPLES}
         shadow-camera-near={sh.near}
         shadow-camera-far={sh.far}
-        shadow-camera-left={-(tg.followCamera ? tg.followHalfSize : sh.halfWidth)}
-        shadow-camera-right={tg.followCamera ? tg.followHalfSize : sh.halfWidth}
-        shadow-camera-top={tg.followCamera ? tg.followHalfSize : sh.halfHeight}
-        shadow-camera-bottom={-(tg.followCamera ? tg.followHalfSize : sh.halfHeight)}
+        shadow-camera-left={-(tg.followCamera ? followHalfSize : sh.halfWidth)}
+        shadow-camera-right={tg.followCamera ? followHalfSize : sh.halfWidth}
+        shadow-camera-top={tg.followCamera ? followHalfSize : sh.halfHeight}
+        shadow-camera-bottom={-(tg.followCamera ? followHalfSize : sh.halfHeight)}
       >
         {showHandle && (
           <Helper type={DirectionalLightHelper} args={[handleRadius * 2, "orange"]} />

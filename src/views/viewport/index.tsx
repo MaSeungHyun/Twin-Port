@@ -26,7 +26,7 @@ export default function Viewport() {
         <IntroOverlay />
         <ContentPanel />
         <MonitoringOverlay />
-        {import.meta.env.DEV && <PerfOverlay />}
+        <PerfOverlay />
         {/* [failure] 기존 점유율 mock 토스트는 설정으로만 */}
         {FAILURE_SCENARIO.keepMockOccupancyToasts && <ToasterTestTrigger />}
         <FailureScenarioRunner />

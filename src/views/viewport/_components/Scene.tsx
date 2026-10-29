@@ -18,6 +18,7 @@ import { useViewportStore } from "@/stores/viewport";
 /** 빈 곳 클릭 판정: pointerdown→click 이동이 이 픽셀 이하일 때만 (드래그/오빗 후 해제 방지) */
 const EMPTY_CLICK_MAX_PX = 5;
 import { hasWebGPU, useRendererStore } from "@/stores/renderer";
+import { useViewportSettingsStore } from "@/stores/useViewportSettingsStore";
 
 // 모니터링 모드일 때, Scene의 렌더링을 멈추고 싶을 때 적용
 // 성능 향상이나 현재 60fps로 잘 나오므로 우선 제거
@@ -49,32 +50,85 @@ const initialCamera = {
   far: INITIAL_CAMERA_FAR,
 } as const;
 
+const RELOAD_KEY = "twin-port.webglFallbackReload";
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 /**
- * ocean-tsl/r3f 방식: WebGPURenderer (WebGPU 미지원 브라우저는 자동으로 WebGL2 백엔드 폴백)
+ * ocean-tsl/r3f 방식: WebGPURenderer. WebGL2 는 forceWebGL (TSL 그대로, 클래식 WebGLRenderer 사용 안 함).
+ * 폴백: WebGPU 미지원 / requestAdapter()=null / init 실패 → forceWebGL 로 재시도, 이유는 fallbackReason 에 기록.
  */
 const createRenderer = async (props: { canvas: unknown }) => {
-  // 체크 해제(webgl) 또는 WebGPU 미지원 → forceWebGL (WebGL2 백엔드, TSL 그대로)
-  const forceWebGL =
-    useRendererStore.getState().pref === "webgl" || !hasWebGPU();
-  const r = new WebGPURenderer({
-    forceWebGL,
-    canvas: props.canvas as HTMLCanvasElement,
-    antialias: true,
-    alpha: true,
-    powerPreference: "high-performance",
-  });
-  await r.init();
+  const rs = useRendererStore.getState();
+  let reason: string | null = null;
+  let forceWebGL = rs.pref === "webgl";
+  if (!forceWebGL) {
+    if (!hasWebGPU()) reason = "이 브라우저는 WebGPU 를 지원하지 않습니다";
+    else {
+      try {
+        const gpu = (navigator as unknown as {
+          gpu: { requestAdapter: (o?: object) => Promise<unknown> };
+        }).gpu;
+        const adapter = await gpu.requestAdapter({ powerPreference: "high-performance" });
+        if (!adapter) reason = "WebGPU 어댑터를 찾지 못했습니다 (requestAdapter → null)";
+      } catch (e) {
+        reason = `WebGPU requestAdapter 실패: ${errMsg(e)}`;
+      }
+    }
+    if (reason) forceWebGL = true;
+  }
+  const make = (fw: boolean) =>
+    new WebGPURenderer({
+      forceWebGL: fw,
+      canvas: props.canvas as HTMLCanvasElement,
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance",
+    });
+  let r = make(forceWebGL);
+  try {
+    await r.init();
+  } catch (e) {
+    if (forceWebGL) throw e;
+    reason = `WebGPU 초기화 실패: ${errMsg(e)}`;
+    console.warn(`[Scene] ${reason} → WebGL2 로 재시도`);
+    r.dispose();
+    r = make(true);
+    try {
+      await r.init();
+    } catch (e2) {
+      // 같은 canvas 에 webgpu 컨텍스트가 이미 잡혀 webgl2 를 못 얻는 경우: 1회만 WebGL2 로 리로드
+      try {
+        if (!sessionStorage.getItem(RELOAD_KEY)) {
+          sessionStorage.setItem(RELOAD_KEY, "1");
+          const url = new URL(window.location.href);
+          url.searchParams.set("renderer", "webgl");
+          window.location.replace(url.toString());
+        }
+      } catch {
+        /* noop */
+      }
+      throw e2;
+    }
+  }
+  try {
+    sessionStorage.removeItem(RELOAD_KEY);
+  } catch {
+    /* noop */
+  }
   initKtx2Support(r); // [perf] BUSAN.glb KTX2 텍스처 (WebGPU/WebGL2 백엔드 공통)
   r.toneMapping = TONE_MAPPING;
   r.toneMappingExposure = TONE_MAPPING_EXPOSURE;
   r.outputColorSpace = SRGBColorSpace;
   const backend = (r as unknown as { backend?: { isWebGPUBackend?: boolean } })
     .backend;
-  useRendererStore
-    .getState()
-    .setActive(backend?.isWebGPUBackend ? "webgpu" : "webgl2");
+  const isWebGPU = !!backend?.isWebGPUBackend;
+  if (!reason && rs.pref === "webgpu" && !isWebGPU)
+    reason = "WebGPU 백엔드를 사용할 수 없어 WebGL2 로 전환되었습니다";
+  rs.setActive(isWebGPU ? "webgpu" : "webgl2");
+  rs.setFallbackReason(reason);
+  if (reason) console.warn(`[Scene] WebGL2 폴백: ${reason}`);
   console.info(
-    `[Scene] renderer: WebGPURenderer (${backend?.isWebGPUBackend ? "WebGPU" : "WebGL2"} backend, pref=${useRendererStore.getState().pref})`,
+    `[Scene] renderer: WebGPURenderer (${isWebGPU ? "WebGPU" : "WebGL2"} backend, pref=${rs.pref})`,
   );
   return r as unknown as import("three").WebGLRenderer;
 };
@@ -85,8 +139,8 @@ import CameraSlots from "@/debug/CameraSlots";
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const downPos = useRef<{ x: number; y: number } | null>(null);
-  // [perf] DPR 상한 (4K 에서 픽셀 수 감소). Render 패널 슬라이더로 조정
-  const renderScale = useRendererStore((s) => s.renderScale);
+  // [perf] DPR 상한 (4K 에서 픽셀 수 감소). 헤더 품질 프리셋(1/1.25/1.5) 또는 DebugUI 오버라이드
+  const renderScale = useViewportSettingsStore((s) => s.renderScale);
   const dpr = Math.min(
     typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
     renderScale,
@@ -155,7 +209,7 @@ function Scene() {
           <CameraSlots />
         </Suspense>
 
-        {import.meta.env.DEV && <PerfCollector />}
+        <PerfCollector />
         {/* StatsGl 은 WebGL 전용이라 WebGPU 전환 시 제거 */}
       </R3FCanvas>
     </div>

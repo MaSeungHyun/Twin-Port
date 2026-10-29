@@ -49,7 +49,7 @@ export default function MonitoringCard({
     <div
       onClick={onSelect}
       className={cn(
-        "flex shrink-0 flex-col rounded-md border bg-black px-sm py-sm text-text-primary transition-colors",
+        "flex shrink-0 flex-col rounded-md border bg-black px-sm py-xs h-auto text-text-primary transition-colors",
         selected ? "border-primary" : "border-white/10 hover:border-white/25",
       )}
       style={{
@@ -70,7 +70,7 @@ export default function MonitoringCard({
       </div>
 
       <div
-        className="flex w-full items-center mt-md justify-center relative"
+        className="flex w-full min-h-0 flex-1 items-center justify-center relative"
         style={{ color }}
       >
         <MonitoringDonut size={79} percent={occupancy.percent} color={color} />
@@ -80,7 +80,7 @@ export default function MonitoringCard({
         </div>
       </div>
 
-      <div className="flex w-full items-center justify-center mt-xl gap-1">
+      <div className="flex w-full items-center justify-center gap-1 pb-xs leading-none">
         <span className="text-lg text-text-primary">{occupancy.occupied}</span>
         <span className="text-md text-text-secondary">
           / {occupancy.capacity}

@@ -72,9 +72,10 @@ export function PerfCollector() {
   // Read gl inside the effect (via get) rather than mutating a hook-returned value.
   const get = useThree((state) => state.get);
   const active = enabled && baked;
-  // Dev-only handle for scripted renderer.info profiling (PerfCollector is mounted only in DEV).
+  // Dev-only handle for scripted renderer.info profiling (the collector itself runs in dev and prod).
   useEffect(() => {
-    (window as unknown as { __sfThree?: typeof get }).__sfThree = get;
+    if (import.meta.env.DEV)
+      (window as unknown as { __sfThree?: typeof get }).__sfThree = get;
   }, [get]);
   // Before the composer renders; a single boolean check while the overlay is off.
   useFrame(() => {
@@ -225,7 +226,7 @@ function Trend({
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between">
         <span className="text-text-secondary">{label}</span>
-        <span className="text-sm text-text-primary tabular-nums">
+        <span className="text-sm text-white tabular-nums">
           {n ? format(values[n - 1]) : "—"}
         </span>
       </div>
@@ -293,7 +294,7 @@ function SpikeList({ spikes, count }: { spikes: FrameSpike[]; count: number }) {
                   { hour12: false },
                 )}
               </span>
-              <span className="w-12 text-right text-text-primary">
+              <span className="w-12 text-right text-text-">
                 {spike.interval.toFixed(1)}ms
               </span>
               <span className="w-14 text-right">JS {spike.cpu.toFixed(1)}</span>
@@ -315,7 +316,7 @@ export default function PerfReadout() {
   const enabled = useViewportSettingsStore((state) => state.perfOverlay);
   const expanded = useViewportSettingsStore((state) => state.perfExpanded);
   const [reading, setReading] = useState<Reading | null>(null);
-useEffect(() => {
+  useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (
         !event.shiftKey ||
@@ -373,7 +374,7 @@ useEffect(() => {
         color: COLORS[label.toLowerCase() as keyof typeof COLORS],
       }}
     >
-      {label} <span className="text-text-primary tabular-nums">{value}</span>
+      {label} <span className="text-white tabular-nums">{value}</span>
     </span>
   ));
   const setExpanded = (next: boolean) => {
@@ -388,7 +389,7 @@ useEffect(() => {
       role={expanded ? "region" : undefined}
       aria-label={expanded ? "성능 추이 (최근 2분)" : undefined}
       className={cn(
-        "fixed bottom-3 right-3 z-[9998] rounded-md border border-white/10 bg-bg-primary/70 p-1 font-mono text-xs backdrop-blur-sm z-50",
+        "fixed bottom-3 right-3 z-[9998] rounded-md border border-white/10 bg-background p-1 font-mono text-md backdrop-blur-sm",
       )}
     >
       {expanded ? (
@@ -409,9 +410,8 @@ useEffect(() => {
               className="-mx-1 flex items-center gap-3 rounded-sm px-1 outline-none transition-colors hover:bg-white/5 focus-visible:ring-1 focus-visible:ring-brand-primary"
             >
               {readout}
-              <span className={count ? "text-red-300" : undefined}>
-                Spikes{" "}
-                <span className="text-text-primary tabular-nums">{count}</span>
+              <span className={count ? "text-red-400" : undefined}>
+                Spikes <span className="text-white tabular-nums">{count}</span>
               </span>
             </button>
             <button

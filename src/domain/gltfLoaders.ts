@@ -19,7 +19,12 @@ const pending: (() => void)[] = [];
 
 export function initKtx2Support(renderer: unknown) {
   if (ready) return;
-  ktx2Loader.detectSupport(renderer as never);
+  try {
+    ktx2Loader.detectSupport(renderer as never);
+  } catch (error) {
+    // [ktx2] 기능 조회 실패해도 큐는 풀어 로딩이 멈추지 않게 (transcoder 가 비압축 RGBA 로 폴백)
+    console.warn("[ktx2] detectSupport 실패", error);
+  }
   ready = true;
   for (const fn of pending.splice(0)) fn();
 }

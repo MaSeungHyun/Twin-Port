@@ -33,7 +33,14 @@ import { composeCargoSlotLocal, shipWorldScale } from "@/domain/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import { useGLTF } from "@react-three/drei";
 import { extendKtx2 } from "@/domain/gltfLoaders";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useObjectStore } from "@/stores/object";
+import {
+  makeReflectionInstanced,
+  reflectionBoxOf,
+  reflectionCameraOk,
+  syncReflectionInstanced,
+} from "./WaterReflection";
 import gsap from "gsap";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
@@ -144,6 +151,10 @@ export default function ShipCargo({
     [],
   );
   const [meshesReady, setMeshesReady] = useState(false);
+  // [reflection] 선적 컨테이너 반사 (색상 InstancedMesh 마다 instanceMatrix 공유 박스 1 draw + depth 1 draw)
+  const reflections = useRef(new Map<InstancedMesh, InstancedMesh>());
+  const reflectionVisible = useObjectStore((s) => s.reflectionVisible);
+  const camera = useThree((s) => s.camera);
   // 관제 시작 전에는 루프 없음. 이동은 관제 시작 && 디버그 토글 on 일 때만
   const controlStarted = useShipDebugStore((s) => s.controlStarted);
   const shipMotionSetting = useShipDebugStore((s) => s.shipMotion);
@@ -200,6 +211,14 @@ export default function ShipCargo({
   }
 
   useFrame(() => {
+    const reflOn = reflectionVisible && reflectionCameraOk(camera.position.y);
+    for (const [source, refl] of reflections.current) {
+      if (!source.parent) {
+        reflections.current.delete(source);
+        continue;
+      }
+      syncReflectionInstanced(refl, source, reflOn && source.visible);
+    }
     const poses = posesRef.current;
     if (!poses) return;
     for (let i = 0; i < shipCount; i++) {
@@ -585,6 +604,15 @@ export default function ShipCargo({
                   if (!meshRefs.current[shipIndex]) meshRefs.current[shipIndex] = {};
                   meshRefs.current[shipIndex]![c.key] = node;
                   node.instanceMatrix.setUsage(DynamicDrawUsage);
+                  if (!reflections.current.has(node)) {
+                    const refl = makeReflectionInstanced(
+                      reflectionBoxOf(prototypes[c.key].geometry),
+                      node,
+                    );
+                    refl.visible = false;
+                    node.add(refl);
+                    reflections.current.set(node, refl);
+                  }
                   tryMarkReady();
                 }}
                 args={[
@@ -593,6 +621,8 @@ export default function ShipCargo({
                   count,
                 ]}
                 frustumCulled={false}
+                // [shadow] 선박 적재 컨테이너는 선박과 함께 그림자 생성
+                castShadow
                 onPointerOver={(event) => {
                   event.stopPropagation();
                   setViewportPickCursor(true);
