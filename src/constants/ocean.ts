@@ -91,6 +91,16 @@ export const OCEAN_WAKE_HEAD_BOOST = 0.6;
 export const OCEAN_WAKE_START_FORWARD = 0.45;
 /** 항적 시작 반폭 = 해당 위치 선체 반폭 + 이 거품 여유(m, 선체 거품 smoothstep(7,..)와 동일) + 수선 거품선 폭 → 배 주변 거품과 이어짐 */
 export const OCEAN_WAKE_START_FOAM_MARGIN = 7;
+/** 항적 앞머리 둥근 진입 길이(m): 시작점 앞쪽(선체 아래)에서 타원형으로 전체 폭까지 */
+export const OCEAN_WAKE_START_RAMP = 18;
+/** 항적 끝 작은 V(켈빈풍 쉐브런): 개수, 팔 길이(m), 간격(m), 끝에서 떨어진 거리(m), 팔 기울기(tan), 선 두께(m), 세기 */
+export const OCEAN_WAKE_TAIL_V_COUNT = 3;
+export const OCEAN_WAKE_TAIL_V_SIZE = 22;
+export const OCEAN_WAKE_TAIL_V_SPACING = 30;
+export const OCEAN_WAKE_TAIL_V_OFFSET = 25;
+export const OCEAN_WAKE_TAIL_V_TAN = 0.45;
+export const OCEAN_WAKE_TAIL_V_LINE = 1.2;
+export const OCEAN_WAKE_TAIL_V_STRENGTH = 0.35;
 /** 뱃머리 V: 팔이 바깥으로 휘는 정도 (반폭에 sqrt(뒤 거리)*CURVE 추가) */
 /** 뱃머리 V: 뒤로 1m 갈 때 팔 두께 증가(m) — 멀수록 넓고 부드러워짐 */
 /** 뱃머리 V: 선수(stem) 흰 물 부풂 반경(m)과 세기 */

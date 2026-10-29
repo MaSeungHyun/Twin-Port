@@ -83,6 +83,15 @@ import {
   OCEAN_WAKE_HEAD_BOOST,
   OCEAN_WAKE_START_FORWARD,
   OCEAN_WAKE_START_FOAM_MARGIN,
+  OCEAN_WAKE_START_RAMP,
+  OCEAN_WAKE_TAIL_V_COUNT,
+  OCEAN_WAKE_TAIL_V_SIZE,
+  OCEAN_WAKE_TAIL_V_SPACING,
+  OCEAN_WAKE_TAIL_V_OFFSET,
+  OCEAN_WAKE_TAIL_V_TAN,
+  OCEAN_WAKE_TAIL_V_LINE,
+  OCEAN_WAKE_TAIL_V_STRENGTH,
+  OCEAN_HULL_HALF_WIDTH,
   OCEAN_WAKE_BREAKUP,
   OCEAN_BOW_WAVE_TAN,
   OCEAN_BOW_WAVE_COUNT,
@@ -1095,14 +1104,27 @@ export function makeOceanMatGPU(g) {
         // 선미 근처 좁고 뒤로 갈수록 넓어짐 + 시작부만 살짝 두껍게
         const head = smoothstep(OCEAN_WAKE_HEAD_LEN, 0.0, behind.max(0.0)).toVar();
         // 시작 반폭 = 선체 거품 외곽 (이 위치 선체 반폭 lh + 거품 여유 + 수선 거품선 폭), 기존 NEAR+HEAD 보다 작으면 그것 사용
-        const footHW = lh.y.sub(lh.x).mul(0.5).add(OCEAN_WAKE_START_FOAM_MARGIN).add(OCEAN_HULL_LINE_WIDTH);
-        const hw = max(footHW, head.mul(OCEAN_WAKE_HEAD_EXTRA).add(OCEAN_WAKE_NEAR_HALF_WIDTH)).add(behind.max(0.0).mul(OCEAN_WAKE_WIDEN)).toVar();
+        const footHW = float(OCEAN_HULL_HALF_WIDTH).add(OCEAN_WAKE_START_FOAM_MARGIN).add(OCEAN_HULL_LINE_WIDTH);
+        // 앞머리: 시작점 앞(선체 아래) RAMP 구간에서 타원형으로 둥글게 전체 폭까지 (좁은 뾰족 끝 없음)
+        const capT = clamp(behind.add(OCEAN_WAKE_START_RAMP).div(OCEAN_WAKE_START_RAMP), 0.0, 1.0);
+        const cap = sqrt(capT.mul(float(2).sub(capT)));
+        const hw = max(footHW, head.mul(OCEAN_WAKE_HEAD_EXTRA).add(OCEAN_WAKE_NEAR_HALF_WIDTH)).add(behind.max(0.0).mul(OCEAN_WAKE_WIDEN)).mul(cap.max(0.001)).toVar();
         // 실제 지나온 경로(원호 근사)를 따라 휨: 뒤로 s 만큼의 횡 오프셋 = k s²/2. 흔들림 없음
         const lat = lt.sub(kS.mul(0.5).mul(behind.max(0.0).mul(behind.max(0.0)))).abs();
         const fade = clamp(float(1).sub(behind.div(wl)), 0.0, 1.0);
-        const along = smoothstep(0.0, 4.0, behind).mul(fade.mul(fade)); // stern trail is strictly behind the stern
+        const along = smoothstep(float(OCEAN_WAKE_START_RAMP).negate(), 0.0, behind).mul(fade.mul(fade)); // 둥근 앞머리는 선체 거품 아래에서 시작
         // 단일 항적: 길이방향 줄무늬(streak)/끊김(breakup) 제거 → 하나의 부드러운 띠
         const band = smoothstep(hw, hw.mul(0.35), lat).mul(head.mul(OCEAN_WAKE_HEAD_BOOST).add(1.0));
+        // 항적 끝 작은 직선 V (꼭짓점이 배 쪽, 뒤로 벌어짐), 흔들림 없음, 뒤로 갈수록 옅어짐
+        const tailV = float(0).toVar();
+        for (let k = 0; k < OCEAN_WAKE_TAIL_V_COUNT; k++) {
+          const dv = behind.sub(wl.sub(OCEAN_WAKE_TAIL_V_OFFSET + k * OCEAN_WAKE_TAIL_V_SPACING)).toVar();
+          const ln = smoothstep(OCEAN_WAKE_TAIL_V_LINE, 0.0, lat.sub(dv.max(0.0).mul(OCEAN_WAKE_TAIL_V_TAN)).abs())
+            .mul(smoothstep(0.0, 1.5, dv)).mul(smoothstep(OCEAN_WAKE_TAIL_V_SIZE, OCEAN_WAKE_TAIL_V_SIZE * 0.4, dv))
+            .mul(1.0 - k / (OCEAN_WAKE_TAIL_V_COUNT + 1));
+          tailV.assign(max(tailV, ln));
+        }
+        const tailVM = tailV.mul(OCEAN_WAKE_TAIL_V_STRENGTH).mul(smoothstep(OCEAN_WAKE_TAIL_V_OFFSET, OCEAN_WAKE_TAIL_V_OFFSET + 40.0, trail)).mul(step(0.0, behind));
         // 뱃머리 파: 선수(stem) 흰 물 부풂 + 좁은 각도의 두 직선 팔.
         // 팔의 위치/경계에는 사인, 시간변조, 횡방향 워프를 쓰지 않음.
         const back = u.uShipProf.z.sub(ax).toVar();
@@ -1136,7 +1158,7 @@ export function makeOceanMatGPU(g) {
         const hullLine = smoothstep(OCEAN_HULL_LINE_WIDTH, 0.15, dS).mul(smoothstep(-0.4, 0.15, dS))
           .mul(mix(1.0, OCEAN_HULL_LINE_BOW, smoothstep(u.uShipProf.y, u.uShipProf.z, ax)))
           .mul(mix(0.7, 1.0, vnoise(vec3(ax.mul(0.15), 0.0, 0.0)))).mul(OCEAN_HULL_LINE_STRENGTH);
-        wake.assign(max(wake, max(max(band.mul(along), bow), hullLine).mul(spd)));
+        wake.assign(max(wake, max(max(max(band.mul(along), tailVM), bow), hullLine).mul(spd)));
       });
       // [twin-port] 선체 옆 물결 (직진 중 없음): 옆걸음은 이동하는 쪽 옆면에만, 제자리 회전은 주변에 은은하게.
       // 노이즈로 거리 왜곡 + 파장/위상 변화 + 군데군데 세기 + 불규칙한 끝 → 동심원처럼 보이지 않게
