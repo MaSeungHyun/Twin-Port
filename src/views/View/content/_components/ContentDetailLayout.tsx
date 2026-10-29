@@ -78,7 +78,7 @@ export default function ContentDetailLayout({
               aria-pressed={detailGraphActive}
               className={cn(
                 "cyber-btn inline-flex items-center gap-1 px-sm py-1 text-lg font-semibold",
-                detailGraphActive && "cyber-detail-btn--active",
+                "cyber-detail-btn",
               )}
             >
               <Icon icon="Info" className="size-lg stroke-cyber-glow" />

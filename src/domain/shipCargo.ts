@@ -34,7 +34,8 @@ export function composeCargoSlotLocal(
   target: Matrix4,
   originLocal: readonly [number, number, number] = SHIP_CARGO.originLocal,
 ) {
-  const pitch = 1 / shipScale;
+  // 컨테이너는 선박 로컬 실치수(pitch 1) → 선박 스케일을 그대로 따라감 (예전 1/s 보정이 적재 블록을 축소시켰음)
+  const pitch = 1;
   const [ox, oy, oz] = originLocal;
   const dropLocal = dropHeight / shipScale;
 
@@ -47,7 +48,7 @@ export function composeCargoSlotLocal(
   const drop = (1 - dropProgress) * dropLocal;
 
   _localPos.set(localX, baseY + drop, localZ);
-  const s = Math.max(appearScale, 0.0001) / shipScale;
+  const s = Math.max(appearScale, 0.0001);
   _containerScale.set(s, s, s);
   _slotQuat.setFromAxisAngle(_yawAxis, SHIP_CARGO.yawLocal);
   return target.compose(_localPos, _slotQuat, _containerScale);

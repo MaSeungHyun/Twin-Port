@@ -94,7 +94,10 @@ export default function OceanTsl() {
   // [occ] 점유율 모드: OccupancyTransition 진행도(t)에 맞춰 바다를 어둡게 → t≈1 에서 숨김 (visible=false, 언마운트 X → 재컴파일 없음)
   const grpRef = useRef<THREE.Group>(null);
   const visRef = useRef(c.visible); visRef.current = c.visible;
+  // [hmr] 수면 높이는 매 프레임 패널 값(안정적 단일 출처)에서 다시 씀 → HMR/Fast Refresh 후에도 결정적
+  const levelRef = useRef(c.level); levelRef.current = c.level;
   useFrame(() => {
+    oceanState.level = levelRef.current;
     const t = occupancyTransitionProgressRef.current.t;
     oceanDimU.value = 1 - 0.85 * t;
     const vis = visRef.current && t < 0.995;

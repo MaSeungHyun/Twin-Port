@@ -15,9 +15,8 @@ export const DECK_Y = (GROUND_Y + 0.2) / 2;
 export const CONTAINER_COLORS = [
   { key: "blue", label: "블루", hex: 0x0057ff },
   { key: "red", label: "레드", hex: 0xff312c },
-  { key: "orange", label: "오렌지", hex: 0xf07a1a },
-  { key: "brown", label: "브라운", hex: 0x9e431f },
   { key: "green", label: "그린", hex: 0x18cd3e },
+  { key: "sky", label: "스카이", hex: 0x38bdf8 }, // containers.glb 그룹명과 동일해야 함
 ] as const;
 
 export type ContainerColorKey = (typeof CONTAINER_COLORS)[number]["key"];
@@ -35,7 +34,7 @@ export type ContainerCompany = (typeof CONTAINER_COMPANIES)[number];
 export const COMPANY_COLOR: Record<ContainerCompany, ContainerColorKey> = {
   SAMSUNG: "blue",
   LG: "red",
-  SK: "orange",
-  Amazon: "brown",
+  SK: "sky",
+  Amazon: "sky",
   HYUNDAI: "green",
 };

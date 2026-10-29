@@ -1,11 +1,12 @@
 import { bindQuayCraneModel } from "@/domain/cameraFocus";
 import groundUrl from "@/assets/model/BUSAN.glb";
+import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
 import { enableGlbShadows } from "@/domain/glb";
 import {
   extractGroundBlocks,
   listObjectNames,
 } from "@/domain/extractGroundBlocks";
-import { shipsFromPlacements } from "@/domain/extractShipCubes";
+import { shipsFromPlacements, extractShipPoints } from "@/domain/extractShipCubes";
 import {
   extractQuayCranePlacements,
 } from "@/domain/extractQuayBerths";
@@ -45,7 +46,9 @@ import { useOccupancyStore } from "@/stores/occupancy";
 import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { occupancyTransitionProgressRef } from "@/constants/occupancyTransition";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { buildCraneLods, resetCraneLods, updateCraneLods, type CraneLodSet } from "@/domain/craneLod";
+import { CRANE_LOD_CHECK_EVERY, CRANE_LOD_LEVELS } from "@/constants/craneLod";
 import {
   Material,
   Mesh,
@@ -207,7 +210,7 @@ export default function Ground({
   const controls = useThree((state) => state.controls) as
     | OrbitControlsImpl
     | undefined;
-  const { scene } = useGLTF(groundUrl);
+  const { scene } = useGLTF(groundUrl, false, true, extendKtx2); // [perf] KTX2 + meshopt
 
   const occupancyMaterial = useMemo(() => getOccupancySurfaceMaterial(), []);
   const occupancyWarmed = useRef(false);
@@ -255,6 +258,43 @@ export default function Ground({
     }
   });
 
+  // [craneLod] 안벽 크레인 거리 기반 LOD (원본 메시 객체 유지, geometry만 교체)
+  const craneLods = useRef<CraneLodSet | null>(null);
+  const craneLodFrame = useRef(0);
+  const craneLodCam = useRef<number[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    buildCraneLods(model)
+      .then((set) => {
+        if (cancelled) return;
+        craneLods.current = set;
+        craneLodCam.current = [];
+        if (import.meta.env.DEV) {
+          console.info(
+            "[craneLod] " + set.entries.length + " meshes, tris per level",
+            set.trianglesPerLevel.map(Math.round),
+            "distances",
+            CRANE_LOD_LEVELS.map((l) => l.distance),
+          );
+        }
+      })
+      .catch((e) => console.warn("[craneLod] 생성 실패, 원본 유지", e));
+    return () => {
+      cancelled = true;
+      if (craneLods.current) resetCraneLods(craneLods.current);
+      craneLods.current = null;
+    };
+  }, [model]);
+  useFrame(({ camera: cam }) => {
+    const set = craneLods.current;
+    if (!set) return;
+    if (++craneLodFrame.current % CRANE_LOD_CHECK_EVERY !== 0) return;
+    const e = cam.matrixWorld.elements;
+    const last = craneLodCam.current;
+    if (last.length && Math.abs(last[12]! - e[12]!) + Math.abs(last[13]! - e[13]!) + Math.abs(last[14]! - e[14]!) < 0.5) return;
+    craneLodCam.current = [e[12]!, e[13]!, e[14]!];
+    updateCraneLods(set, cam);
+  });
   const occupancyMeshes = useMemo(() => collectOccupancyMeshes(model), [model]);
 
   useLayoutEffect(() => {
@@ -262,7 +302,8 @@ export default function Ground({
     model.rotation.set(...rotation);
     model.updateMatrixWorld(true);
     const blocks = extractGroundBlocks(model);
-    const berths = shipsFromPlacements();
+    const shipPoints = extractShipPoints(model);
+    const berths = shipPoints.length > 0 ? shipPoints : shipsFromPlacements();
     const quayCranes = extractQuayCranePlacements(model);
     if (berths.length > 0) setModelShips(berths);
     if (quayCranes.length > 0) {
@@ -486,4 +527,5 @@ function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
   );
 }
 
-useGLTF.preload(groundUrl);
+// [perf] KTX2 은 renderer detectSupport 이후에만 파싱 가능 → 준비 후 preload
+whenKtx2Ready(() => useGLTF.preload(groundUrl, false, true, extendKtx2));

@@ -1,7 +1,9 @@
 import { useSettings } from "./state/settingsStore";
 
 /** 바다 런타임 공유 상태 — OceanTsl(leva)이 갱신, 부력이 읽음 */
-export const oceanState = {
+/** [hmr] Vite HMR 로 이 모듈이 재실행돼도 같은 객체 유지 (재생성되면 OceanTsl 의 [c] effect 가 다시 안 돌아 level 등이 어긋남) */
+const _hot = import.meta.hot?.data as { oceanState?: typeof _oceanState; oceanClock?: { t: number } } | undefined;
+const _oceanState = {
   level: 15.29,
   visible: true,
   buoyancy: true,
@@ -9,9 +11,13 @@ export const oceanState = {
   hs: 1,
   /** [twin-port] 선체 접촉 거품용: 중심 x/z, yaw, 반길이 hx/hz (world 축 기준 로컬), on */
   ship: { x: 0, z: 0, yaw: 0, hx: 0, hz: 0, on: false },
+  /** [twin-port] 선체 거품을 그릴 모든 선박의 중심 x/z, yaw (Ship.tsx 가 매 프레임 갱신, 최대 OCEAN_HULL_FOAM_MAX) */
+  ships: [] as { x: number; z: number; yaw: number; speed: number; stir: number; turn: number; trail: number; kx?: number; kz?: number }[], // trail: 항적 최대 길이(m, 직진 후 이동 거리) // speed 0..1 항적, stir -1..1 옆걸음 물결(부호 = 로컬 Z 이동 방향), turn 0..1 회전 물결
   /** [twin-port] 실제 선체 수선면 윤곽: 길이축(axis 0=x,1=z) 구간 [a0,a1] 을 SHIP_BINS 로 나눈 횡방향 [lo,hi] (선박 로컬, m) */
   shipProfile: null as null | { axis: 0 | 1; a0: number; a1: number; lo: Float32Array; hi: Float32Array; ver: number },
 };
+export const oceanState: typeof _oceanState = _hot?.oceanState ?? _oceanState;
+if (_hot) _hot.oceanState = oceanState;
 export const SHIP_BINS = 64;
 /** 선박 로컬 삼각형들을 수면 높이(로컬 y)에서 잘라 수선면 윤곽 프로파일 생성 */
 export function buildShipProfile(tris: Float32Array[], wlY: number, axis: 0 | 1) {
@@ -48,7 +54,8 @@ export function buildShipProfile(tris: Float32Array[], wlY: number, axis: 0 | 1)
 }
 
 /** 셰이더 uTime 과 같은 시계 (Ocean.tsx useFrame 에서 갱신) */
-export const oceanClock = { t: 0 };
+export const oceanClock: { t: number } = _hot?.oceanClock ?? { t: 0 };
+if (_hot) _hot.oceanClock = oceanClock;
 
 /**
  * [twin-port] main 브랜치 바다는 GPU FFT 만 있고 CPU 높이 샘플러가 없음 →

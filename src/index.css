@@ -15,23 +15,34 @@ body,
   box-sizing: border-box;
   font-family: var(--font-sans);
   font-synthesis: none;
+  
 }
 
 @theme {
   --font-sans: "Noto Sans KR", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Pretendard", "Noto Sans KR", ui-sans-serif, sans-serif;
 
-  --color-background: #060D13;
+  --color-background: #042938;
   --color-foreground: #0A151D;
-  --color-primary: #3575DC;
+  --color-primary: #08B6CE;
   --color-danger: #EF2444;
   --color-warning: #FFB020;
   --color-success: #2ECC71;
-  --color-text-primary: #F5F5F5;
-  --color-text-secondary: #555555;
-  --color-cyber: #00E8FF;
-  --color-cyber-glow: #A0D8FF;
+  --color-text-primary: #04DBBA;
+  --color-text-secondary: #AAAEBF;
+  --color-cyber: #04DBBA;
+  --color-cyber-glow: #04DBBA;
   --color-cyber-dim: #4DA8FF;
+
+  --color-side-up: #042938;
+  --color-side-down: #061317;
+  
+  --color-icon-default: #AAAEBF;
+  --color-icon-active: #08B6CE;
+  --color-icon-hover: #08B6CE;
+  --color-icon-disabled: #0A151D;
+
+
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
 
@@ -147,7 +158,7 @@ body,
   user-select: none;
 }
 
-.cyber-detail-btn--active {
+.cyber-detail-btn[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--color-cyber) 70%, transparent);
   background: rgba(0, 232, 255, 0.12);
   color: var(--color-cyber-glow);

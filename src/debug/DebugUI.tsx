@@ -19,6 +19,7 @@ export const PANELS = [
   "Ship Material",
   "Sun Light",
   "Ocean",
+  "Ship Motion",
   "Render",
 ] as const;
 /** 패널별 UI 숨김 필드 (값은 그대로 유지·적용됨) */
@@ -27,6 +28,7 @@ const HIDDEN_FIELDS: Record<string, string[]> = {
 };
 const PANEL_KO: Record<string, string> = {
   Ship: "선박",
+  "Ship Motion": "선박 이동",
   "Ship Material": "선박 재질",
   "Sun Light": "조명",
   Render: "렌더",

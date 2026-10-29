@@ -6,14 +6,23 @@ import {
 import { DECK_Y } from "@/constants/container";
 import type { Vec3 } from "@/constants/geometry";
 import {
-  OVERHEAD_CRANE_SPAN_X,
-} from "@/constants/model";
+  OVERHEAD_CRANE_CONTAINER_D,
+  OVERHEAD_CRANE_CONTAINER_H,
+  OVERHEAD_CRANE_DEPTH_BAYS,
+  OVERHEAD_CRANE_HEIGHT_CLEARANCE,
+  OVERHEAD_CRANE_SPAN_RATIO,
+  OVERHEAD_CRANE_SPEED_BASE,
+  OVERHEAD_CRANE_SPEED_STEP,
+  OVERHEAD_CRANE_TRAVEL_INSET,
+} from "@/constants/overheadCrane";
 
 export type OverHeadCraneInstance = {
   /** 기준 위치 (레일 중간, Y 고정) */
   position: Vec3;
   rotation?: Vec3;
   scale?: number | Vec3;
+  /** 목표 월드 크기 [스팬, 높이, 깊이] (m). 있으면 GLB bbox 기준 비균일 스케일로 맞춤 (scale 무시) */
+  fit?: Vec3;
   /** 블록 로컬 베이 방향 왕복 끝점 */
   start: Vec3;
   end: Vec3;
@@ -48,11 +57,14 @@ export function createBlockCenterCraneInstances(
     const grid = getBlockSlotGrid(block);
     const width = grid.sizeX;
     const length = grid.sizeZ;
-    const inset = length * 0.08;
+    const inset = length * OVERHEAD_CRANE_TRAVEL_INSET;
     const yaw = block.yaw ?? 0;
     const y = deckY + block.origin[1];
-    const scale =
-      width / OVERHEAD_CRANE_SPAN_X;
+    const fit: Vec3 = [
+      width * OVERHEAD_CRANE_SPAN_RATIO,
+      grid.tiers * OVERHEAD_CRANE_CONTAINER_H + OVERHEAD_CRANE_HEIGHT_CLEARANCE,
+      OVERHEAD_CRANE_CONTAINER_D * OVERHEAD_CRANE_DEPTH_BAYS,
+    ];
     const localX = width / 2;
     const start = blockLocalToWorld(block.origin, yaw, localX, y, inset);
     const end = blockLocalToWorld(block.origin, yaw, localX, y, length - inset);
@@ -64,10 +76,10 @@ export function createBlockCenterCraneInstances(
         (start[2] + end[2]) / 2,
       ],
       rotation: [0, yaw, 0],
-      scale,
+      fit,
       start,
       end,
-      speed: 0.09 + (index % 7) * 0.02,
+      speed: OVERHEAD_CRANE_SPEED_BASE + (index % 7) * OVERHEAD_CRANE_SPEED_STEP,
       phase: index * 0.85,
     };
   });

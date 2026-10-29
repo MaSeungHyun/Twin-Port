@@ -11,9 +11,9 @@ import {
 import type { OccupancyLevel } from "@/domain/occupancy";
 import gsap from "gsap";
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 
-/** 3D Canvas 밖, 화면 위 DOM 그리드. 마운트는 유지하고 표시만 토글 */
+
+/** 3D Canvas 위 DOM 그리드 — 뷰포트 영역(헤더·좌측 Content 제외) 안에서만 absolute로 그림. 마운트는 유지하고 표시만 토글 */
 export default function MonitoringOverlay() {
   const monitorMode = useViewportStore((s) => s.monitorMode);
   const open = monitorMode;
@@ -49,9 +49,9 @@ export default function MonitoringOverlay() {
     else gsap.globalTimeline.resume();
   }, [open]);
 
-  return createPortal(
+  return (
     <div
-      className="fixed inset-x-0 top-20 bottom-0 z-150 flex flex-col bg-background/55"
+      className="absolute inset-0 z-150 flex flex-col bg-background/55"
       hidden={!open}
       aria-hidden={!open}
     >
@@ -64,7 +64,7 @@ export default function MonitoringOverlay() {
         className="justify-center px-md pt-md"
       />
       <MonitoringGrid occupancies={occupancies} levelFilter={levelFilter} />
-    </div>,
-    document.body,
+    </div>
+
   );
 }

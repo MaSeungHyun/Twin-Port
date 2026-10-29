@@ -1,6 +1,7 @@
 import { memo, Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
 import { WebGPURenderer } from "three/webgpu";
+import { initKtx2Support } from "@/domain/gltfLoaders";
 import DebugUI from "@/debug/DebugUI";
 import CameraPanel from "@/debug/CameraPanel";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -32,6 +33,7 @@ import {
 
 import { PCFSoftShadowMap, SRGBColorSpace } from "three";
 import CameraFlight from "./CameraFlight";
+import { PerfCollector } from "./PerfOverlay";
 
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 
@@ -58,6 +60,7 @@ const createRenderer = async (props: { canvas: unknown }) => {
     powerPreference: "high-performance",
   });
   await r.init();
+  initKtx2Support(r); // [perf] BUSAN.glb KTX2 텍스처 (WebGPU/WebGL2 백엔드 공통)
   r.toneMapping = TONE_MAPPING;
   r.toneMappingExposure = TONE_MAPPING_EXPOSURE;
   r.outputColorSpace = SRGBColorSpace;
@@ -134,6 +137,7 @@ function Scene() {
           <CameraSlots />
         </Suspense>
 
+        {import.meta.env.DEV && <PerfCollector />}
         {/* StatsGl 은 WebGL 전용이라 WebGPU 전환 시 제거 */}
       </R3FCanvas>
     </div>
@@ -141,3 +145,4 @@ function Scene() {
 }
 
 export default memo(Scene);
+

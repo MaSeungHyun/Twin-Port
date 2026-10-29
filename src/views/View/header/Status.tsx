@@ -45,16 +45,17 @@ function StatusItem({
   return (
     <Comp
       type={onClick ? "button" : undefined}
+      aria-pressed={onClick ? active : undefined}
       onClick={onClick}
       className={cn(
         "flex items-center gap-4 rounded-md px-4 py-1 text-left",
         onClick && "cursor-pointer transition-colors hover:bg-white/5",
-        active && "bg-danger/15 ring-1 ring-danger/40",
+        "aria-pressed:bg-danger/15 aria-pressed:ring-1 aria-pressed:ring-danger/40",
       )}
     >
-      <Icon icon={icon} className={cn("size-8 stroke-primary", className)} />
+      <Icon icon={icon} className={cn("size-10 stroke-1 stroke-primary", className)} />
       <div className="flex flex-col leading-tight select-none">
-        <span className="text-right text-xl tracking-semiwide text-text-secondary uppercase font-semibold">
+        <span className="text-right text-xl tracking-semiwide text-text-secondary uppercase font-normal">
           {label}
         </span>
         <span
@@ -138,7 +139,7 @@ function OccupancyChart({ status }: { status: YardStatus }) {
     <div className="flex items-center gap-lg rounded-md px-1 py-1">
       <PieChart value={occupancy} color={fill} size={32} />
       <div className="flex flex-col leading-tight select-none">
-        <span className="text-xl tracking-semiwide text-text-secondary uppercase font-semibold">
+        <span className="text-xl tracking-semiwide text-text-secondary uppercase font-normal">
           OCCUPANCY
         </span>
         <span

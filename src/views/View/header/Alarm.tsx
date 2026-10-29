@@ -1,7 +1,7 @@
-import Icon from "@/components/Icon";
+
 import { DropdownMenu } from "@/components/DropdownMenu";
 import toastMock from "@/data/toast_mock.json";
-import Button from "@/components/Button";
+import IconButton from "@/components/IconButton";
 import AlarmCard from "./AlarmCard";
 import LevelFilter from "@/components/LevelFilter";
 import {
@@ -65,12 +65,11 @@ export default function Alarm() {
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
-        <Button>
-          <Icon icon="Bell" className="stroke-primary" />
+        <IconButton icon="Bell" label="알림">
           {toastMock.length > 0 ? (
             <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-danger" />
           ) : null}
-        </Button>
+        </IconButton>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content
         sideOffset={30}

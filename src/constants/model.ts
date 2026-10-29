@@ -123,3 +123,11 @@ export const CRANE_INSTANCES: CraneInstance[] = [
   { position: [-683.05, -0.2, -794.39], rotation: YAW_180 },
   { position: [-683.05, -0.2, -919.69], rotation: YAW_180 },
 ];
+
+/**
+ * Blender "Ship_Point.NNN" Empty(Arrow) → 선박 배치.
+ * 선박 메시의 선수(bow)는 로컬 +X. Empty 의 화살표(Blender 로컬 +Z = glTF 로컬 +Y)를
+ * 선수 방향으로 간주하고, 그 방향의 수평 성분으로 yaw 만 계산한다(기울기 무시).
+ * 배가 반대로 보이면 180, 옆으로 보이면 ±90 으로 보정.
+ */
+export const SHIP_POINT_YAW_OFFSET_DEG = 0;

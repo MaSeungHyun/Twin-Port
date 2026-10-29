@@ -50,6 +50,7 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const bgRef = useRef<THREE.Mesh>(null);
+  const seaRef = useRef<THREE.Mesh>(null);
   const time = useRef(0);
   const scene = useThree((s) => s.scene);
   // 스펙트럼 재계산은 슬라이더 조작 중 끊김을 줄이려고 짧게 디바운스
@@ -134,7 +135,13 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
   useFrame((_, rdt) => {
     { // [twin-port] 선체 거품 uniform 매 프레임 갱신 (이전엔 look 설정 effect 안에 있어 갱신되지 않음 → 선체 거품 꺼짐)
       const u = ocean.uniforms, sh = oceanState.ship;
-      u.uShip.value.set(sh.x, sh.z, Math.cos(sh.yaw), Math.sin(sh.yaw));
+      // [twin-port] 다중 선박: 모든 배 위치를 배열 uniform 으로 (이전엔 단일 uShip → 마지막 배 하나에만 거품)
+      const ships = oceanState.ships, sArr = (u.uShips as unknown as { array: THREE.Vector4[] }).array;
+      const n = Math.min(ships.length, sArr.length);
+      const vArr = (u.uShipV as unknown as { array: THREE.Vector4[] }).array;
+      const kArr = (u.uShipK as unknown as { array: THREE.Vector4[] }).array;
+      for (let i = 0; i < n; i++) { const s = ships[i]!; sArr[i]!.set(s.x, s.z, Math.cos(s.yaw), Math.sin(s.yaw)); vArr[i]!.set(s.speed, s.stir ?? 0, s.turn ?? 0, s.trail ?? 1e5); kArr[i]!.set(s.kx ?? 0, s.kz ?? 0, 0, 0); }
+      u.uShipN.value = n;
       u.uShipHalf.value.set(sh.hx, sh.hz, sh.on ? 1 : 0);
       const pf = oceanState.shipProfile;
       if (!pf) u.uShipProf.value.w = 0; // 윤곽 없으면 컷아웃/선체거품 없음
@@ -166,6 +173,8 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
     pc.updateMatrixWorld();
     camL.copy(camera.position);
     camL.y -= oceanState.level;
+    // [hmr] 메시 높이도 렌더 시점 1회가 아니라 매 프레임 같은 출처(oceanState.level)에서 → 셰이더 camL 과 항상 일치
+    if (seaRef.current) seaRef.current.position.y = oceanState.level;
     island.uniforms.uCam.value.copy(camL);
     u.uCam.value.copy(camL);
     u.uCamV.value.copy(camL);
@@ -255,7 +264,7 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
     <>
       <Bubbles under={uwFogU.under} />
       <mesh ref={bgRef} geometry={uwBgGeo} material={uwBgMat} frustumCulled={false} renderOrder={-10} />
-      <mesh geometry={geo} material={ocean} frustumCulled={false} position-y={oceanState.level} receiveShadow />
+      <mesh ref={seaRef} geometry={geo} material={ocean} frustumCulled={false} position-y={oceanState.level} receiveShadow />
     </>
   );
 }

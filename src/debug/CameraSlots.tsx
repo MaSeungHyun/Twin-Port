@@ -101,16 +101,7 @@ export default function CameraSlots() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // [camintro] Monitoring Mode (header button) on → slot 2, off → back to slot 1. Tween drives camera+target together.
-  const monitorMode = useViewportStore((s) => s.monitorMode);
-  const prevMonitor = useRef(monitorMode);
-  useEffect(() => {
-    if (prevMonitor.current === monitorMode) return;
-    prevMonitor.current = monitorMode;
-    if (!CAMERA_INTRO_ENABLED) return;
-    const slot = introSlot(monitorMode ? "2" : "1");
-    if (slot) recallRef.current(monitorMode ? "2" : "1", false, slot, CAMERA_INTRO_DURATION);
-  }, [monitorMode]);
+  // [camintro] Monitoring Mode toggle intentionally does NOT move the camera (user request): camera stays where it is.
 
   // [camintro] "관제 시작" overlay → slot 2 (independent of monitorMode; a newer flight simply replaces a running one)
   useEffect(() => {

@@ -2,6 +2,8 @@ import ToasterTestTrigger from "@/components/Toaster/ToasterTestTrigger";
 
 import Scene from "./_components/Scene";
 import IntroOverlay from "./_components/IntroOverlay";
+import MonitoringOverlay from "./_components/MonitoringOverlay";
+import PerfOverlay from "./_components/PerfOverlay";
 
 import Content from "../View/content/Content";
 import ContentPanel from "../View/content/ContentPanel";
@@ -20,8 +22,11 @@ export default function Viewport() {
 
         <IntroOverlay />
         <ContentPanel />
+        <MonitoringOverlay />
+        {import.meta.env.DEV && <PerfOverlay />}
         <ToasterTestTrigger />
       </div>
     </div>
   );
 }
+

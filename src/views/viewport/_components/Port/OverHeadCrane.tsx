@@ -10,12 +10,14 @@ import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import {
+  Box3,
   type BufferGeometry,
   type InstancedMesh,
   type Material,
   Matrix4,
   type Mesh,
   Object3D,
+  Vector3,
 } from "three";
 import HoverOutlineMesh from "./HoverOutlineMesh";
 import {
@@ -45,6 +47,7 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   const outlineRefs = useRef<(Mesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
+  const modelSize = useRef(new Vector3(1, 1, 1));
   const matrix = useMemo(() => new Matrix4(), []);
 
   const parts = useMemo<CranePart[]>(() => {
@@ -61,6 +64,17 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
         localMatrix: mesh.matrixWorld.clone(),
       });
     });
+
+    // 모델 정규화: bbox X/Z 중심 → 0, 바닥(minY) → 0 (블록 중심·데크에 정확히 서도록)
+    const box = new Box3();
+    for (const part of collected) {
+      if (!part.geometry.boundingBox) part.geometry.computeBoundingBox();
+      box.union(part.geometry.boundingBox!.clone().applyMatrix4(part.localMatrix));
+    }
+    const center = box.getCenter(new Vector3());
+    const offset = new Matrix4().makeTranslation(-center.x, -box.min.y, -center.z);
+    for (const part of collected) part.localMatrix.premultiply(offset);
+    modelSize.current = box.getSize(new Vector3());
 
     return collected;
   }, [scene]);
@@ -101,7 +115,14 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
           dummy.rotation.set(...(instance.rotation ?? [0, 0, 0]));
 
           const scale = instance.scale ?? 1;
-          if (typeof scale === "number") {
+          const size = modelSize.current;
+          if (instance.fit) {
+            dummy.scale.set(
+              instance.fit[0] / Math.max(size.x, 1e-3),
+              instance.fit[1] / Math.max(size.y, 1e-3),
+              instance.fit[2] / Math.max(size.z, 1e-3),
+            );
+          } else if (typeof scale === "number") {
             dummy.scale.setScalar(scale);
           } else {
             dummy.scale.set(...scale);

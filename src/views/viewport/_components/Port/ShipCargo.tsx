@@ -8,8 +8,8 @@ import {
   bowOffset,
   cargoSlotOrder,
   shipCargoGrid,
-  shipLocalOffset,
   yawLerpTarget,
+  SHIP_CARGO_TIER_INTERVAL,
 } from "@/constants/shipCargo";
 import {
   SHIP_TWEEN,
@@ -17,9 +17,12 @@ import {
   sidestepWorldDelta,
   type ShipTweenConfig,
 } from "@/constants/tween";
+import { useControls } from "@/debug/controls";
+import { useShipDebugStore } from "@/stores/shipDebug";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
 import { getOccupancyContainerMaterial } from "@/domain/occupancyLook/occupancyContainerMaterial";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { portHoverOut, portHoverOver } from "@/domain/hoverOutline";
 import {
   activateShipFromViewport,
@@ -140,8 +143,21 @@ export default function ShipCargo({
     [],
   );
   const [meshesReady, setMeshesReady] = useState(false);
+  // 관제 시작 전에는 루프 없음. 이동은 관제 시작 && 디버그 토글 on 일 때만
+  const controlStarted = useShipDebugStore((s) => s.controlStarted);
+  const shipMotionSetting = useShipDebugStore((s) => s.shipMotion);
+  const motionOn = controlStarted && shipMotionSetting;
+  useControls("Ship Motion", {
+    shipMotion: {
+      value: SHIP_TWEEN.shipMotion,
+      label: "이동 애니메이션",
+      hint: "끄면 배는 정박 위치에 고정되고 컨테이너 적재 반복만 실행 (관제 시작 후에만 동작)",
+      onChange: (v: boolean) => useShipDebugStore.getState().setShipMotion(v),
+    },
+  });
 
   const prototypes = useMemo(() => buildContainerPrototypes(scene), [scene]);
+  const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
   const occupancyContainerMaterial = useMemo(
     () => getOccupancyContainerMaterial(),
     [],
@@ -347,6 +363,7 @@ export default function ShipCargo({
     }
 
     const placeAtBerth = (m: ShipMotion) => {
+      (m.ship as typeof m.ship & { straightAt?: number }).straightAt = undefined;
       m.ship.scale = m.scale;
       m.travel.x = m.bx;
       m.travel.y = m.by;
@@ -404,37 +421,27 @@ export default function ShipCargo({
       const turnDuration = tween.turnDeg !== 0 ? tween.turnDuration : 0;
 
       let t = SHIP_TWEEN.loadStart;
-      const maxOrder = Math.max(...m.slots.map((s) => s.localOrder), 0);
-      const loadSpan = maxOrder * tween.stagger + tween.loadDuration;
-      const easeFn = gsap.parseEase(tween.loadEase);
-      const loadState = { t: 0 };
-      const settled = new Uint8Array(m.slots.length);
-      tl.to(
-        loadState,
-        {
-          t: 1,
-          duration: loadSpan,
-          ease: "none",
-          onUpdate: () => {
-            const elapsed = loadState.t * loadSpan;
-            for (let i = 0; i < m.slots.length; i++) {
-              if (settled[i]) continue;
-              const slot = m.slots[i]!;
-              const raw =
-                (elapsed - slot.localOrder * tween.stagger) / tween.loadDuration;
-              if (raw <= 0) continue;
-              if (raw >= 1) {
-                writeSlot(slot, 1);
-                settled[i] = 1;
-                continue;
-              }
-              writeSlot(slot, easeFn(raw));
-            }
+      // 적재: 애니메이션 없이 아래 단(tier 1)부터 한 층씩 통째로 표시
+      const tiers = [...new Set(m.slots.map((s) => s.tier))].sort((x, y) => x - y);
+      tiers.forEach((tier, k) => {
+        tl.call(
+          () => {
+            for (const slot of m.slots) if (slot.tier === tier) writeSlot(slot, 1);
+            flush();
           },
-        },
-        t,
-      );
-      t += loadSpan + tween.departDelay;
+          undefined,
+          t + k * SHIP_CARGO_TIER_INTERVAL,
+        );
+      });
+      const loadSpan = tiers.length * SHIP_CARGO_TIER_INTERVAL;
+      if (!motionOn) {
+        // 데모: 선박 고정, 적재 완료 후 유지 → onComplete에서 비우고 재적재
+        t += loadSpan + SHIP_TWEEN.loadedHold;
+        tl.call(() => {}, undefined, t);
+        return;
+      }
+      // 적재 완료 → 유지 → 출항 (화물 실은 채로 이동)
+      t += loadSpan + SHIP_TWEEN.loadedHold + tween.departDelay;
 
       if (hasSidestep) {
         moveTravel(
@@ -464,6 +471,16 @@ export default function ShipCargo({
         t += turnDuration;
       }
 
+      // [wake] 직진 시작 표시 → Ship.tsx 가 이 시점부터 항적을 바로 키움 (ease-in 초반 속도≈0 지연 제거)
+      tl.call(
+        () => {
+          const sh = m.ship as typeof m.ship & { straightAt?: number; straightFrom?: [number, number] };
+          sh.straightAt = performance.now() / 1000;
+          sh.straightFrom = [m.ship.position[0], m.ship.position[2]];
+        },
+        undefined,
+        t,
+      );
       moveTravel(
         m,
         m.departFarX,
@@ -479,6 +496,7 @@ export default function ShipCargo({
       tl.call(
         () => {
           m.ship.scale = SHIP_TWEEN.hiddenScale;
+          (m.ship as typeof m.ship & { straightAt?: number }).straightAt = undefined;
           hideShipCargo(m.index);
         },
         undefined,
@@ -488,16 +506,11 @@ export default function ShipCargo({
 
       tl.call(
         () => {
-          const from = shipLocalOffset(
-            m.berthYaw,
-            SHIP_TWEEN.arriveFromX,
-            SHIP_TWEEN.arriveFromY,
-            SHIP_TWEEN.arriveFromZ,
-          );
+          // 빈 배로 사이드스텝 지점에서 다시 나타나 안벽으로 입항
           m.ship.scale = m.scale;
-          m.travel.x = m.bx + from.x;
-          m.travel.y = m.by + from.y;
-          m.travel.z = m.bz + from.z;
+          m.travel.x = m.sideX;
+          m.travel.y = m.sideY;
+          m.travel.z = m.sideZ;
           m.facing.yaw = m.berthYaw;
           applyTravel(m.ship, m.travel);
           ensureRotation(m.ship, m.berthYaw);
@@ -527,12 +540,16 @@ export default function ShipCargo({
         undefined,
         t,
       );
+      // 모든 배가 같은 주기로 돌아야 delay로 맞춘 충돌 회피가 매 루프 유지됨
+      tl.call(() => {}, undefined, Math.max(t, SHIP_TWEEN.cycle));
     };
 
     for (const m of motions) {
       placeAtBerth(m);
       hideShipCargo(m.index);
-      delayTweens.push(gsap.delayedCall(m.tween.delay, () => runShip(m)));
+      // delay는 관제 시작(이 effect 실행) 시점 기준. 이동 off면 delay 없이 적재 루프만
+      if (controlStarted)
+        delayTweens.push(gsap.delayedCall(motionOn ? m.tween.delay : 0, () => runShip(m)));
     }
 
     return () => {
@@ -543,7 +560,7 @@ export default function ShipCargo({
     };
     // 부두 구성이 같을 때는 occupancy 리렌더로 사이클을 다시 시작하지 않음
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fleetKey가 슬롯/부두 변경을 대표
-  }, [meshesReady, fleetKey]);
+  }, [meshesReady, fleetKey, controlStarted, motionOn]);
 
   if (slots.length === 0) return null;
 
@@ -571,7 +588,7 @@ export default function ShipCargo({
                 }}
                 args={[
                   prototypes[c.key].geometry,
-                  occupancyContainerMaterial,
+                  occupancyLook ? occupancyContainerMaterial : prototypes[c.key].material,
                   count,
                 ]}
                 frustumCulled={false}

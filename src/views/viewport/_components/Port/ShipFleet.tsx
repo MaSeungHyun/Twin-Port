@@ -11,10 +11,10 @@ import ShipGizmo from "./ShipGizmo";
 import ShipMaterialPanel from "./ShipMaterialPanel";
 
 /** 디버그: 기준 선박(SHIP_PLACEMENTS[0])만 렌더. 나머지 데이터는 유지 — null이면 전체 */
-const SHIP_RENDER_LIMIT: number | null = 1;
+const SHIP_RENDER_LIMIT: number | null = null;
 
 /** 선박 화물 컨테이너 렌더 on/off */
-const SHIP_TWEEN_CARGO_ENABLED = false;
+const SHIP_TWEEN_CARGO_ENABLED = true;
 
 function cloneShipPoses(list: readonly ShipInstance[]): ShipInstance[] {
   return list.map((ship) => ({
@@ -79,7 +79,7 @@ export default function ShipFleet() {
       <Ship key={berths.length} instances={poses} posesRef={posesRef} />
       <ShipGizmo posesRef={posesRef} />
       <ShipMaterialPanel />
-      {/* 컨테이너(화물) 렌더 중지 — 위치 재작업 전까지 */}
+      {/* 컨테이너(화물): ship.glb 실측 갑판(SHIP_DECK) 기준 */}
       {SHIP_TWEEN_CARGO_ENABLED && SHIP_TWEEN.enabled ? (
         <OccupancyHiddenCargo
           key={`cargo-${berths.length}`}

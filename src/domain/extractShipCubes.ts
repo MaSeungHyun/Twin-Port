@@ -1,4 +1,8 @@
-import { SHIP_PLACEMENTS } from "@/constants/model";
+import {
+  SHIP_PLACEMENTS,
+  SHIP_POINT_YAW_OFFSET_DEG,
+  SHIP_POSITION_Y,
+} from "@/constants/model";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
 import {
   Euler,
@@ -93,6 +97,44 @@ export function shipsFromPlacements(): QuayBerth[] {
       locatorIndex: ship.locators[0],
       outward: outwardFromYaw(yaw),
       position: [...ship.position] as [number, number, number],
+      rotation: [0, yaw, 0] as [number, number, number],
+      scale: 1,
+    };
+  });
+}
+
+// GLTFLoader(sanitizeNodeName)가 '.'을 제거 → "Ship_Point.000"은 "Ship_Point000"이 됨. 원본은 userData.name
+const SHIP_POINT_RE = /^ship[_ ]?point[._ ]?(\d+)?$/i;
+
+/** GLB Ship_Point.NNN Empty → 선박 배치 (suffix 순). Empty 는 숨김 처리. */
+export function extractShipPoints(root: Object3D): QuayBerth[] {
+  root.updateMatrixWorld(true);
+  const found: { index: number; node: Object3D }[] = [];
+  root.traverse((child) => {
+    const m =
+      SHIP_POINT_RE.exec(String(child.userData?.name ?? "")) ??
+      SHIP_POINT_RE.exec(child.name);
+    if (!m) return;
+    found.push({ index: m[1] ? Number(m[1]) : 0, node: child });
+  });
+  found.sort((a, b) => a.index - b.index);
+  const pos = new Vector3();
+  const quat = new Quaternion();
+  const fwd = new Vector3();
+  const offset = (SHIP_POINT_YAW_OFFSET_DEG * Math.PI) / 180;
+  // GLB 접미사(000,002,005…)는 빈 번호가 있음 → 정렬 순서대로 0..N-1로 당겨서 locatorIndex로 씀
+  return found.map(({ node }, index) => {
+    node.visible = false;
+    node.getWorldPosition(pos);
+    node.getWorldQuaternion(quat);
+    fwd.set(0, 1, 0).applyQuaternion(quat);
+    const yaw = Math.atan2(-fwd.z, fwd.x) + offset;
+    return {
+      kind: "unknown" as const,
+      craneCount: 0,
+      locatorIndex: index,
+      outward: outwardFromYaw(yaw),
+      position: [pos.x, SHIP_POSITION_Y, pos.z] as [number, number, number],
       rotation: [0, yaw, 0] as [number, number, number],
       scale: 1,
     };

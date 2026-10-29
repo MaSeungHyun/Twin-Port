@@ -24,6 +24,97 @@ export const OCEAN_SIM_SIZE = 2048;
 export const OCEAN_SIM_EXTENT = 2004.8;
 /** 동시에 항적을 계산하는 최대 선박 수 */
 export const OCEAN_SHIP_MAX = 8;
+/** 선체 접촉 거품/물 컷아웃을 그리는 최대 선박 수 (셰이더 루프 상한). 선박 수보다 크거나 같아야 모든 배에 거품이 생김 */
+export const OCEAN_HULL_FOAM_MAX = 16;
+
+/** 배 뒤 항적 거품 (속도 0..1 은 Ship.tsx 항적 메시 스케일과 같은 값) */
+/** 최고 속도일 때 선미 뒤로 남는 길이(m) */
+export const OCEAN_WAKE_LENGTH = 320;
+/**
+ * 항적 세기 램프 (선미 거품 + 뱃머리 V + 항적 메시 공통).
+ * 속도비(현재 속도 / 최고 출항 속도)를 smoothstep(LO, HI)로 0..1 목표값으로 바꾸고,
+ * 배마다 세기가 RISE초에 걸쳐 차오르고 멈추면 FALL초에 걸쳐 사라짐.
+ */
+export const OCEAN_WAKE_SPEED_LO = 0.01;
+export const OCEAN_WAKE_SPEED_HI = 0.7;
+/** 세기가 목표의 ~63%까지 차오르는 시간(초) */
+export const OCEAN_WAKE_RISE_SEC = 2.5;
+/** 멈춘 뒤 ~63%까지 줄어드는 시간(초) */
+export const OCEAN_WAKE_FALL_SEC = 2.0;
+/** 한 프레임 이동 속도가 최고 속도의 이 배수를 넘으면 순간이동(정박지 리셋/재등장)으로 보고 항적을 0으로 */
+export const OCEAN_WAKE_TELEPORT_RATIO = 3;
+/**
+ * 직진(출항) 단계 항적: 직진 시작 순간부터 바로 생기기 시작해 이 시간(초)에 걸쳐 선형으로 최대까지.
+ * 실제 세기 = min(1, 경과/RAMP) * (STRAIGHT_BASE + (1-STRAIGHT_BASE)*speed램프) → 속도보다 앞서지 않게.
+ * 직진이 끝나거나 숨겨지면 FALL_SEC 로 사라짐. 선미 거품/뱃머리 V 길이는 직진 후 실제 이동 거리로 제한(0에서 자라남).
+ */
+export const OCEAN_WAKE_RAMP_SEC = 4;
+export const OCEAN_WAKE_STRAIGHT_BASE = 0.5;
+/** 항적을 거품 무늬(lace) 임계값과 별개로 직접 흰색으로 섞는 세기 (거품 무늬만으로는 세기가 낮을 때 거의 안 보였음) */
+export const OCEAN_WAKE_WHITE = 0.9;
+/**
+ * 선체 옆 물결 (직진 중에는 없음):
+ *  - 옆걸음(선박 로컬 Z 이동): 이동하는 쪽(앞서가는 옆면)에만. 세기 = 횡속도비 * SIDE_GAIN
+ *  - 제자리 회전: 선체 주변 은은한 물결. 세기 = |yaw 각속도(rad/s)| * TURN_GAIN, 밝기는 TURN_STRENGTH 로 약하게
+ * 램프는 위 RISE/FALL 과 같음.
+ */
+export const OCEAN_STIR_SIDE_GAIN = 4;
+export const OCEAN_STIR_TURN_GAIN = 15;
+/** 물결이 퍼지는 반경(m). 노이즈로 ±40% 불규칙하게 끝남 */
+export const OCEAN_STIR_RADIUS = 45;
+/** 기본 파수(rad/m)와 바깥으로 퍼지는 속도(rad/s). 노이즈로 파장/위상이 흐트러짐 */
+export const OCEAN_STIR_RIPPLE_K = 0.4;
+export const OCEAN_STIR_RIPPLE_W = 2.0;
+/** 거리 왜곡(m): 클수록 완벽한 동심원에서 멀어짐 */
+export const OCEAN_STIR_WARP = 12;
+/** 옆걸음 물결 밝기 / 회전 물결 밝기(은은하게) */
+export const OCEAN_STIR_STRENGTH = 0.45;
+export const OCEAN_STIR_TURN_STRENGTH = 0.18;
+/** 회전 항적: 최근 경로 곡률(1/m)로 선미 띠를 휘게 함. 최대 곡률, 스무딩 시간, 곡률 강조 배율 */
+export const OCEAN_WAKE_CURVE_MAX = 0.02;
+export const OCEAN_WAKE_CURVE_SMOOTH_SEC = 0.8;
+export const OCEAN_WAKE_CURVE_GAIN = 1;
+/** 곡률이 이 값(1/m) 이상이면 회전 물결을 바깥쪽에만 */
+export const OCEAN_WAKE_CURVE_OUTER_K = 0.002;
+/** 수선 거품선: 선체 옆 폭(m), 세기, 선수 쪽 배율 */
+export const OCEAN_HULL_LINE_WIDTH = 1.6;
+export const OCEAN_HULL_LINE_STRENGTH = 0.35;
+export const OCEAN_HULL_LINE_BOW = 1.8;
+/** 선미 항적 폭: 반폭 = NEAR + 선미 뒤 거리 × WIDEN (점점 넓어짐) + 시작부 HEAD_EXTRA (HEAD_LEN 에 걸쳐 사라짐) */
+export const OCEAN_WAKE_NEAR_HALF_WIDTH = 6;
+export const OCEAN_WAKE_WIDEN = 0.16;
+export const OCEAN_WAKE_HEAD_LEN = 40;
+export const OCEAN_WAKE_HEAD_EXTRA = 3.5;
+/** 시작부 세기 배율 (선미 바로 뒤 1 + BOOST → HEAD_LEN 에서 1) */
+export const OCEAN_WAKE_HEAD_BOOST = 0.6;
+/** 선미 항적 시작점: 선미에서 선수 쪽으로 선체 길이의 이 비율만큼 앞(중앙부)에서 시작 */
+export const OCEAN_WAKE_START_FORWARD = 0.45;
+/** 항적 시작 반폭 = 해당 위치 선체 반폭 + 이 거품 여유(m, 선체 거품 smoothstep(7,..)와 동일) + 수선 거품선 폭 → 배 주변 거품과 이어짐 */
+export const OCEAN_WAKE_START_FOAM_MARGIN = 7;
+/** 뱃머리 V: 팔이 바깥으로 휘는 정도 (반폭에 sqrt(뒤 거리)*CURVE 추가) */
+/** 뱃머리 V: 뒤로 1m 갈 때 팔 두께 증가(m) — 멀수록 넓고 부드러워짐 */
+/** 뱃머리 V: 선수(stem) 흰 물 부풂 반경(m)과 세기 */
+export const OCEAN_BOW_BULGE_RADIUS = 14;
+export const OCEAN_BOW_BULGE_STRENGTH = 0.8;
+/** 선미 거품 띠: 선미 바로 뒤 반폭(m) */
+/** 선미 거품 띠: 뒤로 1m 갈 때 반폭 증가량 (천천히 넓어짐) */
+/** 선미 거품 띠: 뒤로 갈수록 줄무늬로 끊어지는 정도 0..1 */
+export const OCEAN_WAKE_BREAKUP = 0.85;
+/** 뱃머리 V: 반각 tan(10°) — 쾌속정처럼 좁게, 항적과 거의 나란히 */
+export const OCEAN_BOW_WAVE_TAN = 0.18;
+/** Nested straight bow V lines: main + this many progressively shorter inner Vs. */
+export const OCEAN_BOW_WAVE_COUNT = 3;
+export const OCEAN_BOW_WAVE_TAN_RATIO = 0.7;
+export const OCEAN_BOW_WAVE_LENGTH_RATIO = 0.72;
+export const OCEAN_BOW_WAVE_STRENGTH_RATIO = 0.55;
+/** 뱃머리 V: 최고 속도일 때 뒤로 뻗는 길이(m) */
+export const OCEAN_BOW_WAVE_LENGTH = 400;
+/** 뱃머리 V: 선수 근처 팔 두께(m) */
+export const OCEAN_BOW_WAVE_LINE = 3;
+/** 뱃머리 V: 세기 (은은한 물결선) */
+export const OCEAN_BOW_WAVE_STRENGTH = 0.6;
+/** 항적 거품 세기 */
+export const OCEAN_WAKE_FOAM_STRENGTH = 0.85;
 /** 시뮬 높이 → 월드 Y 배율. 클수록 물결이 높게 보임 */
 export const OCEAN_HEIGHT_SCALE = 52.626;
 /** 항적 주변 거울 반사를 일그러뜨리는 정도. 0이면 일그러짐 없음 */

@@ -1,7 +1,7 @@
 import Header from "./views/View/header";
 import ViewLoader from "./views/View/ViewLoader";
 import Viewport from "./views/viewport";
-import MonitoringOverlay from "./views/viewport/_components/MonitoringOverlay";
+
 // import Toaster from "@/components/Toaster";
 
 function App() {
@@ -10,7 +10,7 @@ function App() {
       <ViewLoader />
       <Header />
       <Viewport />
-      <MonitoringOverlay />
+      
       {/* <Toaster /> */}
     </main>
   );

@@ -81,7 +81,8 @@ function measureFootprint(geometry: BufferGeometry, world: Matrix4) {
   });
   const horizontal = [...axes]
     .filter((item) => item.xzLen > 1e-8)
-    .sort((a, b) => b.xzLen - a.xzLen);
+    // 장축 = 실제 월드 길이(extent×scale) 기준. 스케일 없는 메시(Plane.001)는 축 길이가 모두 1이라 xzLen 정렬 시 X가 장축으로 잘못 잡혀 90° 뒤집혔음
+    .sort((a, b) => b.worldSize * b.xzLen - a.worldSize * a.xzLen);
   const long = horizontal[0];
   const short = horizontal[1] ?? horizontal[0];
   const center = new Vector3().setFromMatrixPosition(world);

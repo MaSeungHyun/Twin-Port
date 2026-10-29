@@ -58,26 +58,17 @@ export default function IntroOverlay() {
 
   return (
     <div
-      className="tp-intro absolute inset-0 z-[60] flex items-center justify-center"
+      className="bg-black/50 absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
       style={{
         opacity: phase === "fading" ? 0 : 1,
         pointerEvents: phase === "fading" ? "none" : "auto",
       }}
     >
-      <style>{`
-        .tp-intro{background:rgba(5,12,20,.45);will-change:opacity;transition:opacity ${FADE_MS}ms ease;font-family:"Pretendard","Noto Sans KR",ui-sans-serif,sans-serif;animation:tp-intro-in .5s ease both}
-        @keyframes tp-intro-in{from{opacity:0}to{opacity:1}}
-        .tp-intro-btn{min-width:220px;padding:18px 44px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(53,117,220,.82);color:#fff;font:600 22px/1 "Pretendard","Noto Sans KR",sans-serif;letter-spacing:.06em;cursor:pointer;box-shadow:0 10px 34px rgba(53,117,220,.35),inset 0 1px 0 rgba(255,255,255,.2);transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
-        .tp-intro-btn:hover{background:rgba(53,117,220,1);transform:translateY(-2px);box-shadow:0 14px 40px rgba(53,117,220,.5),inset 0 1px 0 rgba(255,255,255,.25)}
-        .tp-intro-btn:active{transform:translateY(0) scale(.97);background:#2b63bd}
-        .tp-intro-btn:focus-visible{outline:2px solid rgba(255,255,255,.85);outline-offset:4px}
-        .tp-intro-sub{margin-top:14px;color:rgba(255,255,255,.55);font-size:13px;letter-spacing:.04em;text-align:center}
-      `}</style>
       <div className="flex flex-col items-center">
         <Button
           ref={btn}
           type="button"
-          className="tp-intro-btn"
+          className="bg-primary/80 text-white px-12 py-4 text-4xl hover:text-white/50 rounded-lg"
           onClick={start}
         >
           관제 시작

@@ -11,7 +11,7 @@ function Root({
   return (
     <AccordionPrimitive.Root
       data-slot="accordion"
-      className={cn("flex w-full flex-col", className)}
+      className={cn("flex w-full flex-col ", className)}
       {...props}
     />
   );
@@ -55,8 +55,9 @@ function Trigger({
     <AccordionPrimitive.Trigger
       data-slot="accordion-trigger"
       className={cn(
-        "group flex flex-1 cursor-pointer items-center justify-between gap-xs py-md text-left text-lg font-medium text-white outline-none transition-colors",
-        "hover:text-white/90 focus-visible:ring-2 focus-visible:ring-primary/40",
+        "group flex flex-1 cursor-pointer items-center justify-between gap-xs py-md text-left font-medium  outline-none transition-colors text-lg text-white",
+        "hover:text-white/90",
+        "focus-visible:ring-2 focus-visible:ring-primary/40",
         "disabled:cursor-not-allowed disabled:opacity-40",
         className,
       )}

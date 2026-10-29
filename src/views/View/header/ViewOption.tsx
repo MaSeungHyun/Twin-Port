@@ -1,7 +1,6 @@
-import Button from "@/components/Button";
+import IconButton from "@/components/IconButton";
 import Checkbox from "@/components/Checkbox";
 import { DropdownMenu } from "@/components/DropdownMenu";
-import Icon from "@/components/Icon";
 import { useObjectStore } from "@/stores/object";
 
 export default function ViewOption() {
@@ -15,9 +14,7 @@ export default function ViewOption() {
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
-        <Button>
-          <Icon icon="Eye" />
-        </Button>
+        <IconButton icon="Eye" label="View Option" />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="min-w-40 p-sm text-lg">
         <div className="flex flex-col gap-sm px-xs py-xs text-lg text-white">

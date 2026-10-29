@@ -49,8 +49,7 @@ import {
   min,
   fwidth,
   dFdx,
-  dFdy,
-} from "three/tsl";
+  dFdy, sign } from "three/tsl";
 import { renderGroup as _rgAF } from "three/tsl";
 // [fog2] 수면 위 대기 안개(렌더 패널) — 바다/하늘/섬에도 적용. 전역 유니폼, 슬라이더 변경 시 재컴파일 없음
 export const airFogU = { on: uniform(0).setGroup(_rgAF), col: uniform(new THREE.Color(0xc9d6df)).setGroup(_rgAF), near: uniform(300).setGroup(_rgAF), far: uniform(3000).setGroup(_rgAF) };
@@ -61,6 +60,41 @@ export const OCEAN_RADIUS = 26000;
 export const oceanEdgeU = { start: uniform(0.75).setGroup(_rgAF), end: uniform(1.0).setGroup(_rgAF) };
 const airFogMix = (c, dist, under) => mix(c, airFogU.col, airFogU.on.mul(float(1).sub(under)).mul(smoothstep(airFogU.near, airFogU.far, dist)));
 import { CASCADE_L, CASCADE_OFF, CASCADE_ROT } from "../spectrum";
+import {
+  OCEAN_HULL_FOAM_MAX,
+  OCEAN_WAKE_WHITE,
+  OCEAN_STIR_RADIUS,
+  OCEAN_STIR_RIPPLE_K,
+  OCEAN_STIR_RIPPLE_W,
+  OCEAN_STIR_STRENGTH,
+  OCEAN_STIR_WARP,
+  OCEAN_STIR_TURN_STRENGTH,
+  OCEAN_BOW_BULGE_RADIUS,
+  OCEAN_BOW_BULGE_STRENGTH,
+  OCEAN_WAKE_CURVE_GAIN,
+  OCEAN_WAKE_CURVE_OUTER_K,
+  OCEAN_HULL_LINE_WIDTH,
+  OCEAN_HULL_LINE_STRENGTH,
+  OCEAN_HULL_LINE_BOW,
+  OCEAN_WAKE_NEAR_HALF_WIDTH,
+  OCEAN_WAKE_WIDEN,
+  OCEAN_WAKE_HEAD_LEN,
+  OCEAN_WAKE_HEAD_EXTRA,
+  OCEAN_WAKE_HEAD_BOOST,
+  OCEAN_WAKE_START_FORWARD,
+  OCEAN_WAKE_START_FOAM_MARGIN,
+  OCEAN_WAKE_BREAKUP,
+  OCEAN_BOW_WAVE_TAN,
+  OCEAN_BOW_WAVE_COUNT,
+  OCEAN_BOW_WAVE_TAN_RATIO,
+  OCEAN_BOW_WAVE_LENGTH_RATIO,
+  OCEAN_BOW_WAVE_STRENGTH_RATIO,
+  OCEAN_BOW_WAVE_LENGTH,
+  OCEAN_BOW_WAVE_LINE,
+  OCEAN_BOW_WAVE_STRENGTH,
+  OCEAN_WAKE_LENGTH,
+  OCEAN_WAKE_FOAM_STRENGTH,
+} from "@/constants/ocean";
 import { MAX_PTS, SHORE, STRIP, probeRT, shoreTex } from "../scene/resources";
 
 const PI = 3.14159;
@@ -652,7 +686,13 @@ function oceanUniforms(g) {
     uTurb: uniform(0),
     uClarity: uniform(20),
     uShoreFoam: uniform(1),
-    uShip: uniform(new THREE.Vector4(0, 0, 1, 0)),
+    // [twin-port] 선박별 (x, z, cos yaw, sin yaw) + 유효 개수
+    uShips: uniformArray(Array.from({ length: OCEAN_HULL_FOAM_MAX }, () => new THREE.Vector4(0, 0, 1, 0)), "vec4"),
+    uShipN: uniform(0),
+    // [twin-port] 배별 속도 (x = 0..1), 항적 거품용
+    uShipV: uniformArray(Array.from({ length: OCEAN_HULL_FOAM_MAX }, () => new THREE.Vector4(0, 0, 0, 0)), "vec4"),
+    // [twin-port] 경로 곡률 (x = 로컬 X 성분, y = 로컬 Z 성분, 1/m)
+    uShipK: uniformArray(Array.from({ length: OCEAN_HULL_FOAM_MAX }, () => new THREE.Vector4(0, 0, 0, 0)), "vec4"),
     uShipHalf: uniform(new THREE.Vector3(0, 0, 0)),
     // [twin-port] 실제 수선면 윤곽: (axis, a0, a1, has) + bin 별 (lo, hi)
     uShipProf: uniform(new THREE.Vector4(0, 0, 1, 0)),
@@ -1014,14 +1054,19 @@ export function makeOceanMatGPU(g) {
       band.mul(0.75).mul(step(0.0, d)).add(sw.z.mul(0.9).add(sw.w.mul(0.55)).mul(float(1).sub(wlF))),
     );
     // [twin-port] 선체 접촉 거품: 회전 라운드 사각형 SDF, 수면 위 수평 띠만 (정점 변위 없음)
-    const sdl = vXZ.sub(u.uShip.xy);
     // [twin-port] 사각형(스타디움) 폴백 제거: 윤곽이 없으면 아무것도 자르지 않음
     const shipD = float(1e4).toVar();
+    const wake = float(0).toVar();
     // [twin-port] 실제 선체 윤곽이 있으면 그것으로 SDF 근사 (뱃머리 테이퍼 반영)
+    // [twin-port] 모든 선박에 대해 같은 윤곽으로 SDF 를 구해 최솟값 사용
     If(u.uShipProf.w.greaterThan(0.5), () => {
+     Loop(OCEAN_HULL_FOAM_MAX, ({ i }) => {
+     If(float(i).lessThan(u.uShipN), () => {
+      const sp = u.uShips.element(i).toVar();
+      const sdl = vXZ.sub(sp.xy).toVar();
       const pl = vec2(
-        sdl.x.mul(u.uShip.z).sub(sdl.y.mul(u.uShip.w)),
-        sdl.x.mul(u.uShip.w).add(sdl.y.mul(u.uShip.z)),
+        sdl.x.mul(sp.z).sub(sdl.y.mul(sp.w)),
+        sdl.x.mul(sp.w).add(sdl.y.mul(sp.z)),
       ).toVar();
       const ax = select(u.uShipProf.x.greaterThan(0.5), pl.y, pl.x).toVar();
       const lt = select(u.uShipProf.x.greaterThan(0.5), pl.x, pl.y).toVar();
@@ -1034,7 +1079,88 @@ export function makeOceanMatGPU(g) {
       const da = max(u.uShipProf.y.sub(ax), ax.sub(u.uShipProf.z));
       const qq = vec2(dl, da);
       // 내부도 부호 있는 거리 (컷아웃 -1.5m 가 실제로 윤곽 안쪽 1.5m 가 되도록)
-      shipD.assign(length(max(qq, 0.0)).add(min(max(qq.x, qq.y), 0.0)));
+      const dS = length(max(qq, 0.0)).add(min(max(qq.x, qq.y), 0.0)).toVar();
+      shipD.assign(min(shipD, dS));
+      // [twin-port] 항적 (움직이는 배만): 선미 뒤 흰 난류 거품 띠 + 뱃머리에서 퍼지는 켈빈 V 물결선. 선수 = +축
+      const spd = u.uShipV.element(i).x;
+      // 횡축(lt) 방향 경로 곡률: + 이면 경로가 +lt 쪽으로 휨
+      const kS = select(u.uShipProf.x.greaterThan(0.5), u.uShipK.element(i).x, u.uShipK.element(i).y).mul(OCEAN_WAKE_CURVE_GAIN).toVar();
+      If(spd.greaterThan(0.02), () => {
+        // 선미 거품 띠: 중앙 띠, 천천히 넓어지고 흔들리며 뒤로 갈수록 줄무늬로 끊어지며 옅어짐
+        // 항적 시작점을 선미에서 선체 길이 × START_FORWARD 만큼 앞으로 (behind = 새 시작점 뒤 거리)
+        const startOff = u.uShipProf.z.sub(u.uShipProf.y).mul(OCEAN_WAKE_START_FORWARD).toVar();
+        const behind = u.uShipProf.y.add(startOff).sub(ax).toVar();
+        const trail = u.uShipV.element(i).w; // 직진 후 이동 거리 → 항적이 0에서 자라남
+        const wl = min(spd.mul(OCEAN_WAKE_LENGTH), trail).add(startOff).add(1.0);
+        // 선미 근처 좁고 뒤로 갈수록 넓어짐 + 시작부만 살짝 두껍게
+        const head = smoothstep(OCEAN_WAKE_HEAD_LEN, 0.0, behind.max(0.0)).toVar();
+        // 시작 반폭 = 선체 거품 외곽 (이 위치 선체 반폭 lh + 거품 여유 + 수선 거품선 폭), 기존 NEAR+HEAD 보다 작으면 그것 사용
+        const footHW = lh.y.sub(lh.x).mul(0.5).add(OCEAN_WAKE_START_FOAM_MARGIN).add(OCEAN_HULL_LINE_WIDTH);
+        const hw = max(footHW, head.mul(OCEAN_WAKE_HEAD_EXTRA).add(OCEAN_WAKE_NEAR_HALF_WIDTH)).add(behind.max(0.0).mul(OCEAN_WAKE_WIDEN)).toVar();
+        // 실제 지나온 경로(원호 근사)를 따라 휨: 뒤로 s 만큼의 횡 오프셋 = k s²/2. 흔들림 없음
+        const lat = lt.sub(kS.mul(0.5).mul(behind.max(0.0).mul(behind.max(0.0)))).abs();
+        const fade = clamp(float(1).sub(behind.div(wl)), 0.0, 1.0);
+        const along = smoothstep(0.0, 4.0, behind).mul(fade.mul(fade)); // stern trail is strictly behind the stern
+        // 단일 항적: 길이방향 줄무늬(streak)/끊김(breakup) 제거 → 하나의 부드러운 띠
+        const band = smoothstep(hw, hw.mul(0.35), lat).mul(head.mul(OCEAN_WAKE_HEAD_BOOST).add(1.0));
+        // 뱃머리 파: 선수(stem) 흰 물 부풂 + 좁은 각도의 두 직선 팔.
+        // 팔의 위치/경계에는 사인, 시간변조, 횡방향 워프를 쓰지 않음.
+        const back = u.uShipProf.z.sub(ax).toVar();
+        const bk = back.max(0.0);
+        // 완전한 직선 V: 선수(stem)에서 거리에 정비례 (선체 폭 테이퍼/곡률 휨/노이즈 없음)
+        const arm = bk.mul(OCEAN_BOW_WAVE_TAN);
+        const aw = float(OCEAN_BOW_WAVE_LINE).toVar(); // 일정한 선 두께 (벌어짐 없음)
+        const off = lt.abs().sub(arm).toVar(); // + 바깥, - 안쪽
+        const armM = smoothstep(aw, 0.0, off.abs()).toVar();
+        // 바깥쪽이 더 진하고(비대칭), 진행 방향으로 길게 늘인 노이즈 줄무늬 (물결 무늬 없음)
+        const feather = mix(0.5, 1.0, smoothstep(aw.negate(), aw, off));
+        // 아주 미세한 정적 streak만 팔 방향(back)으로 늘임; 팔의 위치와 직선 경계는 변하지 않음
+        const brkB = smoothstep(0.25, 0.75, vnoise(vec3(bk.mul(0.004), 0.0, 0.0)));
+        const bl = min(spd.mul(OCEAN_BOW_WAVE_LENGTH), trail.add(u.uShipProf.z.sub(u.uShipProf.y))).add(1.0);
+        const bfade = smoothstep(bl, 0.0, back).mul(smoothstep(-2.0, 6.0, back));
+        const armBase = armM.mul(mix(0.35, 1.0, feather)).mul(mix(0.8, 1.0, brkB)).mul(bfade).mul(mix(1.0, 0.5, smoothstep(0.0, bl, bk)));
+        // Nested Vs remain straight: each uses its own linear tan and a shorter linear length.
+        // 안쪽 V 는 선미에서 끝남
+        const innerCut = smoothstep(u.uShipProf.z.sub(u.uShipProf.y), u.uShipProf.z.sub(u.uShipProf.y).mul(0.8), bk);
+        const inner1Arm = bk.mul(OCEAN_BOW_WAVE_TAN).mul(OCEAN_BOW_WAVE_TAN_RATIO);
+        const inner1 = smoothstep(aw, 0.0, lt.abs().sub(inner1Arm).abs()).mul(smoothstep(bl.mul(OCEAN_BOW_WAVE_LENGTH_RATIO), 0.0, bk)).mul(OCEAN_BOW_WAVE_STRENGTH_RATIO).mul(innerCut);
+        const inner2Arm = bk.mul(OCEAN_BOW_WAVE_TAN).mul(OCEAN_BOW_WAVE_TAN_RATIO).mul(OCEAN_BOW_WAVE_TAN_RATIO);
+        const inner2 = smoothstep(aw, 0.0, lt.abs().sub(inner2Arm).abs()).mul(smoothstep(bl.mul(OCEAN_BOW_WAVE_LENGTH_RATIO).mul(OCEAN_BOW_WAVE_LENGTH_RATIO), 0.0, bk)).mul(OCEAN_BOW_WAVE_STRENGTH_RATIO).mul(OCEAN_BOW_WAVE_STRENGTH_RATIO).mul(innerCut);
+        const arms = max(armBase, max(OCEAN_BOW_WAVE_COUNT >= 2 ? inner1 : float(0), OCEAN_BOW_WAVE_COUNT >= 3 ? inner2 : float(0))).mul(step(0.0, back)); // nested Vs stop at the bow tip
+        // V 팔은 메인 항적 띠 아래에서 사라짐 (선미 뒤 추가 줄 방지)
+        const armsT = arms.mul(float(1).sub(smoothstep(0.05, 0.4, band.mul(along))));
+        const bulge = smoothstep(OCEAN_BOW_BULGE_RADIUS, 0.0, dS).mul(smoothstep(u.uShipProf.z.sub(30.0), u.uShipProf.z.add(3.0), ax))
+          .mul(mix(0.65, 1.0, vnoise(vec3(vXZ.mul(0.12), 0.0, 0.0)))).mul(OCEAN_BOW_BULGE_STRENGTH);
+        const bow = max(armsT.mul(OCEAN_BOW_WAVE_STRENGTH), bulge);
+        // 수선 거품선: 선체 옆 얇은 띠, 선수 쪽 강하게, 정적 끊김만 (흔들림 없음)
+        const hullLine = smoothstep(OCEAN_HULL_LINE_WIDTH, 0.15, dS).mul(smoothstep(-0.4, 0.15, dS))
+          .mul(mix(1.0, OCEAN_HULL_LINE_BOW, smoothstep(u.uShipProf.y, u.uShipProf.z, ax)))
+          .mul(mix(0.7, 1.0, vnoise(vec3(ax.mul(0.15), 0.0, 0.0)))).mul(OCEAN_HULL_LINE_STRENGTH);
+        wake.assign(max(wake, max(max(band.mul(along), bow), hullLine).mul(spd)));
+      });
+      // [twin-port] 선체 옆 물결 (직진 중 없음): 옆걸음은 이동하는 쪽 옆면에만, 제자리 회전은 주변에 은은하게.
+      // 노이즈로 거리 왜곡 + 파장/위상 변화 + 군데군데 세기 + 불규칙한 끝 → 동심원처럼 보이지 않게
+      const sv = u.uShipV.element(i);
+      const side = sv.y.abs(), turn = sv.z;
+      If(max(side, turn).greaterThan(0.02), () => {
+        const n1 = vnoise(vec3(vXZ.mul(0.03), T.mul(0.1))).toVar();
+        const n2 = vnoise(vec3(vXZ.mul(0.07).add(7.3), T.mul(0.17))).toVar();
+        const dW = dS.add(n1.sub(0.5).mul(OCEAN_STIR_WARP));
+        const ph = dW.mul(OCEAN_STIR_RIPPLE_K).mul(mix(0.75, 1.3, n2)).sub(T.mul(OCEAN_STIR_RIPPLE_W)).add(n1.mul(6.0));
+        const crest = pow(sin(ph).mul(0.5).add(0.5), 3.0);
+        const patch = smoothstep(0.2, 0.75, vnoise(vec3(vXZ.mul(0.05), T.mul(0.15))));
+        const fall = smoothstep(mix(0.6, 1.4, n2).mul(OCEAN_STIR_RADIUS), 0.0, dS).mul(step(0.0, dS));
+        const rip = crest.mul(patch).mul(fall).toVar();
+        // 이동하는 쪽(로컬 Z 부호) 반쪽만, 경계는 부드럽게
+        const lead = smoothstep(-3.0, 10.0, lt.mul(sign(sv.y)));
+        wake.assign(max(wake, rip.mul(lead).mul(side).mul(OCEAN_STIR_STRENGTH)));
+        // 회전 물결은 회전 바깥쪽(-sign k)에 — 곡률이 거의 없으면(제자리 회전) 전체
+        const kT = select(u.uShipProf.x.greaterThan(0.5), u.uShipK.element(i).x, u.uShipK.element(i).y);
+        const outer = mix(1.0, smoothstep(-3.0, 10.0, lt.mul(sign(kT)).negate()), smoothstep(0.0, OCEAN_WAKE_CURVE_OUTER_K, kT.abs()));
+        wake.assign(max(wake, rip.mul(turn).mul(outer).mul(OCEAN_STIR_TURN_STRENGTH)));
+      });
+     });
+     });
     });
     const hullFoam = u.uShipHalf.z
       .mul(smoothstep(7.0, 0.3, shipD))
@@ -1047,7 +1173,8 @@ export function makeOceanMatGPU(g) {
     const wallFoam = u.uShoreFoam
       .mul(smoothstep(u.uWallFoamW, 0.2, d)).mul(step(0.0, d))
       .mul(mix(0.25, 1.0, wRefl.mul(brk))).mul(wlF);
-    const mask = clamp(foamA.add(shoreMask).add(hullFoam).add(wallFoam.mul(0.75)), 0.0, 1.0).toVar();
+    const wakeFoam = wake.mul(OCEAN_WAKE_FOAM_STRENGTH).mul(step(0.0, shipD));
+    const mask = clamp(foamA.add(shoreMask).add(hullFoam).add(wallFoam.mul(0.75)).add(wakeFoam), 0.0, 1.0).toVar();
     const lp = float(0.55).toVar();
     If(near, () => {
       lp.assign(lace(vXZ, T));
@@ -1066,6 +1193,8 @@ export function makeOceanMatGPU(g) {
       .mul(amb.mul(1.6).add(sunC.mul(0.55).mul(max(N.y, 0.0))))
       .toVar();
     col.assign(mix(col, foamC, foam.mul(0.95)));
+    // [twin-port] 항적/선체 물결은 거품 무늬 임계와 별개로 직접 밝게 (세기가 낮으면 lace 임계에 걸려 거의 안 보였음)
+    col.assign(mix(col, foamC, clamp(wakeFoam.mul(OCEAN_WAKE_WHITE), 0.0, 0.9)));
     const fog = float(1).sub(exp(dist.mul(-0.000035)));
     col.assign(
       mix(

@@ -1,5 +1,5 @@
-import BlockContentAccordion from "./_components/block/BlockContentAccordion";
-import ContainerContentAccordion from "./_components/container/ContainerContentAccordion";
+import BlockContent from "./_components/block/BlockContent";
+import ContainerContent from "./_components/container/ContainerContent";
 import ContentDetailGraphPanel from "./_components/ContentDetailGraphPanel";
 import CraneContentPanel from "./_components/crane/CraneContentPanel";
 import ShipContentPanel from "./_components/ship/ShipContentPanel";
@@ -44,9 +44,9 @@ export default function ContentPanel() {
       )}
     >
       <CyberPanel className="flex min-h-0 w-96 shrink-0 flex-col backdrop-blur-md">
-        {activeView === "block" ? <BlockContentAccordion flat /> : null}
+        {activeView === "block" ? <BlockContent /> : null}
         {activeView === "container" ? (
-          <ContainerContentAccordion flat />
+          <ContainerContent />
         ) : null}
         {activeView === "ship" ? <ShipContentPanel /> : null}
         {activeView === "crane" ? <CraneContentPanel /> : null}

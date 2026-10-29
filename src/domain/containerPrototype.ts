@@ -9,6 +9,7 @@ import {
   type BufferGeometry,
   Color,
   EdgesGeometry,
+  FrontSide,
   type Material,
   Matrix4,
   type Mesh,
@@ -31,8 +32,14 @@ function toStandardMaterial(source?: Material): MeshStandardMaterial {
   if (source instanceof MeshStandardMaterial) {
     return source.clone();
   }
+  // MeshStandardMaterial이 아니면 흰색 기본 + 원본 color/map 유지
   const material = new MeshStandardMaterial({ color: 0xffffff });
-  if (source) material.side = source.side;
+  if (source) {
+    material.side = source.side;
+    const src = source as Material & { color?: Color; map?: MeshStandardMaterial["map"] };
+    if (src.color instanceof Color) material.color.copy(src.color);
+    if (src.map) material.map = src.map;
+  }
   return material;
 }
 
@@ -153,6 +160,7 @@ export function buildContainerPrototypes(
     const material = toStandardMaterial(sourceMaterial);
     material.roughness = 0.6;
     material.metalness = 0.35;
+    material.side = FrontSide; // 더블사이드 끔 (GLB 설정 무시)
 
     const highlightMaterial = material.clone();
     highlightMaterial.emissive = HIGHLIGHT_EMISSIVE.clone();
