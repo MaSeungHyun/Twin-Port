@@ -64,7 +64,7 @@ function ToastCard({
   return (
     <div
       className={cn(
-        "flex w-76 items-stretch gap-md rounded-sm border bg-background/70 py-xs pl-md pr-xs shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md",
+        "flex w-96 items-stretch gap-md rounded-sm border bg-background/70 py-xs pl-md pr-xs shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md",
         border,
       )}
     >

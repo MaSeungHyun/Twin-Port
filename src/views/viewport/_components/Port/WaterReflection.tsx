@@ -59,8 +59,8 @@ import type { ShipInstance } from "./Ship";
  * - 최저 LOD(단순화) + 위치만 + unlit + 그림자 없음
  */
 /** 반사면 높이 = level + 최소 LIFT, 파고(hs) 비례로 올려 파도 마루가 뚫고 올라오지 않게 */
-const REFLECTION_LIFT_MIN = 0.6;
-const REFLECTION_LIFT_HS = 0.9;
+const REFLECTION_LIFT_MIN = 0; // 바다 depthWrite=false → 파도 가림 회피용 lift 불필요
+const REFLECTION_LIFT_HS = 0;
 const REFLECTION_LIFT_MAX = 8;
 const REFLECTION_RATIO = 0.06;
 const REFLECTION_ERROR = 0.04;
@@ -71,7 +71,26 @@ const REFLECTION_FADE_HEIGHT = 140;
 const REFLECTION_RENDER_ORDER = 5;
 /** depth 순서 기록: 원본 높이 0~ORDER_HEIGHT(m) → 카메라 쪽으로 SPAN~0 m */
 const REFLECTION_ORDER_HEIGHT = 200;
-const REFLECTION_ORDER_SPAN = 3;
+const REFLECTION_ORDER_SPAN = 0.3; // 3m 당김은 선체 앞까지 튀어나와 배 위에 그려짐
+/**
+ * [hull] 반사 depth 를 수면보다 이 깊이(m)만큼 아래(시선 방향 뒤쪽)로 기록 (화면 위치 불변).
+ * 흘수선 부근 선체가 반사보다 앞이 되어 선체 위에 반사가 안 그려지고, 선체-반사 depth 동률(z-fight → 반짝임)도 사라짐.
+ * 최종 깊이 = SINK_MIN + hs × SINK_HS
+ */
+const REFLECTION_SINK_MIN = 1.5;
+const REFLECTION_SINK_HS = 0.6;
+/** [hull] 시선 방향 sink 거리 상한(m) — 저각에서 d/|dir.y| 가 폭주하지 않게 */
+const REFLECTION_SINK_MAX_ALONG = 60;
+/**
+ * [x-ray] 같은 픽셀의 반사들은 모두 같은 수면점에 투영돼 depth 가 동일 → 앞/뒤 크레인 부재가 둘 다 LessEqual 통과(겹쳐 보임).
+ * 실제 반전점까지의 거리(카메라→반전점 − 카메라→수면점)에 이 비율만큼 뒤로 밀어 진짜 앞뒤 순서를 depth 에 기록
+ */
+const REFLECTION_DEPTH_ORDER_K = 0.05;
+/** [x-ray] 크레인 반사 단순화 비율 (0.06 은 격자 부재가 찢어져 윤곽선이 보였음) */
+const REFLECTION_CRANE_RATIO = 0.15;
+/** [sparkle] 정점 일렁임 / 알파 줄무늬 세기 (0 = 시간에 따라 흔들리지 않는 안정 반사) */
+const REFLECTION_WOBBLE = 0;
+const REFLECTION_RIPPLE = 0;
 /** [reflection] 지면(안벽/에이프런) 반사 대상 = portShore 육지와 동일 (GLTFLoader 가 "." 제거) */
 const REFLECTION_LAND = /^(Ground|Plane\.?002)$/;
 /** 지면 반사: 수면 위 이 높이(m)보다 전부 높은 삼각형은 제외 (반사가 어차피 육지 마스크로 버려지는 내륙/고지대) */
@@ -103,12 +122,18 @@ const uCamFade = uniform(1);
 const uLevel = uniform(oceanState.level);
 const uOpacity = uniform(REFLECTION_OPACITY);
 const uLift = uniform(REFLECTION_LIFT_MIN);
+const uSink = uniform(REFLECTION_SINK_MIN);
 /**
  * [reflection] 육지 마스크: portShore 가 구운 해안 거리장(shoreTex .y = 부호거리 m, 물 +)을 반사 히트점 xz 로 샘플.
  * 해안선에서 SHORE_MARGIN(m) 안쪽(육지 쪽)은 discard → 부두/안벽/에이프런 위에는 반사가 절대 안 그려짐
  * (depth 순서 오프셋/리프트와 무관하게 동작)
  */
 const REFLECTION_SHORE_MARGIN = 1;
+/** [sparkle] 파도 마루 위 반사 수직 여유(m, lift 에 더함) / 시선 방향 당김 최대(m) */
+/** [sparkle] 카메라-반사 거리(m): START 까지 100%, END 에서 0 (얇은 크레인 격자 원거리 반짝임 완화) */
+const REFLECTION_FAR_FADE_START = 350;
+const REFLECTION_FAR_FADE_END = 900;
+const REFLECTION_FAR_FADE_HEIGHT_K = 2;
 /** 해안선에서 이 거리(m)까지 반사를 서서히 페이드 인 */
 const REFLECTION_SHORE_FADE = 6;
 const uShoreRect = uniform(new Vector3(SHORE.rect[0], SHORE.rect[1], SHORE.rect[2]));
@@ -145,14 +170,20 @@ function getReflectionMaterial(pass: "depth" | "color") {
   m.vertexNode = Fn(() => {
     const wp = modelWorldMatrix.mul(vec4(positionLocal, 1)).xyz;
     vHeight.assign(wp.y.sub(uLevel));
-    const mirrored = vec3(wp.x, uLevel.mul(2).sub(wp.y), wp.z);
+    // [hull] 수면 아래 정점(선창 속 컨테이너 등)은 수면에 붙임: 그대로 반전하면 수면 위로 솟아 t=1 클램프 → 반사 삼각형이
+    // 수면점↔선체 내부점 사이로 늘어나 선체 앞 depth 로 선체 위에 그려졌음
+    const mirrored = vec3(wp.x, uLevel.mul(2).sub(max(wp.y, uLevel)), wp.z);
     const surf = uLevel.add(uLift);
     const denom = max(cameraPosition.y.sub(mirrored.y), 0.001);
     // 카메라 > surf >= level >= mirrored.y 이므로 t ∈ [0,1] → hit 는 항상 카메라와 반전점 사이(수평선 아래)
     const t = clamp(cameraPosition.y.sub(surf).div(denom), 0, 1);
     const hit = cameraPosition.add(mirrored.sub(cameraPosition).mul(t)).toVar();
     // 물결 일렁임: 원본 높이가 높을수록(반사가 길수록) 조금 더 흔들림
-    const amp = clamp(vHeight.div(40), 0, 1).mul(0.9);
+    // [sparkle] 먼 거리에선 흔들림이 서브픽셀 지터(반짝임)가 되므로 거리로 감쇠
+    const camDist = cameraPosition.sub(wp).length();
+    const farK = float(1).sub(smoothstep(float(150), float(600), camDist));
+    // [sparkle] 시간에 따른 정점 일렁임이 반사 경계를 픽셀 단위로 흔들어 반짝임의 주원인 → WOBBLE=0
+    const amp = clamp(vHeight.div(40), 0, 1).mul(0.9).mul(farK).mul(REFLECTION_WOBBLE);
     hit.x.addAssign(sin(hit.z.mul(0.18).add(time.mul(1.7))).mul(amp));
     hit.z.addAssign(sin(hit.x.mul(0.15).add(time.mul(1.3))).mul(amp.mul(0.6)));
     vHit.assign(hit);
@@ -175,7 +206,17 @@ function getReflectionMaterial(pass: "depth" | "color") {
       clamp(vHeight.div(REFLECTION_ORDER_HEIGHT), 0, 1),
     );
     const toCam = normalize(cameraPosition.sub(hit));
-    const placed = hit.add(toCam.mul(near.mul(REFLECTION_ORDER_SPAN)));
+    // [sparkle] 옆에서 보면 파도 마루가 반사면(level+lift)을 넘나들며 depth 테스트로 반사가 깜빡임 →
+    // 화면 위치는 그대로(시선 방향 이동) 두고, 수면 위 수직 여유(WAVE_CLEARANCE+lift)를 확보할 만큼 카메라 쪽으로 당김
+    // 파도 회피용 카메라쪽 당김 제거(선체 덮음·저각 z-fight 원인). 순서용 미세 당김만 유지.
+    const pull = near.mul(REFLECTION_ORDER_SPAN);
+    // [hull] 수면 아래로 sink + [x-ray] 반전점 실제 거리로 앞뒤 순서 (둘 다 시선 방향 이동 → 화면 위치 불변)
+    const sinkAlong = clamp(uSink.div(max(abs(toCam.y), 0.001)), 0, REFLECTION_SINK_MAX_ALONG);
+    const mirrorExtra = max(
+      cameraPosition.sub(mirrored).length().sub(cameraPosition.sub(hit).length()),
+      0,
+    ).mul(REFLECTION_DEPTH_ORDER_K);
+    const placed = hit.add(toCam.mul(pull.sub(sinkAlong).sub(mirrorExtra)));
     return cameraProjectionMatrix.mul(cameraViewMatrix).mul(vec4(placed, 1));
   })();
   m.colorNode = vec3(
@@ -224,14 +265,16 @@ function getReflectionMaterial(pass: "depth" | "color") {
     // 프레넬 흉내: 내려다볼수록 약하게
     const fres = mix(float(1), float(0.55), abs(viewDir.y));
     // 불규칙 물결 줄무늬로 경계 깨기
+    // [sparkle] 줄무늬는 먼 거리/낮은 각도에서 픽셀보다 촘촘해져 aliasing → 거리로 대비 감쇠
+    const rippleK = float(1).sub(smoothstep(float(120), float(450), cameraPosition.sub(vHit).length()));
     const ripple = sin(
       vHit.z
         .mul(0.9)
         .add(sin(vHit.x.mul(0.37)).mul(2.3))
         .add(time.mul(2.1)),
     )
-      .mul(0.18)
-      .add(0.82);
+      .mul(float(REFLECTION_RIPPLE).mul(rippleK))
+      .add(float(1).sub(float(REFLECTION_RIPPLE).mul(rippleK)));
     // [grazing] 수평에 가까운 시선은 투영점이 멀리 늘어나며 줄무늬(moire) 박스처럼 보임 → 페이드아웃
     const grazing = smoothstep(
       float(REFLECTION_GRAZING_FADE[0]),
@@ -246,7 +289,16 @@ function getReflectionMaterial(pass: "depth" | "color") {
     If(cameraPosition.y.sub(vHit.y).lessThanEqual(0), () => {
       Discard();
     });
-    return uOpacity.mul(fade).mul(fres).mul(ripple).mul(shoreFade).mul(graze);
+    // 높은 부감(슬롯2 ~1.6 km 위)에선 전체가 멀어 다 꺼지지 않도록 카메라 수면 위 높이×FAR_FADE_HEIGHT_K 만큼 구간을 밀어줌
+    const farShift = max(cameraPosition.y.sub(uLevel), 0).mul(REFLECTION_FAR_FADE_HEIGHT_K);
+    const farFade = float(1).sub(
+      smoothstep(
+        farShift.add(REFLECTION_FAR_FADE_START),
+        farShift.add(REFLECTION_FAR_FADE_END),
+        cameraPosition.sub(vHit).length(),
+      ),
+    );
+    return uOpacity.mul(fade).mul(fres).mul(ripple).mul(shoreFade).mul(graze).mul(farFade);
   })();
   materials[pass] = m;
   return m;
@@ -327,8 +379,8 @@ function toGeometry(values: number[]) {
   return geo;
 }
 
-function lowest(geo: BufferGeometry) {
-  return simplifiedGeometry(geo, REFLECTION_RATIO, REFLECTION_ERROR) ?? geo;
+function lowest(geo: BufferGeometry, ratio = REFLECTION_RATIO) {
+  return simplifiedGeometry(geo, ratio, REFLECTION_ERROR) ?? geo;
 }
 
 /** [grazing] 카메라 높이 기준 반사 표시 가능 여부 */
@@ -351,6 +403,7 @@ function useLevelSync() {
     // 반사면은 항상 카메라보다 아래 (낮은 카메라에서 정점이 카메라 위치로 붕괴 → 하늘로 솟은 박스 방지)
     const camAbove = camera.position.y - oceanState.level - REFLECTION_CAMERA_CLEARANCE;
     uLift.value = Math.max(0, Math.min(lift, camAbove));
+    uSink.value = REFLECTION_SINK_MIN + oceanState.hs * REFLECTION_SINK_HS;
     const h = camera.position.y - oceanState.level;
     const k = Math.min(1, Math.max(0, (h - REFLECTION_CAMERA_FADE[0]) / (REFLECTION_CAMERA_FADE[1] - REFLECTION_CAMERA_FADE[0])));
     uCamFade.value = k * k * (3 - 2 * k);
@@ -505,7 +558,7 @@ export function QuayCraneReflection({ model }: { model: Object3D }) {
         seen.add(src);
         let geo = cache.get(src.geometry);
         if (!geo) {
-          geo = lowest(src.geometry);
+          geo = lowest(src.geometry, REFLECTION_CRANE_RATIO);
           cache.set(src.geometry, geo);
         }
         if ((src as InstancedMesh).isInstancedMesh) {

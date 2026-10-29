@@ -21,13 +21,13 @@ export const SHIP_DECK = {
 /* ───────────── 사용자 조정값 (여기만 바꾸면 됨) ───────────── */
 
 /** 맨 아래 단 높이 오프셋(m). 기준 = 해치 커버 상면(SHIP_DECK.y 16.3). 예) -5 → 5m 아래에서 시작 */
-export const SHIP_CARGO_Y_OFFSET = -14.9; // ship.glb 상갑판/코밍 가장자리 높이 ≈14.9 에 맞춤
+export const SHIP_CARGO_Y_OFFSET = -10; // ship.glb 상갑판/코밍 가장자리 높이 ≈14.9 에 맞춤
 /** 길이 방향 칸 수(베이). 늘리면 적재 컨테이너 수가 늘어남 (상한 없음, 갑판 중앙 정렬) */
 export const SHIP_CARGO_BAYS = 12;
 /** 폭 방향 칸 수(줄) */
 export const SHIP_CARGO_ROWS = 5;
 /** 높이 칸 수(단) */
-export const SHIP_CARGO_TIERS = 9;
+export const SHIP_CARGO_TIERS = 7;
 /** 선박 적재 데모: 아래 단부터 한 층(tier)씩 쌓이는 간격(초). 층 하나가 통째로 나타남 */
 export const SHIP_CARGO_TIER_INTERVAL = 0.6;
 /** 위치 미세 조정(m, 선박 로컬). X=선수(+)/선미(-), Z=우현(+)/좌현(-) */

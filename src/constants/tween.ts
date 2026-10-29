@@ -125,7 +125,7 @@ export const SHIP_TWEENS: readonly ShipTweenConfig[] = [
   // 3 (007): 화면 아래로 75m → 우현 35° → 직진
   ship(3, "3 (007)", {
     sidestepZ: 50,
-    turnDeg: -35,
+    turnDeg: -45,
     departDistance: 950,
     departDuration: 52.8,
     delay: 36,
@@ -133,7 +133,7 @@ export const SHIP_TWEENS: readonly ShipTweenConfig[] = [
   // 4 (008): 화면 아래로 75m → 우현 50° → 직진
   ship(4, "4 (008)", {
     sidestepZ: 50,
-    turnDeg: -50,
+    turnDeg: -60,
     departDistance: 710,
     departDuration: 39.4,
     delay: 0,

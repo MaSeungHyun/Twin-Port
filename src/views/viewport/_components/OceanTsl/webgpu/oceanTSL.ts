@@ -769,6 +769,8 @@ export function makeOceanMatGPU(g) {
   const m = new MeshBasicNodeMaterial({
     side: THREE.DoubleSide,
     transparent: true,
+    // 수면은 depth를 쓰지 않음: 파도 마루가 반사를 가리지 않게(반짝임 방지)
+    depthWrite: false,
   });
   m.fog = false;
   m.positionNode = Fn(() => {
