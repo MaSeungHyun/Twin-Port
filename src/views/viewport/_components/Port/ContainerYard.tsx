@@ -14,6 +14,7 @@ import type { Container } from "@/types/container";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
+import { extendKtx2 } from "@/domain/gltfLoaders";
 import { useFrame } from "@react-three/fiber";
 import {
   CONTAINER_LOD_CHECK_EVERY,
@@ -92,7 +93,7 @@ export default function ContainerYard({
   const deckY = useYardStore((s) => s.deckY);
   const yardOffset = useYardStore((s) => s.yardOffset);
   const containers = useYardStore((s) => s.containers);
-  const { scene } = useGLTF(containersUrl);
+  const { scene } = useGLTF(containersUrl, false, true, extendKtx2);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
   const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
 
@@ -438,4 +439,4 @@ export default function ContainerYard({
   );
 }
 
-useGLTF.preload(containersUrl);
+useGLTF.preload(containersUrl, false, true, extendKtx2);

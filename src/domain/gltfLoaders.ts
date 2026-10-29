@@ -1,5 +1,7 @@
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
+import { LoaderUtils } from "three";
 import type { GLTFLoader } from "three-stdlib";
+import { fetchGlb } from "@/domain/glbCache";
 
 /**
  * [perf] BUSAN.glb 최적화(KTX2 텍스처 + EXT_meshopt_compression) 로더 설정.
@@ -30,4 +32,28 @@ export function whenKtx2Ready(fn: () => void) {
 
 export const extendKtx2 = (loader: GLTFLoader) => {
   loader.setKTX2Loader(ktx2Loader as never);
+  // [perf] 바이트는 glbCache 에서 (prefetch 와 요청 공유 + Cache Storage). 로딩바(useProgress)용 manager item 은 그대로 보고
+  loader.load = (url, onLoad, _onProgress, onError) => {
+    const manager = loader.manager;
+    const resolved = manager.resolveURL(url);
+    manager.itemStart(resolved);
+    const fail = (error: unknown) => {
+      onError?.(error as ErrorEvent);
+      manager.itemError(resolved);
+      manager.itemEnd(resolved);
+    };
+    fetchGlb(resolved).then(
+      (buffer) =>
+        loader.parse(
+          buffer,
+          loader.path || LoaderUtils.extractUrlBase(resolved),
+          (gltf) => {
+            onLoad(gltf);
+            manager.itemEnd(resolved);
+          },
+          fail,
+        ),
+      fail,
+    );
+  };
 };

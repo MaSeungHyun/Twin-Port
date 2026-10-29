@@ -84,3 +84,26 @@ export function createBlockCenterCraneInstances(
     };
   });
 }
+
+/** [ohc] 매 프레임 갱신되는 live 위치 — 카메라 Tracking 용 (React state 없음) */
+const livePositions: [number, number, number][] = [];
+
+export function setOverheadCraneLivePosition(
+  index: number,
+  x: number,
+  y: number,
+  z: number,
+) {
+  const current = livePositions[index];
+  if (current) {
+    current[0] = x;
+    current[1] = y;
+    current[2] = z;
+    return;
+  }
+  livePositions[index] = [x, y, z];
+}
+
+export function getOverheadCraneLivePosition(index: number): Vec3 | null {
+  return livePositions[index] ?? null;
+}

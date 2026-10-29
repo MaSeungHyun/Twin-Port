@@ -12,6 +12,11 @@ import {
 } from "@/domain/quayCraneIndex";
 import { getShipPoseAt } from "@/domain/shipWake";
 import { useYardStore } from "@/stores/yard";
+import {
+  createBlockCenterCraneInstances,
+  getOverheadCraneLivePosition,
+  type OverHeadCraneInstance,
+} from "@/views/viewport/_components/Port/overheadCraneInstances";
 import { type Object3D, Vector3 } from "three";
 
 let quayCraneModel: Object3D | null = null;
@@ -100,4 +105,31 @@ export function getCraneListSource(): {
     })),
     fromModel: false,
   };
+}
+
+let ohcCache: {
+  blocks: unknown;
+  deckY: number;
+  instances: OverHeadCraneInstance[];
+} | null = null;
+
+function overheadCraneInstances(): OverHeadCraneInstance[] {
+  const { blocks, deckY } = useYardStore.getState();
+  if (!ohcCache || ohcCache.blocks !== blocks || ohcCache.deckY !== deckY) {
+    ohcCache = {
+      blocks,
+      deckY,
+      instances: createBlockCenterCraneInstances(blocks, deckY),
+    };
+  }
+  return ohcCache.instances;
+}
+
+/** overhead crane 월드 포커스 — 왕복 중 live 위치 + 높이 절반 */
+export function getOverheadCraneFocusTarget(index: number): Vector3 | null {
+  const instance = overheadCraneInstances()[index];
+  if (!instance) return null;
+  const [x, y, z] = getOverheadCraneLivePosition(index) ?? instance.position;
+  const height = instance.fit?.[1] ?? 10;
+  return new Vector3(x, y + height * 0.5, z);
 }

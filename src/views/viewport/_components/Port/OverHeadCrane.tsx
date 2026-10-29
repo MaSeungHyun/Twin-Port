@@ -7,6 +7,7 @@ import {
   portHoverOver,
 } from "@/domain/hoverOutline";
 import { useGLTF } from "@react-three/drei";
+import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import {
@@ -22,9 +23,11 @@ import {
 import HoverOutlineMesh from "./HoverOutlineMesh";
 import {
   createBlockCenterCraneInstances,
+  setOverheadCraneLivePosition,
   type OverHeadCraneInstance,
 } from "./overheadCraneInstances";
 import { useYardStore } from "@/stores/yard";
+import { getActiveOverheadCraneIndex, useViewportStore } from "@/stores/viewport";
 
 type CranePart = {
   geometry: BufferGeometry;
@@ -43,7 +46,7 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
     () => instances ?? createBlockCenterCraneInstances(blocks, deckY),
     [instances, blocks, deckY],
   );
-  const { scene } = useGLTF(overheadCraneUrl);
+  const { scene } = useGLTF(overheadCraneUrl, false, true, extendKtx2);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   const outlineRefs = useRef<(Mesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
@@ -80,7 +83,12 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   }, [scene]);
 
   const applyHoverOutline = useCallback(() => {
-    const hoverIndex = hoveredIndexOf("overheadCrane");
+    // pointer hover 우선, 없으면 패널 Tracking/상세 포커스 대상
+    const pointerIndex = hoveredIndexOf("overheadCrane");
+    const hoverIndex =
+      pointerIndex >= 0
+        ? pointerIndex
+        : (getActiveOverheadCraneIndex(useViewportStore.getState()) ?? -1);
     parts.forEach((_, partIndex) => {
       const outline = outlineRefs.current[partIndex];
       const instanced = meshRefs.current[partIndex];
@@ -112,6 +120,14 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
             sy + (ey - sy) * u,
             sz + (ez - sz) * u,
           );
+          if (partIndex === 0) {
+            setOverheadCraneLivePosition(
+              index,
+              dummy.position.x,
+              dummy.position.y,
+              dummy.position.z,
+            );
+          }
           dummy.rotation.set(...(instance.rotation ?? [0, 0, 0]));
 
           const scale = instance.scale ?? 1;
@@ -183,4 +199,4 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   );
 }
 
-useGLTF.preload(overheadCraneUrl);
+whenKtx2Ready(() => useGLTF.preload(overheadCraneUrl, false, true, extendKtx2)); // [perf] KTX2 + meshopt

@@ -1,11 +1,14 @@
 import { create } from "zustand";
 import { resolveCraneIndex } from "@/domain/cameraFocus";
+import { resolveOverheadCraneIndex } from "@/domain/overheadCraneTwin";
 import { isViewportTracking, useViewportStore } from "@/stores/viewport";
 
 export type ContentView = "block" | "container" | "ship" | "crane";
 
+export type CraneTab = "quay" | "overhead";
+
 export type DetailGraphSubject = {
-  kind: "ship" | "crane";
+  kind: "ship" | "crane" | "overheadCrane";
   key: string;
   index: number;
 };
@@ -17,6 +20,12 @@ type ContentViewState = {
   detailShipKey: string | null;
   /** 3D·목록 공통 — 크레인 상세 키 */
   detailCraneKey: string | null;
+  /** 크레인 패널 탭 — 컨테이너(quay) / 오버헤드 */
+  craneTab: CraneTab;
+  setCraneTab: (tab: CraneTab) => void;
+  /** overhead crane 상세 키 (ohc-N) */
+  detailOverheadCraneKey: string | null;
+  openOverheadCraneDetail: (key: string) => void;
   /** 컨테이너 상세 ID */
   detailContainerId: string | null;
   openShipDetail: (key: string) => void;
@@ -46,12 +55,17 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
         viewport.clearCraneDetailFocus();
         viewport.clearCraneSelection();
       }
+      if (next !== "crane" && state.detailOverheadCraneKey) {
+        viewport.clearOverheadCraneDetailFocus();
+        viewport.clearOverheadCraneSelection();
+      }
       if (next !== "container" && state.detailContainerId) {
         viewport.clearContainerSelection();
       }
       if (next == null) {
         viewport.clearShipSelection();
         viewport.clearCraneSelection();
+        viewport.clearOverheadCraneSelection();
         viewport.clearContainerSelection();
       }
 
@@ -61,11 +75,52 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
         detailGraphSubject: null,
         detailShipKey: next === "ship" ? state.detailShipKey : null,
         detailCraneKey: next === "crane" ? state.detailCraneKey : null,
+        detailOverheadCraneKey:
+          next === "crane" ? state.detailOverheadCraneKey : null,
         detailContainerId: next === "container" ? state.detailContainerId : null,
       };
     }),
   detailShipKey: null,
   detailCraneKey: null,
+  craneTab: "quay",
+  setCraneTab: (tab) => {
+    const state = get();
+    if (state.craneTab === tab) return;
+    const viewport = useViewportStore.getState();
+    viewport.clearCraneDetailFocus();
+    viewport.clearCraneSelection();
+    viewport.clearOverheadCraneDetailFocus();
+    viewport.clearOverheadCraneSelection();
+    set({
+      craneTab: tab,
+      detailCraneKey: null,
+      detailOverheadCraneKey: null,
+      detailGraphOpen: false,
+      detailGraphSubject: null,
+    });
+  },
+  detailOverheadCraneKey: null,
+  openOverheadCraneDetail: (key) => {
+    const index = resolveOverheadCraneIndex(key);
+    if (index == null) return;
+
+    const viewport = useViewportStore.getState();
+    set({
+      activeView: "crane",
+      craneTab: "overhead",
+      detailOverheadCraneKey: key,
+      detailCraneKey: null,
+      detailShipKey: null,
+      detailContainerId: null,
+      detailGraphOpen: false,
+      detailGraphSubject: null,
+    });
+    if (isViewportTracking(viewport)) {
+      viewport.selectOverheadCrane(index);
+    } else {
+      viewport.focusOverheadCraneDetail(index);
+    }
+  },
   detailContainerId: null,
   setDetailContainerId: (id) => {
     if (id == null) {
@@ -79,6 +134,7 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
       activeView: "ship",
       detailShipKey: key,
       detailCraneKey: null,
+      detailOverheadCraneKey: null,
       detailContainerId: null,
       detailGraphOpen: false,
       detailGraphSubject: null,
@@ -96,7 +152,9 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
     const viewport = useViewportStore.getState();
     set({
       activeView: "crane",
+      craneTab: "quay",
       detailCraneKey: key,
+      detailOverheadCraneKey: null,
       detailShipKey: null,
       detailContainerId: null,
       detailGraphOpen: false,
@@ -114,8 +172,15 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
     viewport.clearCraneDetailFocus();
     viewport.clearShipSelection();
     viewport.clearCraneSelection();
+    viewport.clearOverheadCraneDetailFocus();
+    viewport.clearOverheadCraneSelection();
     viewport.clearContainerSelection();
-    set({ detailShipKey: null, detailCraneKey: null, detailContainerId: null });
+    set({
+      detailShipKey: null,
+      detailCraneKey: null,
+      detailOverheadCraneKey: null,
+      detailContainerId: null,
+    });
   },
   detailGraphOpen: false,
   detailGraphSubject: null,
@@ -156,6 +221,14 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
       return true;
     }
 
+    if (state.detailOverheadCraneKey) {
+      const viewport = useViewportStore.getState();
+      viewport.clearOverheadCraneDetailFocus();
+      viewport.clearOverheadCraneSelection();
+      set({ detailOverheadCraneKey: null });
+      return true;
+    }
+
     if (state.detailContainerId) {
       useViewportStore.getState().clearContainerSelection();
       set({ detailContainerId: null });
@@ -166,11 +239,14 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
       const viewport = useViewportStore.getState();
       viewport.clearShipSelection();
       viewport.clearCraneSelection();
+      viewport.clearOverheadCraneDetailFocus();
+      viewport.clearOverheadCraneSelection();
       viewport.clearContainerSelection();
       set({
         activeView: null,
         detailShipKey: null,
         detailCraneKey: null,
+        detailOverheadCraneKey: null,
         detailContainerId: null,
         detailGraphOpen: false,
         detailGraphSubject: null,

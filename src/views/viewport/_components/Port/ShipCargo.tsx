@@ -32,6 +32,7 @@ import {
 import { composeCargoSlotLocal, shipWorldScale } from "@/domain/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import { useGLTF } from "@react-three/drei";
+import { extendKtx2 } from "@/domain/gltfLoaders";
 import { useFrame } from "@react-three/fiber";
 import gsap from "gsap";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -137,7 +138,7 @@ export default function ShipCargo({
   posesRef: RefObject<ShipInstance[]>;
   berths: readonly ShipInstance[] | readonly QuayBerth[];
 }) {
-  const { scene } = useGLTF(containersUrl);
+  const { scene } = useGLTF(containersUrl, false, true, extendKtx2);
   const groupRefs = useRef<(Object3D | null)[]>([]);
   const meshRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>[]>(
     [],
@@ -618,4 +619,4 @@ export default function ShipCargo({
   );
 }
 
-useGLTF.preload(containersUrl);
+useGLTF.preload(containersUrl, false, true, extendKtx2);

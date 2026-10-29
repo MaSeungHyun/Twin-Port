@@ -9,6 +9,10 @@ import {
   getShipTwinProfile,
   shipStatusLabel,
 } from "@/domain/portTwinMock";
+import {
+  getOverheadCraneTwinProfile,
+  overheadCraneTitle,
+} from "@/domain/overheadCraneTwin";
 import { cn } from "@/utils/style";
 import Button from "@/components/Button";
 import CraneDetailGraphView from "./detail/CraneDetailGraphView";
@@ -22,6 +26,19 @@ type ContentDetailGraphPanelProps = {
 };
 
 function graphHeader(subject: DetailGraphSubject) {
+  if (subject.kind === "overheadCrane") {
+    const twin = getOverheadCraneTwinProfile(subject.index);
+    return {
+      title: overheadCraneTitle(subject.index),
+      subtitle: (
+        <OperationalStatusIndicator
+          label={craneStatusLabel(twin.status)}
+          tone={craneOperationalTone(twin.status)}
+        />
+      ),
+    };
+  }
+
   if (subject.kind === "crane") {
     const twin = getCraneTwinProfile(subject.index);
     return {
@@ -65,7 +82,7 @@ export default function ContentDetailGraphPanel({
       />
 
       <div className="flex min-h-0 flex-1 flex-col px-xl py-sm">
-        {subject.kind === "crane" ? (
+        {subject.kind !== "ship" ? (
           <CraneDetailGraphView
             index={subject.index}
             subjectKey={subject.key}

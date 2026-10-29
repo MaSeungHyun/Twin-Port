@@ -1,4 +1,3 @@
-import type { CraneInstance } from "@/views/viewport/_components/Port/Crane";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 
 /**
@@ -31,6 +30,12 @@ export type ShipBerthOffset = {
 
 export const SHIP_BERTH_OFFSETS: Record<number, ShipBerthOffset> = {
   // 예: 0: { out: -0.8, along: 0.4 },
+};
+
+export type CraneInstance = {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  scale?: number | [number, number, number];
 };
 
 const YAW_180: [number, number, number] = [0, Math.PI, 0];

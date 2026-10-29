@@ -17,6 +17,14 @@ type ViewportState = {
   selectedShipKey: string | null;
   /** 목록/상세에서 선택한 quay crane 인덱스 */
   selectedCraneIndex: number | null;
+  /** 목록/상세에서 선택한 overhead crane 인덱스 (Tracking) */
+  selectedOverheadCraneIndex: number | null;
+  /** overhead crane 상세 outline 전용 (카메라 이동 없음) */
+  focusedOverheadCraneIndex: number | null;
+  selectOverheadCrane: (index: number) => void;
+  clearOverheadCraneSelection: () => void;
+  focusOverheadCraneDetail: (index: number) => void;
+  clearOverheadCraneDetailFocus: () => void;
   /** 같은 대상 재선택 시에도 카메라 비행이 다시 돌도록 */
   focusNonce: number;
   /** GLB crane index — 상세 화면 outline 전용 (카메라 이동 없음) */
@@ -49,6 +57,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
         ? {
             selectedShipKey: null,
             selectedCraneIndex: null,
+            selectedOverheadCraneIndex: null,
             selectedContainerId: null,
           }
         : { selectedBlockCode: null }),
@@ -62,6 +71,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
   selectedContainerId: null,
   selectedShipKey: null,
   selectedCraneIndex: null,
+  selectedOverheadCraneIndex: null,
+  focusedOverheadCraneIndex: null,
   focusedCraneGlbIndex: null,
   focusedShipKey: null,
   focusNonce: 0,
@@ -72,6 +83,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedCraneIndex: null,
       focusedCraneGlbIndex: null,
       focusedShipKey: null,
+      selectedOverheadCraneIndex: null,
+      focusedOverheadCraneIndex: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
@@ -83,6 +96,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
       selectedContainerId: null,
       selectedCraneIndex: null,
       focusedCraneGlbIndex: null,
+      selectedOverheadCraneIndex: null,
+      focusedOverheadCraneIndex: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
@@ -94,12 +109,39 @@ export const useViewportStore = create<ViewportState>((set) => ({
       focusedShipKey: null,
       selectedContainerId: null,
       selectedShipKey: null,
+      selectedOverheadCraneIndex: null,
+      focusedOverheadCraneIndex: null,
       focusNonce: state.focusNonce + 1,
     }));
   },
   clearCraneSelection: () => set({ selectedCraneIndex: null }),
+  selectOverheadCrane: (index) => {
+    set((state) => ({
+      selectedOverheadCraneIndex: index,
+      focusedOverheadCraneIndex: index,
+      selectedCraneIndex: null,
+      focusedCraneGlbIndex: null,
+      focusedShipKey: null,
+      selectedContainerId: null,
+      selectedShipKey: null,
+      focusNonce: state.focusNonce + 1,
+    }));
+  },
+  clearOverheadCraneSelection: () => set({ selectedOverheadCraneIndex: null }),
+  focusOverheadCraneDetail: (index) =>
+    set({
+      focusedOverheadCraneIndex: index,
+      focusedCraneGlbIndex: null,
+      focusedShipKey: null,
+      selectedContainerId: null,
+      selectedShipKey: null,
+      selectedCraneIndex: null,
+    }),
+  clearOverheadCraneDetailFocus: () => set({ focusedOverheadCraneIndex: null }),
   focusCraneDetail: (glbIndex) =>
     set({
+      focusedOverheadCraneIndex: null,
+      selectedOverheadCraneIndex: null,
       focusedCraneGlbIndex: glbIndex,
       focusedShipKey: null,
       selectedContainerId: null,
@@ -110,6 +152,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set({
       focusedShipKey: key,
       focusedCraneGlbIndex: null,
+      focusedOverheadCraneIndex: null,
+      selectedOverheadCraneIndex: null,
       selectedContainerId: null,
       selectedShipKey: null,
       selectedCraneIndex: null,
@@ -125,13 +169,19 @@ export function isViewportTracking(state: ViewportState): boolean {
   return (
     Boolean(state.selectedContainerId) ||
     Boolean(state.selectedShipKey) ||
-    state.selectedCraneIndex != null
+    state.selectedCraneIndex != null ||
+    state.selectedOverheadCraneIndex != null
   );
 }
 
 /** outline — Tracking 또는 상세 포커스 */
 export function getActiveCraneGlbIndex(state: ViewportState): number | null {
   return state.selectedCraneIndex ?? state.focusedCraneGlbIndex;
+}
+
+/** overhead crane outline — Tracking 또는 상세 포커스 */
+export function getActiveOverheadCraneIndex(state: ViewportState): number | null {
+  return state.selectedOverheadCraneIndex ?? state.focusedOverheadCraneIndex;
 }
 
 /** outline — Tracking 또는 상세 포커스 */

@@ -1,5 +1,6 @@
 import shipUrl from "@/assets/model/ship.glb";
 import { useGLTF } from "@react-three/drei";
+import { extendKtx2 } from "@/domain/gltfLoaders";
 import { useThree } from "@react-three/fiber";
 import { button, useControls } from "@/debug/controls";
 import { useEffect, useMemo, useRef } from "react";
@@ -10,7 +11,7 @@ const NAMES = Object.keys(SHIP_MATERIAL);
 
 /** leva "Ship Material": ship.glb 머티리얼 라이브 편집 (기본값 = constants/materials.ts) */
 export default function ShipMaterialPanel() {
-  const { scene } = useGLTF(shipUrl);
+  const { scene } = useGLTF(shipUrl, false, true, extendKtx2);
   const invalidate = useThree((s) => s.invalidate);
   const mats = useMemo(
     () => collectMaterials(scene, (n) => n in SHIP_MATERIAL),

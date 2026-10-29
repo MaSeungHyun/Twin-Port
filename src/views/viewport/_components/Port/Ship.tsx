@@ -34,6 +34,7 @@ import {
 import { useOccupancyStore } from "@/stores/occupancy";
 import { getActiveShipKey, useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
+import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
 import { useFrame } from "@react-three/fiber";
 import { applyBuoyancy, makeBuoyState, updateBuoyancy, type BuoyState } from "../OceanTsl/buoyancy";
 import { Box3 as BuoyBox3, Vector3 } from "three";
@@ -164,7 +165,7 @@ type ShipProps = {
 
 export default function Ship({ instances, posesRef }: ShipProps) {
   const occupancyMaterial = useMemo(() => getOccupancyShipMaterial(), []);
-  const { scene } = useGLTF(shipUrl);
+  const { scene } = useGLTF(shipUrl, false, true, extendKtx2);
   // [shipLod] [partIndex][lodLevel]
   const meshRefs = useRef<(InstancedMesh | null)[][]>([]);
   const occupancyRefs = useRef<(InstancedMesh | null)[][]>([]);
@@ -704,4 +705,4 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   );
 }
 
-useGLTF.preload(shipUrl);
+whenKtx2Ready(() => useGLTF.preload(shipUrl, false, true, extendKtx2)); // [perf] KTX2 + meshopt

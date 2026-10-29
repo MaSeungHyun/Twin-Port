@@ -12,6 +12,7 @@ import {
 } from "@/constants/camera";
 import {
   getCraneFocusTarget,
+  getOverheadCraneFocusTarget,
   getShipFocusTarget,
 } from "@/domain/cameraFocus";
 import { getContainerWorldPosition } from "@/domain/container";
@@ -109,6 +110,7 @@ function resolveTrackingTarget(
   selectedContainerId: string | null,
   selectedShipKey: string | null,
   selectedCraneIndex: number | null,
+  selectedOverheadCraneIndex: number | null = null,
 ): Vector3 | null {
   if (selectedContainerId) {
     const { blocks, containers, deckY, yardOffset } = useYardStore.getState();
@@ -142,6 +144,10 @@ function resolveTrackingTarget(
     return getCraneFocusTarget(selectedCraneIndex);
   }
 
+  if (selectedOverheadCraneIndex != null) {
+    return getOverheadCraneFocusTarget(selectedOverheadCraneIndex);
+  }
+
   return null;
 }
 
@@ -158,6 +164,9 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
   const selectedShipKey = useViewportStore((s) => s.selectedShipKey);
   const selectedCraneIndex = useViewportStore((s) => s.selectedCraneIndex);
+  const selectedOverheadCraneIndex = useViewportStore(
+    (s) => s.selectedOverheadCraneIndex,
+  );
   const focusNonce = useViewportStore((s) => s.focusNonce);
   const quayCranes = useYardStore((s) => s.quayCranes);
   const ships = useYardStore((s) => s.ships);
@@ -170,6 +179,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     selectedContainerId: null as string | null,
     selectedShipKey: null as string | null,
     selectedCraneIndex: null as number | null,
+    selectedOverheadCraneIndex: null as number | null,
     focusNonce: 0,
   });
 
@@ -203,7 +213,8 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     const selectionChanged =
       prev.selectedContainerId !== selectedContainerId ||
       prev.selectedShipKey !== selectedShipKey ||
-      prev.selectedCraneIndex !== selectedCraneIndex;
+      prev.selectedCraneIndex !== selectedCraneIndex ||
+      prev.selectedOverheadCraneIndex !== selectedOverheadCraneIndex;
     const focusRetrigger = prev.focusNonce !== focusNonce;
     const trackingDataUpdated =
       (selectedCraneIndex != null && prevYard.quayCranes !== quayCranes) ||
@@ -215,6 +226,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedContainerId,
       selectedShipKey,
       selectedCraneIndex,
+      selectedOverheadCraneIndex,
       focusNonce,
     };
 
@@ -223,16 +235,19 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     const wasTracking =
       prev.selectedContainerId != null ||
       prev.selectedShipKey != null ||
-      prev.selectedCraneIndex != null;
+      prev.selectedCraneIndex != null ||
+      prev.selectedOverheadCraneIndex != null;
     const isTracking =
       selectedContainerId != null ||
       selectedShipKey != null ||
-      selectedCraneIndex != null;
+      selectedCraneIndex != null ||
+      selectedOverheadCraneIndex != null;
 
     const toTarget = resolveTrackingTarget(
       selectedContainerId,
       selectedShipKey,
       selectedCraneIndex,
+      selectedOverheadCraneIndex,
     );
 
     tweenRef.current?.kill();
@@ -283,6 +298,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     selectedContainerId,
     selectedShipKey,
     selectedCraneIndex,
+    selectedOverheadCraneIndex,
     focusNonce,
     quayCranes,
     ships,
@@ -297,7 +313,8 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     const isTracking =
       selectedContainerId != null ||
       selectedShipKey != null ||
-      selectedCraneIndex != null;
+      selectedCraneIndex != null ||
+      selectedOverheadCraneIndex != null;
     if (!isTracking) return;
 
     const controls = controlsRef.current;
@@ -307,6 +324,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedContainerId,
       selectedShipKey,
       selectedCraneIndex,
+      selectedOverheadCraneIndex,
     );
     if (!target) return;
 
