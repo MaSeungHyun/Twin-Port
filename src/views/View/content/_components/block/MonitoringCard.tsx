@@ -1,3 +1,4 @@
+import { splitBlockCode } from "@/domain/blockLabel";
 import type { BlockOccupancy } from "@/domain/occupancy";
 import { cn } from "@/utils/style";
 import {
@@ -59,8 +60,13 @@ export default function MonitoringCard({
       <div className="text-sm text-text-secondary tabular-nums h-sm">
         {index}
       </div>
-      <div className="flex w-full h-xl items-center justify-center mt-0.5">
-        {occupancy.blockCode}
+      <div className="flex w-full flex-col items-center justify-center text-center leading-none mt-0.5">
+        <span className="text-[10px] text-text-secondary">
+          {splitBlockCode(occupancy.blockCode).prefix}
+        </span>
+        <span className="text-md font-semibold tabular-nums mt-0.5">
+          {splitBlockCode(occupancy.blockCode).number}
+        </span>
       </div>
 
       <div

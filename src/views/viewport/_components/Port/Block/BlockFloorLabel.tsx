@@ -10,6 +10,7 @@ import { useMemo, useRef } from "react";
 import type { Group, Material, Mesh } from "three";
 import { CanvasTexture, LinearMipmapLinearFilter, SRGBColorSpace, Vector3 } from "three";
 import { useYardStore } from "@/stores/yard";
+import { splitBlockCode } from "@/domain/blockLabel";
 import {
   BLOCK_LABEL_MAX_SCALE,
   BLOCK_LABEL_MIN_SCALE,
@@ -23,40 +24,58 @@ const _labelWorld = new Vector3();
  * troika 와 같은 룩 — fill #f8fafc 0.9, outline 0.08em #0f172a 0.55, letterSpacing 0.04em, 중앙 정렬.
  */
 const LABEL_PX = 128;
+/** 2줄 라벨: 윗줄 "Block"(작게) + 아랫줄 번호 */
+const PREFIX_EM = 0.55;
+const PREFIX_LINE_EM = 0.7;
+const NUMBER_LINE_EM = 1.1;
+const LABEL_TEXT_EM = PREFIX_LINE_EM + NUMBER_LINE_EM;
+const LABEL_PAD_EM = 0.2;
 const labelCache = new Map<string, { tex: CanvasTexture; aspect: number }>();
-function getLabelTexture(text: string) {
-  let e = labelCache.get(text);
+function getLabelTexture(code: string) {
+  let e = labelCache.get(code);
   if (e) return e;
-  const font = `600 ${LABEL_PX}px "Pretendard", "Malgun Gothic", system-ui, sans-serif`;
-  const pad = LABEL_PX * 0.2;
+  const { prefix, number } = splitBlockCode(code);
+  const family = `"Pretendard", "Malgun Gothic", system-ui, sans-serif`;
+  const numFont = `600 ${LABEL_PX}px ${family}`;
+  const preFont = `500 ${Math.round(LABEL_PX * PREFIX_EM)}px ${family}`;
+  const pad = LABEL_PX * LABEL_PAD_EM;
   const cv = document.createElement("canvas");
   let ctx = cv.getContext("2d")!;
-  ctx.font = font;
-  (ctx as unknown as { letterSpacing: string }).letterSpacing = "0.04em";
-  const w = Math.ceil(ctx.measureText(text).width + pad * 2);
-  const h = Math.ceil(LABEL_PX * 1.25 + pad * 2);
+  const ls = ctx as unknown as { letterSpacing: string };
+  ls.letterSpacing = "0.04em";
+  ctx.font = numFont;
+  const numW = ctx.measureText(number).width;
+  ctx.font = preFont;
+  const preW = ctx.measureText(prefix).width;
+  const w = Math.ceil(Math.max(numW, preW) + pad * 2);
+  const h = Math.ceil(LABEL_PX * LABEL_TEXT_EM + pad * 2);
   cv.width = w;
   cv.height = h;
   ctx = cv.getContext("2d")!;
-  ctx.font = font;
   (ctx as unknown as { letterSpacing: string }).letterSpacing = "0.04em";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
-  ctx.lineWidth = LABEL_PX * 0.08 * 2;
   ctx.strokeStyle = "rgba(15,23,42,0.55)";
-  ctx.strokeText(text, w / 2, h / 2);
   ctx.fillStyle = "rgba(248,250,252,0.9)";
-  ctx.fillText(text, w / 2, h / 2);
+  const lines: [string, string, number, number][] = [
+    [prefix, preFont, pad + (LABEL_PX * PREFIX_LINE_EM) / 2, PREFIX_EM],
+    [number, numFont, pad + LABEL_PX * (PREFIX_LINE_EM + NUMBER_LINE_EM / 2), 1],
+  ];
+  for (const [text, font, y, em] of lines) {
+    ctx.font = font;
+    ctx.lineWidth = LABEL_PX * em * 0.08 * 2;
+    ctx.strokeText(text, w / 2, y);
+    ctx.fillText(text, w / 2, y);
+  }
   const tex = new CanvasTexture(cv);
   tex.colorSpace = SRGBColorSpace;
   tex.minFilter = LinearMipmapLinearFilter;
   tex.anisotropy = 8;
   e = { tex, aspect: w / h };
-  labelCache.set(text, e);
+  labelCache.set(code, e);
   return e;
 }
-
 function applyAlwaysOnTop(material: Material | Material[] | undefined) {
   if (!material) return;
   const list = Array.isArray(material) ? material : [material];
@@ -93,7 +112,8 @@ export default function BlockFloorLabel({
   const textRef = useRef<Mesh>(null);
   const label = useMemo(() => getLabelTexture(block.code), [block.code]);
   // 캔버스 높이 = 1.25em + 패딩 0.4em → 평면 높이를 fontSize 기준으로 환산
-  const planeH = fontSize * ((LABEL_PX * 1.25 + LABEL_PX * 0.4) / LABEL_PX);
+  // 2줄이라 번호 글자 크기를 기존 대비 0.8배로 → 전체 라벨이 블록 안에 들어가게
+  const planeH = fontSize * 0.8 * (LABEL_TEXT_EM + LABEL_PAD_EM * 2);
 
 
   useFrame(({ camera }) => {
