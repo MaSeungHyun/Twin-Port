@@ -27,7 +27,7 @@ export function overheadCraneBlockCode(index: number): string {
 }
 
 export function overheadCraneTitle(index: number): string {
-  return `Overhead ${overheadCraneBlockCode(index)}`;
+  return `오버헤드크레인${overheadCraneBlockCode(index).replace(/\D/g, "")}`;
 }
 
 /** mock — quay crane 프로필을 재사용하되 ID/배정 정보를 블록 기준으로 */
