@@ -17,6 +17,20 @@ export const SHIP_TWEEN = {
    * → 아래 delay(충돌 회피용)가 매 루프 그대로 유효. 가장 긴 배(2번 ≈105s)보다 커야 함. delay는 0~83초로 퍼뜨려 출항이 동시에 몰리지 않게 함
    */
   cycle: 160,
+  /**
+   * [yield] 실시간 충돌 대기: 출항 직전(사이드스텝 시작 시점)에 이미 움직이는 배들의 남은 항로를 예측해
+   * 겹치면 늦게 출발한 배가 정박지에서 대기(흔들림 유지), 안전해지면 출발. 움직이는 배는 절대 기다리지 않음
+   */
+  yieldEnabled: true as boolean,
+  /** 선체 길이/폭(m, 배 scale 1 기준) — 충돌 판정용 캡슐 */
+  hullLength: 131,
+  hullWidth: 19,
+  /** 선체끼리 최소 여유(m) */
+  safetyMargin: 12,
+  /** 예측 샘플 간격(초) */
+  yieldSampleStep: 1,
+  /** 대기 중 재확인 간격(초) */
+  yieldRecheck: 0.5,
 } as const;
 
 export type ShipTweenConfig = {
@@ -109,7 +123,8 @@ export const SHIP_TWEENS: readonly ShipTweenConfig[] = [
   }),
   // 1 (002): 화면 위로 45m → 회전 없이 동북동 직진 (우현으로 틀면 0번 정박 위치/육지와 겹침)
   ship(1, "1 (002)", {
-    sidestepZ: -30,
+    sidestepZ: -40,
+
     departDistance: 1380,
     departDuration: 76.7,
     delay: 34,
@@ -130,13 +145,13 @@ export const SHIP_TWEENS: readonly ShipTweenConfig[] = [
     departDuration: 52.8,
     delay: 36,
   }),
-  // 4 (008): 화면 아래로 75m → 우현 50° → 직진
+  // 4 (008): 화면 아래로 75m → 우현 50° → 직진. [pt312u] 2번째로 출항(6→4→0→8), 출항 시작 시 카메라 pullback 트리거
   ship(4, "4 (008)", {
     sidestepZ: 50,
     turnDeg: -60,
     departDistance: 710,
     departDuration: 39.4,
-    delay: 0,
+    delay: 8.5,
   }),
   // 5 (010): 화면 왼쪽으로 45m → 회전 없이 남쪽 직진
   ship(5, "5 (010)", {

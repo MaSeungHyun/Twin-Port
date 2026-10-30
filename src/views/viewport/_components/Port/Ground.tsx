@@ -1,3 +1,4 @@
+import { loadSpan } from "@/debug/loadTiming";
 import { bindQuayCraneModel } from "@/domain/cameraFocus";
 import groundUrl from "@/assets/model/BUSAN.glb";
 import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
@@ -222,6 +223,7 @@ export default function Ground({
   const occupancyWarmed = useRef(false);
 
   const model = useMemo(() => {
+    const endClone = loadSpan("ground clone+material setup");
     const cloned = scene.clone(true);
     cloned.updateMatrixWorld(true);
     enableGlbShadows(cloned);
@@ -254,6 +256,7 @@ export default function Ground({
       o.material = Array.isArray(o.material) ? o.material.map(mk) : mk(o.material as Material);
     });
     applyGroundPointerFilter(cloned);
+    endClone();
     return cloned;
   }, [scene]);
 
@@ -315,6 +318,7 @@ export default function Ground({
   const occupancyMeshes = useMemo(() => collectOccupancyMeshes(model), [model]);
 
   useLayoutEffect(() => {
+    const endExtract = loadSpan("ground extract (blocks/berths/quayCranes)");
     model.position.set(...position);
     model.rotation.set(...rotation);
     model.updateMatrixWorld(true);
@@ -353,6 +357,7 @@ export default function Ground({
     }
     // 지형 land/거리장은 CPU shore bake 로 일원화 (구 bakeLandMask GPU 패스 대체, TSL 오션 해안 거품이 사용)
     // ocean-tsl 해안 거품용 지형 거리장 (1회)
+    endExtract();
     bakePortShoreOnce(model);
     return () => {
       resetBlocks();

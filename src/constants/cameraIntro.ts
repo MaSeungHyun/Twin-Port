@@ -17,3 +17,12 @@ export const CAMERA_INTRO_SLOT1: CameraSlotValue | null = { p: [118.766, 23.41, 
 export const CAMERA_INTRO_SLOT2: CameraSlotValue | null = { p: [787.866, 1582.676, 1755.024], t: [162.967, -14.926, -36.442] };
 /** window event fired by the '관제 시작' intro overlay → CameraSlots flies to slot 2 */
 export const CAMERA_INTRO_START_EVENT = "tp:intro-start";
+
+/** [pullback] 관제 시작 클릭 시에는 카메라를 움직이지 않고, 이 배(SHIP_TWEENS 0-based 인덱스, 라벨 "4 (008)" = 5번째 배)가 출항을 시작하면 slot 2로 서서히 빠짐 */
+export const CAMERA_PULLBACK_SHIP_INDEX = 4;
+/** 그 배 출항 시작 → 카메라가 빠지기 시작할 때까지 지연(초) */
+export const CAMERA_PULLBACK_DELAY = 0;
+/** 카메라가 slot 2까지 빠지는 시간(초), easeInOutCubic */
+export const CAMERA_PULLBACK_DURATION = 8;
+/** window event: ShipCargo → CameraSlots (지정 배 출항 시작) */
+export const CAMERA_PULLBACK_EVENT = "tp:camera-pullback";

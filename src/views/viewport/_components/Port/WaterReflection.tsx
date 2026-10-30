@@ -1,4 +1,5 @@
-import { MeshoptSimplifier } from "meshoptimizer";
+import { loadMark, loadSpan } from "@/debug/loadTiming";
+import { openRenderGate } from "@/domain/renderGate";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import {
@@ -43,7 +44,8 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import { simplifiedGeometry } from "@/domain/craneLod";
+import { simplifiedGeometriesAsync } from "@/domain/craneLod";
+import { createTimeSlicer } from "@/domain/yieldToMain";
 import { collectQuayHoverTargets } from "@/domain/hoverOutline";
 import { useObjectStore } from "@/stores/object";
 import { SHIP_TWEEN } from "@/constants/tween";
@@ -379,8 +381,10 @@ function toGeometry(values: number[]) {
   return geo;
 }
 
-function lowest(geo: BufferGeometry, ratio = REFLECTION_RATIO) {
-  return simplifiedGeometry(geo, ratio, REFLECTION_ERROR) ?? geo;
+/** [worker] 반사용 최저 LOD (meshopt 워커) */
+async function lowest(geo: BufferGeometry, ratio = REFLECTION_RATIO) {
+  const [g] = await simplifiedGeometriesAsync(geo, [{ ratio, error: REFLECTION_ERROR }]);
+  return g ?? geo;
 }
 
 /** [grazing] 카메라 높이 기준 반사 표시 가능 여부 */
@@ -461,6 +465,7 @@ export function reflectionBoxOf(source: BufferGeometry) {
  */
 let warmPending = 0;
 let warmDone = false;
+let warmCompiling = false;
 const warmListeners = new Set<() => void>();
 const emitWarm = () => warmListeners.forEach((l) => l());
 export function beginSceneWarmTask() {
@@ -484,6 +489,18 @@ export function useSceneWarmReady() {
     () => warmDone && warmPending === 0,
   );
 }
+/** [loader] 로딩 화면 상태 문구용: build = 반사 메시 생성 중, compile = 셰이더 컴파일 중, idle = 예열 대기, done */
+export type SceneWarmStage = "build" | "compile" | "idle" | "done";
+export function useSceneWarmStage(): SceneWarmStage {
+  return useSyncExternalStore(
+    (l) => {
+      warmListeners.add(l);
+      return () => warmListeners.delete(l);
+    },
+    () =>
+      warmPending > 0 ? "build" : warmCompiling ? "compile" : warmDone ? "done" : "idle",
+  );
+}
 
 export function SceneWarmup() {
   const gl = useThree((s) => s.gl);
@@ -500,27 +517,62 @@ export function SceneWarmup() {
     // 마운트 직후 다른 빌드 작업이 등록될 여유
     if (++idleFrames.current < 10) return;
     running.current = true;
-    const hidden: Object3D[] = [];
-    scene.traverse((o) => {
-      if (!o.visible) {
-        hidden.push(o);
-        o.visible = true;
-      }
-    });
+    warmCompiling = true;
+    emitWarm();
+    // [load] 씬 1회 compileAsync(=수 초짜리 단일 long task) → 객체 단위로 나눠 컴파일, 사이마다 메인 스레드 양보.
+    // 같은 material/geometry 조합은 three 노드 캐시로 1회만 빌드. targetScene=scene → 실제 조명/환경/안개 캐시 키와 동일
     const r = gl as unknown as { compileAsync?: (o: Object3D, c: typeof camera, s?: Object3D) => Promise<unknown> };
-    let p: Promise<unknown> | undefined;
-    try {
-      p = r.compileAsync?.(scene, camera, scene);
-    } finally {
-      for (const o of hidden) o.visible = false;
-    }
+    const endWarm = loadSpan("warm compile (객체별)");
+    const targets: Object3D[] = [];
+    scene.traverse((o) => {
+      const t = o as Object3D & { isMesh?: boolean; isPoints?: boolean; isLine?: boolean; isSprite?: boolean };
+      if (t.isMesh || t.isPoints || t.isLine || t.isSprite) targets.push(o);
+    });
     const done = () => {
       running.current = false;
+      warmCompiling = false;
       warmDone = true;
       emitWarm();
-      if (import.meta.env.DEV) console.info(`[warm] scene precompiled (${hidden.length} hidden objects forced)`);
     };
-    void Promise.resolve(p).then(done, done);
+    void (async () => {
+      const slice = createTimeSlicer(12);
+      const pending: Promise<unknown>[] = [];
+      const slow: string[] = [];
+      let syncMs = 0;
+      for (const o of targets) {
+        if (!o.parent) continue;
+        const vis = o.visible;
+        const fc = o.frustumCulled;
+        o.visible = true;
+        o.frustumCulled = false; // 현재 카메라 밖 객체도 미리 컴파일 → 런타임 첫 등장 히치 제거
+        const t0 = performance.now();
+        try {
+          const p = r.compileAsync?.(o, camera, scene);
+          if (p) pending.push(p.catch(() => undefined));
+        } catch (e) {
+          if (import.meta.env.DEV) console.warn("[warm] compile 실패", o.name, e);
+        } finally {
+          o.visible = vis;
+          o.frustumCulled = fc;
+        }
+        const d = performance.now() - t0;
+        syncMs += d;
+        if (d > 40) {
+          const m = (o as Mesh).material as { type?: string; name?: string } | undefined;
+          slow.push(`${o.name || o.type}[${m?.name || m?.type || "-"}] ${d.toFixed(0)}ms`);
+        }
+        await slice();
+      }
+      await Promise.all(pending);
+      endWarm(`${targets.length} objects, 노드 빌드(메인) 합계 ${syncMs.toFixed(0)}ms`);
+      if (import.meta.env.DEV && slow.length) console.info("[load] warm 느린 객체(>40ms)", slow);
+      // 게이트 개방 → 첫 화면 렌더(그림자 패스 등 잔여 빌드)를 로더 뒤에서 몇 프레임 소화한 뒤 완료
+      openRenderGate("warm-done");
+      await new Promise<void>((res) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => res()))),
+      );
+      loadMark("warm done → 로더 종료");
+    })().then(done, done);
   });
   return null;
 }
@@ -543,34 +595,47 @@ export function QuayCraneReflection({ model }: { model: Object3D }) {
     let cancelled = false;
     let mesh: Mesh | null = null;
     const finishWarm = beginSceneWarmTask();
-    void MeshoptSimplifier.ready.then(() => {
-      if (cancelled) return;
+    const endSpan = loadSpan("reflection quay build");
+    void (async () => {
       model.updateMatrixWorld(true);
       const values: number[] = [];
-      const cache = new Map<BufferGeometry, BufferGeometry>();
       const instMatrix = new Matrix4();
       const world = new Matrix4();
       const level = oceanState.level;
       const seen = new Set<Mesh>();
+      const sources: Mesh[] = [];
       for (const target of collectQuayHoverTargets(model)) {
         const src = target.source;
         if (seen.has(src)) continue;
         seen.add(src);
-        let geo = cache.get(src.geometry);
-        if (!geo) {
-          geo = lowest(src.geometry, REFLECTION_CRANE_RATIO);
-          cache.set(src.geometry, geo);
-        }
+        sources.push(src);
+      }
+      // [worker] 고유 geometry 단순화를 워커 풀에서 병렬 실행
+      const cache = new Map<BufferGeometry, Promise<BufferGeometry>>();
+      const lowOf = (g: BufferGeometry, ratio?: number) => {
+        let p = cache.get(g);
+        if (!p) cache.set(g, (p = lowest(g, ratio)));
+        return p;
+      };
+      await Promise.all(sources.map((src) => lowOf(src.geometry, REFLECTION_CRANE_RATIO)));
+      if (cancelled) return;
+      // [loader] 삼각형 굽기는 메인 스레드 → 시간 분할로 스피너 유지
+      const slice = createTimeSlicer();
+      for (const src of sources) {
+        const geo = await lowOf(src.geometry, REFLECTION_CRANE_RATIO);
         if ((src as InstancedMesh).isInstancedMesh) {
           const im = src as InstancedMesh;
           for (let i = 0; i < im.count; i++) {
             im.getMatrixAt(i, instMatrix);
             world.multiplyMatrices(im.matrixWorld, instMatrix);
             appendTriangles(values, geo, world, level);
+            await slice();
           }
         } else {
           appendTriangles(values, geo, src.matrixWorld, level);
+          await slice();
         }
+        if (cancelled) return;
       }
       const craneTris = values.length / 9;
       // [reflection] Ground / Plane.002 (안벽 가장자리) — 같은 draw 로 병합
@@ -581,14 +646,13 @@ export function QuayCraneReflection({ model }: { model: Object3D }) {
         if (!REFLECTION_LAND.test(m.name) && !REFLECTION_LAND.test(m.parent?.name ?? "")) return;
         landMeshes.push(m);
       });
+      await Promise.all(landMeshes.map((m) => lowOf(m.geometry)));
+      if (cancelled) return;
       for (const m of landMeshes) {
         seen.add(m);
-        let geo = cache.get(m.geometry);
-        if (!geo) {
-          geo = lowest(m.geometry);
-          cache.set(m.geometry, geo);
-        }
+        const geo = await lowOf(m.geometry);
         appendTriangles(values, geo, m.matrixWorld, level, level + REFLECTION_LAND_MAX_HEIGHT, REFLECTION_LAND_MAX_NORMAL_Y);
+        await slice();
       }
       if (values.length === 0) {
         finishWarm();
@@ -600,12 +664,13 @@ export function QuayCraneReflection({ model }: { model: Object3D }) {
       scene.add(mesh);
       meshRef.current = mesh;
       finishWarm();
+      endSpan();
       if (import.meta.env.DEV) {
         console.info(
           `[reflection] quay cranes ${craneTris} tris, land ${values.length / 9 - craneTris} tris (${landMeshes.length} meshes)`,
         );
       }
-    });
+    })();
     return () => {
       cancelled = true;
       finishWarm();
@@ -647,18 +712,24 @@ export function ShipReflection({
     let cancelled = false;
     let built: BufferGeometry | null = null;
     const finishWarm = beginSceneWarmTask();
-    void MeshoptSimplifier.ready.then(() => {
+    const endSpan = loadSpan("reflection ship build");
+    void (async () => {
+      const solid = parts.filter((p) => !p.waterway);
+      const lows = await Promise.all(solid.map((p) => lowest(p.geometry)));
       if (cancelled) return;
       const values: number[] = [];
-      for (const part of parts) {
-        if (part.waterway) continue;
-        appendTriangles(values, lowest(part.geometry), part.localMatrix, null);
+      const slice = createTimeSlicer();
+      for (let i = 0; i < solid.length; i++) {
+        appendTriangles(values, lows[i]!, solid[i]!.localMatrix, null);
+        await slice();
+        if (cancelled) return;
       }
       built = values.length ? toGeometry(values) : null;
       setGeometry(built);
+      endSpan();
       // geometry 반영 + 반사 메시 생성 후 예열되도록 다음 프레임들까지 대기
       requestAnimationFrame(() => requestAnimationFrame(finishWarm));
-    });
+    })();
     return () => {
       cancelled = true;
       finishWarm();

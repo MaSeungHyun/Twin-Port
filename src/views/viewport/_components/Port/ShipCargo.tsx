@@ -17,6 +17,7 @@ import {
   sidestepWorldDelta,
   type ShipTweenConfig,
 } from "@/constants/tween";
+import { CAMERA_PULLBACK_EVENT, CAMERA_PULLBACK_SHIP_INDEX } from "@/constants/cameraIntro";
 import { useControls } from "@/debug/controls";
 import { useShipDebugStore } from "@/stores/shipDebug";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
@@ -323,6 +324,13 @@ export default function ShipCargo({
     const timelines = new Set<gsap.core.Timeline>();
     const delayTweens: gsap.core.Tween[] = [];
     let cancelled = false;
+    let pullbackSent = false;
+    /** [pullback] 지정 배가 실제로 출항(게이트 통과)하는 첫 순간 1회 → 카메라 서서히 빠짐 */
+    const onDepart = (m: ShipMotion) => {
+      if (pullbackSent || m.index !== CAMERA_PULLBACK_SHIP_INDEX) return;
+      pullbackSent = true;
+      window.dispatchEvent(new CustomEvent(CAMERA_PULLBACK_EVENT));
+    };
 
     type ShipMotion = {
       index: number;
@@ -343,6 +351,14 @@ export default function ShipCargo({
       travelYaw: number;
       travel: { x: number; y: number; z: number };
       facing: { yaw: number };
+      /** [yield] 출항 예측용 구간 길이(초)와 회전 목표 */
+      sd: number;
+      td: number;
+      dd: number;
+      turnTo: number;
+      /** [yield] 출항 게이트를 통과해 항로 위에 있을 때만 값 (tl 기준 게이트 시각) */
+      gate: { tl: gsap.core.Timeline; t: number } | null;
+      waiting: boolean;
     };
 
     const motions: ShipMotion[] = [];
@@ -359,6 +375,11 @@ export default function ShipCargo({
       const side = sidestepWorldDelta(tween, berthYaw);
       const bow = bowOffset(travelYaw, tween.departDistance);
       const scale = typeof ship.scale === "number" ? ship.scale : 1;
+      const hasSide =
+        tween.sidestepX !== 0 ||
+        tween.sidestepY !== 0 ||
+        tween.sidestepZ !== 0 ||
+        tween.sidestepYawDeg != null;
 
       motions.push({
         index: shipIndex,
@@ -379,6 +400,12 @@ export default function ShipCargo({
         travelYaw,
         travel: { x: bx, y: by, z: bz },
         facing: { yaw: berthYaw },
+        sd: hasSide ? tween.sidestepDuration : 0,
+        td: tween.turnDeg !== 0 ? tween.turnDuration : 0,
+        dd: tween.departDuration,
+        turnTo: yawLerpTarget(berthYaw, travelYaw),
+        gate: null,
+        waiting: false,
       });
     }
 
@@ -391,6 +418,113 @@ export default function ShipCargo({
       m.facing.yaw = m.berthYaw;
       applyTravel(m.ship, m.travel);
       ensureRotation(m.ship, m.berthYaw);
+    };
+
+    // ---- [yield] 실시간 충돌 대기 ----
+    const easeSide = gsap.parseEase(SHIP_TWEEN.sidestepEase);
+    const easeTurn = gsap.parseEase(SHIP_TWEEN.turnEase);
+    const easeCache = new Map<string, (p: number) => number>();
+    const easeOf = (name: string) => {
+      let e = easeCache.get(name);
+      if (!e) easeCache.set(name, (e = gsap.parseEase(name)));
+      return e;
+    };
+    /** 게이트 후 s초 시점의 XZ 위치/선수 yaw. 항로 끝(숨김) 이후면 false */
+    const routeAt = (m: ShipMotion, s: number, out: { x: number; z: number; yaw: number }) => {
+      if (s < 0) s = 0;
+      if (s < m.sd) {
+        const k = easeSide(s / m.sd);
+        out.x = m.bx + (m.sideX - m.bx) * k;
+        out.z = m.bz + (m.sideZ - m.bz) * k;
+        out.yaw = m.berthYaw;
+        return true;
+      }
+      s -= m.sd;
+      if (s < m.td) {
+        out.x = m.sideX;
+        out.z = m.sideZ;
+        out.yaw = m.berthYaw + (m.turnTo - m.berthYaw) * easeTurn(s / m.td);
+        return true;
+      }
+      s -= m.td;
+      if (s <= m.dd) {
+        const k = easeOf(m.tween.departEase)(m.dd > 0 ? s / m.dd : 1);
+        out.x = m.sideX + (m.departFarX - m.sideX) * k;
+        out.z = m.sideZ + (m.departFarZ - m.sideZ) * k;
+        out.yaw = m.turnTo;
+        return true;
+      }
+      return false;
+    };
+    const pA = { x: 0, z: 0, yaw: 0 };
+    const pB = { x: 0, z: 0, yaw: 0 };
+    const segPt = (px: number, pz: number, ax: number, az: number, bx: number, bz: number) => {
+      const dx = bx - ax, dz = bz - az;
+      const l2 = dx * dx + dz * dz;
+      const k = l2 > 0 ? Math.min(1, Math.max(0, ((px - ax) * dx + (pz - az) * dz) / l2)) : 0;
+      return Math.hypot(px - (ax + dx * k), pz - (az + dz * k));
+    };
+    /** 두 선체(캡슐) 사이 최소 거리: 중심축 선분 거리 − 반폭 합 */
+    const hullGap = (a: typeof pA, sa: number, b: typeof pB, sb: number) => {
+      const la = SHIP_TWEEN.hullLength * 0.5 * sa, lb = SHIP_TWEEN.hullLength * 0.5 * sb;
+      const ca = Math.cos(a.yaw), na = -Math.sin(a.yaw);
+      const cb = Math.cos(b.yaw), nb = -Math.sin(b.yaw);
+      const a0x = a.x - ca * la, a0z = a.z - na * la, a1x = a.x + ca * la, a1z = a.z + na * la;
+      const b0x = b.x - cb * lb, b0z = b.z - nb * lb, b1x = b.x + cb * lb, b1z = b.z + nb * lb;
+      const cr = (ox: number, oz: number, px: number, pz: number, qx: number, qz: number) =>
+        (px - ox) * (qz - oz) - (pz - oz) * (qx - ox);
+      const d1 = cr(b0x, b0z, b1x, b1z, a0x, a0z), d2 = cr(b0x, b0z, b1x, b1z, a1x, a1z);
+      const d3 = cr(a0x, a0z, a1x, a1z, b0x, b0z), d4 = cr(a0x, a0z, a1x, a1z, b1x, b1z);
+      const axis =
+        d1 * d2 < 0 && d3 * d4 < 0
+          ? 0
+          : Math.min(
+              segPt(a0x, a0z, b0x, b0z, b1x, b1z),
+              segPt(a1x, a1z, b0x, b0z, b1x, b1z),
+              segPt(b0x, b0z, a0x, a0z, a1x, a1z),
+              segPt(b1x, b1z, a0x, a0z, a1x, a1z),
+            );
+      return axis - SHIP_TWEEN.hullWidth * 0.5 * (sa + sb);
+    };
+    /** 지금 출발하면 이미 항로 위에 있는 배와 겹치는지 (항로 전체 구간 예측) */
+    const wouldCollide = (m: ShipMotion) => {
+      const total = m.sd + m.td + m.dd;
+      const step = SHIP_TWEEN.yieldSampleStep;
+      for (const o of motions) {
+        if (o === m || !o.gate) continue;
+        const elapsed = o.gate.tl.time() - o.gate.t;
+        const oEnd = o.sd + o.td + o.dd;
+        if (elapsed > oEnd) continue;
+        const span = Math.min(total, oEnd - elapsed);
+        for (let s = 0; s <= span + 1e-6; s += step) {
+          if (!routeAt(m, s, pA) || !routeAt(o, elapsed + s, pB)) break;
+          if (hullGap(pA, m.scale, pB, o.scale) < SHIP_TWEEN.safetyMargin) return true;
+        }
+      }
+      return false;
+    };
+    /** 게이트: 막히면 타임라인 정지(정박지에서 흔들림만 유지) → 주기적으로 재확인 → 비면 출발 */
+    const passGate = (m: ShipMotion, tl: gsap.core.Timeline, gateT: number) => {
+      if (cancelled || m.gate?.tl === tl || m.waiting) return;
+      if (!SHIP_TWEEN.yieldEnabled || !wouldCollide(m)) {
+        m.gate = { tl, t: gateT };
+        onDepart(m);
+        return;
+      }
+      m.waiting = true;
+      tl.pause();
+      const recheck = () => {
+        if (cancelled || !timelines.has(tl)) return;
+        if (wouldCollide(m)) {
+          delayTweens.push(gsap.delayedCall(SHIP_TWEEN.yieldRecheck, recheck));
+          return;
+        }
+        m.waiting = false;
+        m.gate = { tl, t: gateT };
+        onDepart(m);
+        tl.resume();
+      };
+      delayTweens.push(gsap.delayedCall(SHIP_TWEEN.yieldRecheck, recheck));
     };
 
     const moveTravel = (
@@ -431,6 +565,8 @@ export default function ShipCargo({
 
       placeAtBerth(m);
       hideShipCargo(m.index);
+      m.gate = null;
+      m.waiting = false;
 
       const tween = m.tween;
       const hasSidestep =
@@ -462,6 +598,10 @@ export default function ShipCargo({
       }
       // 적재 완료 → 유지 → 출항 (화물 실은 채로 이동)
       t += loadSpan + SHIP_TWEEN.loadedHold + tween.departDelay;
+
+      // [yield] 출항 게이트 (사이드스텝 시작 직전)
+      const gateT = t;
+      tl.call(() => passGate(m, tl, gateT), undefined, gateT);
 
       if (hasSidestep) {
         moveTravel(
@@ -516,6 +656,7 @@ export default function ShipCargo({
       tl.call(
         () => {
           m.ship.scale = SHIP_TWEEN.hiddenScale;
+          m.gate = null;
           (m.ship as typeof m.ship & { straightAt?: number }).straightAt = undefined;
           hideShipCargo(m.index);
         },

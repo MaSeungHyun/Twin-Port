@@ -338,7 +338,8 @@ export default function SunLight() {
 
   return (
     <>
-      {tg.targetHandle && (
+      {/* TEMP: 디버그 UI 비활성화 — 타깃 기즈모 off (복원: false && 제거) */}
+      {false && tg.targetHandle && (
         <>
           <primitive object={tgtProxy}>
             <mesh renderOrder={999}>

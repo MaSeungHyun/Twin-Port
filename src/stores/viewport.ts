@@ -4,6 +4,9 @@ type ViewportState = {
   /** [hovergate] false until "관제 시작" flight to slot 2 has finished → R3F pointer events (raycast) off */
   interactionReady: boolean;
   setInteractionReady: (ready: boolean) => void;
+  /** [monitorgate] '관제 시작' 클릭 시점부터 true (한 번만). 고장 시나리오·토스트·알람 이벤트는 이 전엔 전부 차단 */
+  monitoringStarted: boolean;
+  startMonitoring: () => void;
   /** 관제모드 — Block 전체 마크 + 탑뷰 */
   monitorMode: boolean;
   setMonitorMode: (enabled: boolean) => void;
@@ -51,7 +54,10 @@ type ViewportState = {
   clearSceneSelection: () => void;
   /** [alarm] 알람(토스트) 클릭 카메라 follow — Track 버튼(selected*)과 별개 상태, 카메라 동작은 동일 */
   alarmFollow: { kind: "quayCrane" | "overheadCrane"; index: number } | null;
-  startAlarmFollow: (kind: "quayCrane" | "overheadCrane", index: number) => void;
+  /** auto=true → [autofocus] 위험 알람 자동 Tracking (일회용: 팬/카메라 조작/ESC 로 끝, 복귀 비행 없음) */
+  startAlarmFollow: (kind: "quayCrane" | "overheadCrane", index: number, auto?: boolean) => void;
+  /** alarmFollow 가 위험 알람 자동 Tracking 인지 */
+  alarmAuto: boolean;
   stopAlarmFollow: () => void;
   /** 우클릭 팬 → 모든 Tracking/alarm follow 해제 (원래 시점 복귀 비행 없음) */
   cancelTrackingByPan: () => void;
@@ -62,6 +68,8 @@ type ViewportState = {
 export const useViewportStore = create<ViewportState>((set) => ({
   interactionReady: false,
   setInteractionReady: (ready) => set({ interactionReady: ready }),
+  monitoringStarted: false,
+  startMonitoring: () => set({ monitoringStarted: true }),
   monitorMode: false,
   setMonitorMode: (enabled) =>
     set({
@@ -194,9 +202,11 @@ export const useViewportStore = create<ViewportState>((set) => ({
   // 명시적으로 시작한 Tracking(selected*: Track 버튼/토스트)은 유지, 상세 포커스 + outline 만 해제
   alarmFollow: null,
   skipReturnFlight: false,
-  startAlarmFollow: (kind, index) =>
+  alarmAuto: false,
+  startAlarmFollow: (kind, index, auto = false) =>
     set((state) => ({
       alarmFollow: { kind, index },
+      alarmAuto: auto,
       selectedContainerId: null,
       selectedShipKey: null,
       selectedCraneIndex: null,

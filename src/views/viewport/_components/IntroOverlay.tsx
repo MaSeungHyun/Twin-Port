@@ -1,6 +1,7 @@
 import { useProgress } from "@react-three/drei";
 import { useEffect, useRef, useState } from "react";
 import { CAMERA_INTRO_START_EVENT } from "@/constants/cameraIntro";
+import { useViewportStore } from "@/stores/viewport";
 import Button from "@/components/Button";
 import { useSceneWarmReady } from "./Port/WaterReflection";
 
@@ -46,6 +47,7 @@ export default function IntroOverlay() {
     if (phase !== "show") return;
     // [pt121u] hide instantly (same frame) and unmount; camera flight starts as before
     setPhase("done");
+    useViewportStore.getState().startMonitoring(); // [monitorgate]
     window.dispatchEvent(new CustomEvent(CAMERA_INTRO_START_EVENT));
   };
 

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { FailureKind } from "@/constants/failureScenario";
 import { FAILURE_SCENARIO } from "@/constants/failureScenario";
+import { useViewportStore } from "@/stores/viewport";
 
 export type FailureState = "warning" | "failure";
 
@@ -51,7 +52,8 @@ export const useFailureStore = create<FailureStore>((set) => ({
       return { active: next };
     }),
   pushEvent: (event) =>
-    set((s) => ({
+    // [monitorgate] 관제 시작 전 알람 이벤트 무시
+    useViewportStore.getState().monitoringStarted && set((s) => ({
       events: [
         { ...event, id: `failure-${++eventSeq}`, createdAt: new Date().toISOString() },
         ...s.events,

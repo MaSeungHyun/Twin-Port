@@ -7,7 +7,8 @@ import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import { Group } from "three";
 import Ship, { type ShipInstance } from "./Ship";
 import ShipCargo from "./ShipCargo";
-import ShipGizmo from "./ShipGizmo";
+// TEMP: 디버그 UI 비활성화
+// import ShipGizmo from "./ShipGizmo";
 import ShipMaterialPanel from "./ShipMaterialPanel";
 
 /** 디버그: 기준 선박(SHIP_PLACEMENTS[0])만 렌더. 나머지 데이터는 유지 — null이면 전체 */
@@ -77,7 +78,8 @@ export default function ShipFleet() {
   return (
     <>
       <Ship key={berths.length} instances={poses} posesRef={posesRef} />
-      <ShipGizmo posesRef={posesRef} />
+      {/* TEMP: 디버그 UI 비활성화 (선박 기즈모) */}
+      {/* <ShipGizmo posesRef={posesRef} /> */}
       <ShipMaterialPanel />
       {/* 컨테이너(화물): ship.glb 실측 갑판(SHIP_DECK) 기준 */}
       {SHIP_TWEEN_CARGO_ENABLED && SHIP_TWEEN.enabled ? (

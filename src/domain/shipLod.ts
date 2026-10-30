@@ -3,30 +3,36 @@ import {
   SHIP_LOD_LEVELS,
   SHIP_LOD_MIN_TRIANGLES,
 } from "@/constants/shipLod";
-import { simplifiedGeometry, triangleCount } from "@/domain/craneLod";
-import { MeshoptSimplifier } from "meshoptimizer";
+import { simplifiedGeometriesAsync, triangleCount } from "@/domain/craneLod";
 import type { BufferGeometry } from "three";
+import { loadSpan } from "@/debug/loadTiming";
 
 /** 각 geometry → [원본, LOD1, LOD2, LOD3]. 단순화 실패 시 이전 단계 재사용 */
 export async function buildShipLodGeometries(
   geometries: readonly (BufferGeometry | null)[],
 ): Promise<{ levels: BufferGeometry[][]; trianglesPerLevel: number[] }> {
-  await MeshoptSimplifier.ready;
+  const endSpan = loadSpan("shipLod build");
   const trianglesPerLevel = new Array(SHIP_LOD_LEVELS.length + 1).fill(0);
-  const levels = geometries.map((base) => {
-    if (!base) return [];
-    const out = [base];
-    let prev = base;
-    const tris = triangleCount(base);
-    for (const level of SHIP_LOD_LEVELS) {
-      if (tris >= SHIP_LOD_MIN_TRIANGLES) {
-        prev = simplifiedGeometry(base, level.ratio, level.error) ?? prev;
+  // [worker] 파트별 simplify 를 워커 풀에 병렬 요청
+  const levels = await Promise.all(
+    geometries.map(async (base) => {
+      if (!base) return [];
+      const out = [base];
+      const tris = triangleCount(base);
+      const simplified =
+        tris >= SHIP_LOD_MIN_TRIANGLES
+          ? await simplifiedGeometriesAsync(base, SHIP_LOD_LEVELS)
+          : SHIP_LOD_LEVELS.map(() => null);
+      let prev = base;
+      for (const g of simplified) {
+        prev = g ?? prev;
+        out.push(prev);
       }
-      out.push(prev);
-    }
-    out.forEach((g, i) => (trianglesPerLevel[i] += triangleCount(g)));
-    return out;
-  });
+      return out;
+    }),
+  );
+  for (const out of levels) out.forEach((g, i) => (trianglesPerLevel[i] += triangleCount(g)));
+  endSpan(`${geometries.length} parts`);
   return { levels, trianglesPerLevel };
 }
 

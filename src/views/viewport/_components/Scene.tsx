@@ -1,8 +1,11 @@
+import { loadSpan } from "@/debug/loadTiming";
+import { instrumentRenderer } from "@/domain/renderGate";
 import { memo, Suspense, useRef } from "react";
 import { Canvas as R3FCanvas } from "@react-three/fiber";
 import { WebGPURenderer } from "three/webgpu";
 import { initKtx2Support } from "@/domain/gltfLoaders";
-import DebugUI from "@/debug/DebugUI";
+// TEMP: 디버그 UI 비활성화
+// import DebugUI from "@/debug/DebugUI";
 import CameraPanel from "@/debug/CameraPanel";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import Controls from "./Controls";
@@ -85,6 +88,7 @@ const createRenderer = async (props: { canvas: unknown }) => {
       powerPreference: "high-performance",
     });
   let r = make(forceWebGL);
+  const endInit = loadSpan("renderer.init");
   try {
     await r.init();
   } catch (e) {
@@ -115,6 +119,8 @@ const createRenderer = async (props: { canvas: unknown }) => {
   } catch {
     /* noop */
   }
+  endInit();
+  instrumentRenderer(r); // [load] 화면 렌더 게이트 + 계측
   initKtx2Support(r); // [perf] BUSAN.glb KTX2 텍스처 (WebGPU/WebGL2 백엔드 공통)
   r.toneMapping = TONE_MAPPING;
   r.toneMappingExposure = TONE_MAPPING_EXPOSURE;
@@ -135,6 +141,8 @@ const createRenderer = async (props: { canvas: unknown }) => {
 
 import CamParam from "@/debug/CamParam";
 import CameraSlots from "@/debug/CameraSlots";
+import AreaCamButtons from "./Port/AreaCamButtons";
+import DepthBreadcrumb from "./DepthBreadcrumb";
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -155,7 +163,9 @@ function Scene() {
     >
       {/* {import.meta.env.DEV && <EnvironmentRotationPanel />} */}
       {/* 디버그 패널: 개발 모드 또는 ?debug 일 때만 표시 */}
-      <DebugUI />
+      {/* TEMP: 디버그 UI 비활성화 */}
+      {/* <DebugUI /> */}
+      <DepthBreadcrumb />
       <R3FCanvas
         className="h-full w-full touch-none"
         style={{
@@ -207,6 +217,7 @@ function Scene() {
           <CameraPanel />
           <CamParam />
           <CameraSlots />
+          <AreaCamButtons />
         </Suspense>
 
         <PerfCollector />

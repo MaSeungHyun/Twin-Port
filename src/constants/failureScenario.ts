@@ -5,6 +5,18 @@
  */
 export type FailureKind = "quayCrane" | "overheadCrane";
 
+/** [autofocus] 고장(빨간) 알람 시 카메라 자동 이동. 연달아 오면 최신 것으로, 너무 잦은 이동 방지 */
+export const FAILURE_AUTO_FOCUS = {
+  enabled: false, // [trackprompt] 자동 이동 대신 다이얼로그로 사용자가 선택
+  /** 마지막 고장 후 이 시간 동안 추가 고장이 없으면 이동 (몰려오면 최신 것 하나만) */
+  debounceMs: 600,
+  /** 자동 이동 사이 최소 간격 — 그 안에 온 고장은 간격이 끝난 뒤 최신 것으로 이동 */
+  minIntervalMs: 5000,
+} as const;
+/** [autofocus] window CustomEvent<{ kind, index, label }> — CameraSlots 가 받아 depth push 후 이동 */
+export const FAILURE_FOCUS_EVENT = "tp:failure-focus";
+export type FailureFocusDetail = { kind: FailureKind; index: number; label: string };
+
 export type FailureSlot = {
   /** 이 슬롯이 이번 사이클에 발생할 확률 (0~1) */
   probability: number;

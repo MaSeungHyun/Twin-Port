@@ -1,6 +1,9 @@
 import { toaster } from "@/components/Toaster";
 import {
+  FAILURE_AUTO_FOCUS,
   FAILURE_CAUSES,
+  FAILURE_FOCUS_EVENT,
+  type FailureFocusDetail,
   FAILURE_SCENARIO,
   FAILURE_WARNING_CAUSES,
   type FailureKind,
@@ -24,13 +27,31 @@ export function equipmentName(kind: FailureKind, index: number) {
  * 토스트 클릭 → 크레인 상세 패널 + 알람 follow (Track 버튼 Tracking 과 별개 상태).
  * 선택 outline 없음, Track 버튼 비활성, 카메라는 Tracking 과 같은 비행 + 따라가기.
  */
-export function focusEquipment(kind: FailureKind, index: number) {
+export function focusEquipment(kind: FailureKind, index: number, auto = false) {
   const content = useContentViewStore.getState();
   content.closeDetailGraph();
   if (kind === "quayCrane") content.openCraneDetail(`crane-${index}`);
   else content.openOverheadCraneDetail(overheadCraneKey(index));
   // 버튼 Tracking 중이었다면 여기서 해제되고 alarm follow 로 전환
-  useViewportStore.getState().startAlarmFollow(kind, index);
+  useViewportStore.getState().startAlarmFollow(kind, index, auto);
+}
+
+// [autofocus] 고장 알람 → 카메라 자동 이동 (debounce + 최소 간격, 최신 고장 우선)
+let autoFocusTimer = 0;
+let lastAutoFocusAt = 0;
+function requestAutoFocus(kind: FailureKind, index: number, label: string) {
+  const cfg = FAILURE_AUTO_FOCUS;
+  if (!cfg.enabled || !useViewportStore.getState().monitoringStarted) return;
+  window.clearTimeout(autoFocusTimer);
+  const wait = Math.max(cfg.debounceMs, lastAutoFocusAt + cfg.minIntervalMs - Date.now());
+  autoFocusTimer = window.setTimeout(() => {
+    if (!useViewportStore.getState().monitoringStarted) return;
+    if (useFailureStore.getState().active[failureKey(kind, index)]?.state !== "failure") return; // 이미 복구됨
+    const f = useViewportStore.getState().alarmFollow;
+    if (f && f.kind === kind && f.index === index) return; // 이미 보고 있음
+    lastAutoFocusAt = Date.now();
+    window.dispatchEvent(new CustomEvent<FailureFocusDetail>(FAILURE_FOCUS_EVENT, { detail: { kind, index, label } }));
+  }, wait);
 }
 
 function candidates(kind: FailureKind): number[] {
@@ -87,6 +108,7 @@ export function startFailureScenario(): () => void {
       const name = equipmentName(kind, index);
       const cause = pickOne(FAILURE_CAUSES[kind]);
       const onClick = () => focusEquipment(kind, index);
+      // [toastid] 장비별 하나의 토스트 id — 이상 징후 → 고장 → 복구가 서로 교체됨
       const toastId = `failure-${key}`;
 
       if (Math.random() < slot.warningProbability) {
@@ -94,24 +116,25 @@ export function startFailureScenario(): () => void {
         later(failAt - rand(...slot.warningLead), () => {
           useFailureStore.getState().setActive({ kind, index, state: "warning", cause: warnCause, since: Date.now() });
           useFailureStore.getState().pushEvent({ level: "warning", title: `${name} 이상 징후`, message: warnCause });
-          toaster.warning(`${name} 이상 징후`, { message: warnCause, id: `${toastId}-warn`, duration: cfg.warningToastMs, onClick });
+          toaster.warning(`${name} 이상 징후`, { message: warnCause, id: toastId, duration: cfg.warningToastMs, onClick });
+          toastIds.add(toastId);
         });
       }
 
       later(failAt, () => {
         useFailureStore.getState().setActive({ kind, index, state: "failure", cause, since: Date.now() });
         useFailureStore.getState().pushEvent({ level: "error", title: `${name} 고장`, message: cause });
-        toaster.dismiss(`${toastId}-warn`);
-        toaster.error(`${name} 고장`, { message: `${cause} · 클릭하여 위치 확인`, id: toastId, onClick });
+        // [toasttrack] 추적 → 위험 알람 추적(모드 2). 복구 토스트가 같은 id 로 교체할 때까지 유지
+        const onTrack = () => window.dispatchEvent(new CustomEvent<FailureFocusDetail>(FAILURE_FOCUS_EVENT, { detail: { kind, index, label: name } }));
+        toaster.error(`${name} 고장`, { message: cause, id: toastId, onClick, onTrack });
+        requestAutoFocus(kind, index, name); // FAILURE_AUTO_FOCUS.enabled=false 면 no-op
         toastIds.add(toastId);
       });
 
       later(recoverAt, () => {
         useFailureStore.getState().clearActive(kind, index);
         useFailureStore.getState().pushEvent({ level: "success", title: `${name} 복구`, message: "정상 가동 재개" });
-        toaster.dismiss(toastId);
-        toastIds.delete(toastId);
-        toaster.success(`${name} 복구`, { message: "정상 가동 재개", id: `${toastId}-ok`, duration: cfg.recoveryToastMs, onClick });
+        toaster.success(`${name} 복구`, { message: "정상 가동 재개", id: toastId, duration: cfg.recoveryToastMs, onClick });
       });
     }
 
@@ -123,6 +146,7 @@ export function startFailureScenario(): () => void {
 
   return () => {
     stopped = true;
+    window.clearTimeout(autoFocusTimer);
     for (const id of timers) window.clearTimeout(id);
     timers.clear();
     for (const id of toastIds) toaster.dismiss(id);

@@ -1,3 +1,4 @@
+import { loadSpan } from "@/debug/loadTiming";
 import { Environment } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { button, useControls } from "@/debug/controls";
@@ -98,8 +99,10 @@ export default function EnvironmentHdr() {
     let cancelled = false;
     const loader = hdri.ext === "exr" ? new EXRLoader() : new HDRLoader();
     useHdriStore.getState().setStatus("loading");
+    const endHdr = loadSpan(`hdr load+parse ${hdri.name}`);
     loader.loadAsync(hdri.url).then(
       (tex) => {
+        endHdr(); // PMREM 은 첫 컴파일/렌더 때 생성 (예열 로그에 포함)
         if (cancelled) return tex.dispose();
         tex.mapping = EquirectangularReflectionMapping;
         tex.name = hdri.name;

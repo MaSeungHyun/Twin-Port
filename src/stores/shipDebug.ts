@@ -41,10 +41,13 @@ export const useShipDebugStore = create<ShipDebugState>((set) => ({
     (window as unknown as { __tpControlStarted?: boolean }).__tpControlStarted === true,
   setShipMotion: (shipMotion) => set({ shipMotion }),
   setControlStarted: (controlStarted) => set({ controlStarted }),
-  select: (selected) =>
-    set(selected == null ? { selected } : { selected, lightSelected: false }),
-  selectLight: (on) =>
-    set(on ? { lightSelected: true, selected: null } : { lightSelected: false }),
+  // TEMP: 디버그 UI 비활성화 — 클릭 시 선박/라이트 기즈모 선택 안 함 (복원 시 아래 주석 해제)
+  // select: (selected) =>
+  //   set(selected == null ? { selected } : { selected, lightSelected: false }),
+  // selectLight: (on) =>
+  //   set(on ? { lightSelected: true, selected: null } : { lightSelected: false }),
+  select: () => set({ selected: null }),
+  selectLight: () => set({ lightSelected: false }),
   clearSelection: () => set({ selected: null, lightSelected: false }),
   setMode: (mode) => set({ mode }),
   setOverride: (override) => set({ override }),

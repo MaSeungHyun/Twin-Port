@@ -6,7 +6,8 @@ import PortHoverTooltip from "./_components/PortHoverTooltip";
 import Scene from "./_components/Scene";
 import IntroOverlay from "./_components/IntroOverlay";
 import MonitoringOverlay from "./_components/MonitoringOverlay";
-import PerfOverlay from "./_components/PerfOverlay";
+// TEMP: 디버그 UI 비활성화
+// import PerfOverlay from "./_components/PerfOverlay";
 
 import Content from "../View/content/Content";
 import ContentPanel from "../View/content/ContentPanel";
@@ -26,7 +27,8 @@ export default function Viewport() {
         <IntroOverlay />
         <ContentPanel />
         <MonitoringOverlay />
-        <PerfOverlay />
+        {/* TEMP: 디버그 UI 비활성화 */}
+        {/* <PerfOverlay /> */}
         {/* [failure] 기존 점유율 mock 토스트는 설정으로만 */}
         {FAILURE_SCENARIO.keepMockOccupancyToasts && <ToasterTestTrigger />}
         <FailureScenarioRunner />

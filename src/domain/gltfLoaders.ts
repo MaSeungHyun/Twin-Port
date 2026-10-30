@@ -2,6 +2,7 @@ import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { LoaderUtils } from "three";
 import type { GLTFLoader } from "three-stdlib";
 import { fetchGlb } from "@/domain/glbCache";
+import { loadSpan } from "@/debug/loadTiming";
 
 /**
  * [perf] BUSAN.glb 최적화(KTX2 텍스처 + EXT_meshopt_compression) 로더 설정.
@@ -47,17 +48,26 @@ export const extendKtx2 = (loader: GLTFLoader) => {
       manager.itemError(resolved);
       manager.itemEnd(resolved);
     };
+    const file = resolved.split("/").pop()?.split("?")[0] ?? resolved;
+    const endFetch = loadSpan(`glb fetch ${file}`);
     fetchGlb(resolved).then(
-      (buffer) =>
+      (buffer) => {
+        endFetch(`${(buffer.byteLength / 1048576).toFixed(1)}MB`);
+        // parse = JSON + meshopt 디코드 + KTX2(워커 트랜스코드) 대기 포함
+        const endParse = loadSpan(`glb parse ${file}`);
         loader.parse(
           buffer,
           loader.path || LoaderUtils.extractUrlBase(resolved),
           (gltf) => {
+            endParse();
+            const endSetup = loadSpan(`glb onLoad(React 반영) ${file}`);
             onLoad(gltf);
+            endSetup();
             manager.itemEnd(resolved);
           },
           fail,
-        ),
+        );
+      },
       fail,
     );
   };

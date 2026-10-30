@@ -6,6 +6,7 @@ import busanUrl from "@/assets/model/BUSAN.glb";
 import shipUrl from "@/assets/model/ship.glb";
 import overheadCraneUrl from "@/assets/model/overhead_crane.glb";
 import containersUrl from "@/assets/model/containers.glb";
+import areaCamUrl from "@/assets/model/Area_Cam.glb";
 import { fetchGlb } from "@/domain/glbCache";
 
-for (const url of [busanUrl, shipUrl, overheadCraneUrl, containersUrl]) fetchGlb(url).catch(() => {});
+for (const url of [busanUrl, shipUrl, overheadCraneUrl, containersUrl, areaCamUrl]) fetchGlb(url).catch(() => {});
