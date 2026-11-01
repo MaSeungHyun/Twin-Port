@@ -52,6 +52,7 @@ function withIndex(source: BufferGeometry, out: Uint32Array, sourceIndexCount: n
 export async function simplifiedGeometriesAsync(
   source: BufferGeometry,
   levels: readonly { ratio: number; error: number }[],
+  absolute = false,
 ): Promise<(BufferGeometry | null)[]> {
   const position = source.getAttribute("position");
   if (!position || position.itemSize !== 3 || (position as { isInterleavedBufferAttribute?: boolean }).isInterleavedBufferAttribute) {
@@ -69,6 +70,7 @@ export async function simplifiedGeometriesAsync(
     indices,
     positions,
     levels.map((l) => ({ target: Math.max(3, Math.floor((indices.length * l.ratio) / 3) * 3), error: l.error })),
+    absolute,
   );
   return outs.map((o) => withIndex(source, o, indices.length));
 }

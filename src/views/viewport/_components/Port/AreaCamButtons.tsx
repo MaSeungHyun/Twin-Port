@@ -1,7 +1,7 @@
 import areaCamUrl from "@/assets/model/Area_Cam.glb";
 import {
-  AREA_C_BLOCK_CODE_PATTERN,
-  AREA_C_BLOCK_RANGE,
+  AREA_C_BLOCK_NAME_PATTERN,
+  AREA_C_BLOCK_NAME_RANGE,
   AREA_C_CAM_HEIGHT_RATIO,
   AREA_C_CAM_MIN_DISTANCE,
   AREA_C_CAM_SPAN_FACTOR,
@@ -24,15 +24,17 @@ import {
   type AreaCamTarget,
   type CameraFlyToDetail,
 } from "@/constants/areaCam";
-import { getBlockFootprintCorners } from "@/domain/blockFootprint";
+import { getBlockFootprintSize } from "@/domain/blockFootprint";
 import { getCraneFocusTarget, getShipFocusTarget } from "@/domain/cameraFocus";
 import { SHIP_INSTANCES } from "@/constants/model";
 import { useCameraDepthStore } from "@/stores/cameraDepth";
+import { setCraneDepthFocus } from "@/domain/craneDepthFade";
+import { setAreaDepthFocus } from "@/domain/areaDepthFade";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { Html, useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { Box3, Quaternion, Vector3, type Object3D } from "three";
 
 type Resolved = Omit<AreaCamTarget, "glb"> & { point: [number, number, number]; fly: CameraFlyToDetail };
@@ -91,12 +93,15 @@ function buildAreaCFallback(t: AreaCamTarget): Resolved | null {
   const box = new Box3();
   const found: string[] = [];
   for (const b of useYardStore.getState().blocks) {
-    const m = AREA_C_BLOCK_CODE_PATTERN.exec(b.code);
+    const m = AREA_C_BLOCK_NAME_PATTERN.exec(b.name);
     if (!m) continue;
     const n = Number(m[1]);
-    if (n < AREA_C_BLOCK_RANGE[0] || n > AREA_C_BLOCK_RANGE[1]) continue;
-    for (const c of getBlockFootprintCorners(b, b.origin[1])) box.expandByPoint(new Vector3(c[0], c[1], c[2]));
-    found.push(b.code);
+    if (n < AREA_C_BLOCK_NAME_RANGE[0] || n > AREA_C_BLOCK_NAME_RANGE[1]) continue;
+    // footprint 는 origin 기준 yaw 회전 (getBlockFootprintCorners 는 yaw 무시 → 회전 블록에서 어긋남)
+    const { width, depth } = getBlockFootprintSize(b);
+    const cy = Math.cos(b.yaw ?? 0), sy = Math.sin(b.yaw ?? 0);
+    for (const [lx, lz] of [[0, 0], [width, 0], [width, depth], [0, depth]] as const) box.expandByPoint(new Vector3(b.origin[0] + lx * cy + lz * sy, b.origin[1], b.origin[2] - lx * sy + lz * cy));
+    found.push(`${b.code}(${b.name})`);
   }
   const cranes: Vector3[] = [];
   for (let i = range[0]; i <= range[1]; i++) {
@@ -157,6 +162,12 @@ function AreaCamButtons() {
       const dist = along > AREA_CAM_TARGET_MIN_DISTANCE ? along : AREA_CAM_TARGET_DISTANCE;
       out.push({ id: t.id, key: t.key, label: t.label, point: [point.x, point.y + AREA_CAM_BUTTON_LIFT, point.z], fly: { p: tuple(pos), t: tuple(pos.clone().addScaledVector(forward, dist)), duration: AREA_CAM_MOVE_DURATION, depth: { level: AREA_DEPTH_LEVEL, label: t.label } } });
     }
+    // [areac] C 버튼 높이 = GLB area_point 버튼들과 동일 (평균 Y, 블록 윗면 대신)
+    const glbYs = out.filter((r) => AREA_CAM_TARGETS.find((t) => t.id === r.id)?.glb).map((r) => r.point[1]);
+    if (glbYs.length) {
+      const y = glbYs.reduce((a, v) => a + v, 0) / glbYs.length;
+      for (const r of out) if (!AREA_CAM_TARGETS.find((t) => t.id === r.id)?.glb) r.point = [r.point[0], y, r.point[2]];
+    }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- C fallback 은 Ground 모델·크레인 배치 준비 후 다시 계산
   }, [scene, quayCranes, blocks, interactionReady]);
@@ -166,6 +177,22 @@ function AreaCamButtons() {
     () => (area ? buildCraneGroups(area.key, quayCranes.map((c) => c.glbIndex).filter((i): i is number => typeof i === "number")) : []),
     [area, quayCranes],
   );
+
+  // [depthfade] 구역 Depth = 구역 크레인 범위, 그룹 Depth(A1 …) = 그룹 3대만 불투명, 나머지 크레인 반투명
+  const groupLabel = stack.length > 1 ? stack[1]!.label : null;
+  useEffect(() => {
+    if (!area) { setCraneDepthFocus(null); setAreaDepthFocus(null); return; }
+    const group = groupLabel ? groups.find((g) => g.label === groupLabel) : undefined;
+    // [areafade] 지면·수목·건물·야드 크레인/컨테이너: 구역 밖(구역 Depth) / 구역 안 전부(그룹 Depth) 반투명
+    setAreaDepthFocus({ area: area.key, group: !!group });
+    if (group) { setCraneDepthFocus(new Set(group.cranes)); return; }
+    const range = AREA_CRANE_RANGES[area.key];
+    if (!range) { setCraneDepthFocus(null); return; }
+    const ids = new Set<number>();
+    for (let i = range[0]; i <= range[1]; i++) ids.add(i);
+    setCraneDepthFocus(ids);
+  }, [area, groupLabel, groups]);
+  useEffect(() => () => { setCraneDepthFocus(null); setAreaDepthFocus(null); }, []);
 
   if (!interactionReady) return null;
   if (stack.length) {

@@ -39,7 +39,7 @@ import { useObjectStore } from "@/stores/object";
 import {
   makeReflectionInstanced,
   reflectionBoxOf,
-  reflectionCameraOk,
+  reflectionActive,
   syncReflectionInstanced,
 } from "./WaterReflection";
 import gsap from "gsap";
@@ -212,7 +212,7 @@ export default function ShipCargo({
   }
 
   useFrame(() => {
-    const reflOn = reflectionVisible && reflectionCameraOk(camera.position.y);
+    const reflOn = reflectionVisible && reflectionActive(camera.position.y);
     for (const [source, refl] of reflections.current) {
       if (!source.parent) {
         reflections.current.delete(source);
@@ -744,6 +744,7 @@ export default function ShipCargo({
                   if (!node) return;
                   if (!meshRefs.current[shipIndex]) meshRefs.current[shipIndex] = {};
                   meshRefs.current[shipIndex]![c.key] = node;
+                  node.userData.warmMaterials = [occupancyContainerMaterial];
                   node.instanceMatrix.setUsage(DynamicDrawUsage);
                   if (!reflections.current.has(node)) {
                     const refl = makeReflectionInstanced(

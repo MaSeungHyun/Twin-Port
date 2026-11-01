@@ -7,7 +7,7 @@ import {
 } from "@/views/viewport/_components/Port/WaterReflection";
 
 /** [loader] 예열이 끝나지 않아도 리소스 로딩 종료 후 이 시간(ms)이 지나면 닫음 (IntroOverlay 안전장치와 동일) */
-const WARM_TIMEOUT_MS = 15000;
+const WARM_TIMEOUT_MS = 40000;
 
 /** 현재 로딩 중인 파일(drei useProgress item) → 한국어 단계 문구 */
 function itemLabel(item: string) {

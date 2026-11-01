@@ -6,6 +6,8 @@ export type MeshoptRequest = {
   indices: Uint32Array;
   positions: Float32Array;
   levels: { target: number; error: number }[];
+  /** true 면 error 는 메시 크기 비율이 아니라 좌표 단위(m) */
+  absolute?: boolean;
 };
 export type MeshoptResponse = { id: number; outs?: Uint32Array[]; error?: string };
 
@@ -15,11 +17,12 @@ const ctx = self as unknown as {
 };
 
 ctx.onmessage = (e) => {
-  const { id, indices, positions, levels } = e.data;
+  const { id, indices, positions, levels, absolute } = e.data;
+  const flags = absolute ? (["Prune", "ErrorAbsolute"] as const) : (["Prune"] as const);
   void MeshoptSimplifier.ready.then(() => {
     try {
       const outs = levels.map(
-        ({ target, error }) => MeshoptSimplifier.simplify(indices, positions, 3, target, error, ["Prune"])[0],
+        ({ target, error }) => MeshoptSimplifier.simplify(indices, positions, 3, target, error, [...flags])[0],
       );
       ctx.postMessage({ id, outs }, outs.map((o) => o.buffer));
     } catch (err) {

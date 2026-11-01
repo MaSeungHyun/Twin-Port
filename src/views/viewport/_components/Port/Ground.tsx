@@ -1,5 +1,7 @@
 import { loadSpan } from "@/debug/loadTiming";
 import { bindQuayCraneModel } from "@/domain/cameraFocus";
+import { bindCraneDepthFade, updateCraneDepthFade } from "@/domain/craneDepthFade";
+import { bindAreaDepthFade, getAreaWholeFadeOpacity, updateAreaDepthFade } from "@/domain/areaDepthFade";
 import groundUrl from "@/assets/model/BUSAN.glb";
 import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
 import { enableGlbShadows } from "@/domain/glb";
@@ -19,6 +21,7 @@ import {
   GROUND_POSITION,
   GROUND_ROTATION,
 } from "@/constants/ground";
+import { registerOccupancySync } from "@/domain/occupancyLook/occupancySync";
 import { getOccupancySurfaceMaterial } from "@/domain/occupancyLook/occupancySurfaceMaterial";
 import { warmupOccupancyPrograms } from "@/domain/occupancyLook/warmupOccupancyPrograms";
 import {
@@ -64,6 +67,8 @@ import { parseCraneNameIndex, parseQuayCraneGlbIndex } from "@/domain/quayCraneI
 import { rememberQuayHoverIndex } from "@/domain/hoverTooltip";
 import { getFailedIndices } from "@/stores/useFailureStore";
 import { bakePortShoreOnce } from "../OceanTsl/portShore";
+import { instanceRepeatedGround, buildGroundLods, resetGroundLods, updateGroundLods, type GroundLodSet } from "@/domain/repeatMesh";
+import { GROUND_LOD_CHECK_EVERY, GROUND_LOD_LEVELS } from "@/constants/groundLod";
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
 function enableGroundAlpha(root: Object3D) {
@@ -164,6 +169,7 @@ function attachOccupancyClones(
   for (const mesh of ground) {
     const clone = new Mesh(mesh.geometry, occupancyMaterial);
     clone.name = `${mesh.name || "ground"}-occupancy`;
+    clone.userData.occupancyOnly = true;
     clone.visible = false;
     clone.castShadow = mesh.castShadow;
     clone.receiveShadow = mesh.receiveShadow;
@@ -256,6 +262,7 @@ export default function Ground({
       o.material = Array.isArray(o.material) ? o.material.map(mk) : mk(o.material as Material);
     });
     applyGroundPointerFilter(cloned);
+    instanceRepeatedGround(cloned);
     endClone();
     return cloned;
   }, [scene]);
@@ -269,9 +276,10 @@ export default function Ground({
   const satLast = useRef(-1);
   useFrame(() => {
     const t = occupancyTransitionProgressRef.current.t;
-    if (t === satLast.current) return;
-    satLast.current = t;
-    const a = 1 - t;
+    // [satfade] occupancy 페이드 × 구역 Depth 불투명도 (위성지형은 통째로, 포커스 밖 0.1)
+    const a = (1 - t) * getAreaWholeFadeOpacity();
+    if (a === satLast.current) return;
+    satLast.current = a;
     for (const m of satMeshes) {
       m.visible = a > 0.005;
       for (const mat of Array.isArray(m.material) ? m.material : [m.material]) (mat as Material).opacity = a;
@@ -314,6 +322,45 @@ export default function Ground({
     if (last.length && Math.abs(last[12]! - e[12]!) + Math.abs(last[13]! - e[13]!) + Math.abs(last[14]! - e[14]!) < 0.5) return;
     craneLodCam.current = [e[12]!, e[13]!, e[14]!];
     updateCraneLods(set, cam);
+  });
+
+  // [groundLod] 펜스/도로/차선 청크 거리 LOD (반복 구간 geometry 공유, 청크만 교체)
+  const groundLods = useRef<GroundLodSet | null>(null);
+  const groundLodFrame = useRef(0);
+  const groundLodCam = useRef<number[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    buildGroundLods(model)
+      .then((set) => {
+        if (cancelled) return;
+        groundLods.current = set;
+        groundLodCam.current = [];
+        updateGroundLods(set, camera);
+        if (import.meta.env.DEV) {
+          console.info(
+            "[groundLod] " + set.entries.length + " meshes, tris per level",
+            set.trianglesPerLevel.map(Math.round),
+            "distances",
+            GROUND_LOD_LEVELS.map((l) => l.distance),
+          );
+        }
+      })
+      .catch((e) => console.warn("[groundLod] 생성 실패, 원본 유지", e));
+    return () => {
+      cancelled = true;
+      if (groundLods.current) resetGroundLods(groundLods.current);
+      groundLods.current = null;
+    };
+  }, [model]);
+  useFrame(({ camera: cam }) => {
+    const set = groundLods.current;
+    if (!set) return;
+    if (++groundLodFrame.current % GROUND_LOD_CHECK_EVERY !== 0) return;
+    const e = cam.matrixWorld.elements;
+    const last = groundLodCam.current;
+    if (last.length && Math.abs(last[12]! - e[12]!) + Math.abs(last[13]! - e[13]!) + Math.abs(last[14]! - e[14]!) < 0.5) return;
+    groundLodCam.current = [e[12]!, e[13]!, e[14]!];
+    updateGroundLods(set, cam);
   });
   const occupancyMeshes = useMemo(() => collectOccupancyMeshes(model), [model]);
 
@@ -375,8 +422,19 @@ export default function Ground({
 
   useLayoutEffect(() => {
     bindQuayCraneModel(model);
-    return () => bindQuayCraneModel(null);
+    bindCraneDepthFade(model);
+    bindAreaDepthFade(model);
+    return () => {
+      bindQuayCraneModel(null);
+      bindCraneDepthFade(null);
+      bindAreaDepthFade(null);
+    };
   }, [model]);
+  // [depthfade] Depth 포커스 밖 크레인 opacity 트윈
+  useFrame((_, dt) => {
+    updateCraneDepthFade(Math.min(dt, 0.1));
+    updateAreaDepthFade(Math.min(dt, 0.1)); // [areafade]
+  });
 
   useLayoutEffect(() => {
     model.updateMatrixWorld(true);
@@ -397,9 +455,8 @@ export default function Ground({
     };
 
     if (!occupancyWarmed.current) {
-      apply(true);
+      // 실제 메시 컴파일은 SceneWarmup 이 로딩 중 양쪽 룩을 모두 준비한다. 여기서 씬 전체를 동기 컴파일하면 전환 프레임이 멈춘다.
       warmupOccupancyPrograms(gl as never, threeScene, camera);
-      gl.compile(threeScene, camera);
       occupancyWarmed.current = true;
     }
     apply(useOccupancyStore.getState().occupancyLook);
@@ -408,9 +465,11 @@ export default function Ground({
       if (state.occupancyLook === prev.occupancyLook) return;
       apply(state.occupancyLook);
     });
+    const unregister = registerOccupancySync(apply);
 
     return () => {
       unsub();
+      unregister();
       for (const clone of clones) {
         clone.removeFromParent();
       }

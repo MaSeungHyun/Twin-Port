@@ -1,7 +1,8 @@
 import { loadMark, loadSpan } from "@/debug/loadTiming";
+import { syncOccupancyVisibility } from "@/domain/occupancyLook/occupancySync";
 import { openRenderGate } from "@/domain/renderGate";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import {
   BoxGeometry,
   BufferAttribute,
@@ -47,10 +48,15 @@ import {
 import { simplifiedGeometriesAsync } from "@/domain/craneLod";
 import { createTimeSlicer } from "@/domain/yieldToMain";
 import { collectQuayHoverTargets } from "@/domain/hoverOutline";
+import { getCraneFadeVariant } from "@/domain/craneDepthFade";
+import { getAreaFadeVariants } from "@/domain/areaDepthFade";
 import { useObjectStore } from "@/stores/object";
+import { useOccupancyStore } from "@/stores/occupancy";
+import { useViewportStore } from "@/stores/viewport";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { oceanState } from "../OceanTsl/oceanApi";
 import { SHORE, shoreTex } from "../OceanTsl/scene/resources";
+import type { Material } from "three";
 import type { ShipInstance } from "./Ship";
 
 /**
@@ -392,6 +398,11 @@ export function reflectionCameraOk(cameraY: number) {
   return cameraY > oceanState.level + Math.max(REFLECTION_MIN_CAMERA_HEIGHT, REFLECTION_CAMERA_FADE[0]);
 }
 
+/** 카메라 조건 + occupancy 모드가 아닐 때. occupancy 에선 바다가 사라져 수면 아래 복제본이 그대로 보임 */
+export function reflectionActive(cameraY: number) {
+  return reflectionCameraOk(cameraY) && !useOccupancyStore.getState().occupancyLook;
+}
+
 function useLevelSync() {
   const camera = useThree((s) => s.camera);
   useFrame(() => {
@@ -506,8 +517,13 @@ export function SceneWarmup() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
+  const monitoringStarted = useViewportStore((s) => s.monitoringStarted);
   const idleFrames = useRef(0);
   const running = useRef(false);
+  // 예열·관제 시작 커밋이 숨김 메시를 다시 켠 뒤에도 오큐펀시 룩은 스토어를 따른다.
+  useLayoutEffect(() => {
+    syncOccupancyVisibility(scene);
+  }, [scene, monitoringStarted]);
   useFrame(() => {
     if (warmDone || running.current) return;
     if (warmPending > 0) {
@@ -539,21 +555,54 @@ export function SceneWarmup() {
       const pending: Promise<unknown>[] = [];
       const slow: string[] = [];
       let syncMs = 0;
+      // [occupancy] 숨긴 조상(블록 막대 그룹, 선박 occupancy 메시)까지 켠 채 컴파일하고, 전부 끝난 뒤에 되돌린다.
+      // 객체마다 바로 숨기면 compileAsync 가 돌기 전에 visible=false 가 되어 전환 때 처음 컴파일된다.
+      const restore: { o: Object3D; visible: boolean; culled?: boolean }[] = [];
+      const reveal = (o: Object3D, withCull: boolean) => {
+        if (restore.some((item) => item.o === o)) {
+          if (withCull) (o as Mesh).frustumCulled = false;
+          return;
+        }
+        restore.push({
+          o,
+          visible: o.visible,
+          culled: withCull ? (o as Mesh).frustumCulled : undefined,
+        });
+        o.visible = true;
+        if (withCull) (o as Mesh).frustumCulled = false;
+      };
+      for (const o of targets) {
+        let node: Object3D | null = o;
+        while (node) {
+          reveal(node, node === o);
+          node = node.parent;
+        }
+      }
       for (const o of targets) {
         if (!o.parent) continue;
-        const vis = o.visible;
-        const fc = o.frustumCulled;
-        o.visible = true;
-        o.frustumCulled = false; // 현재 카메라 밖 객체도 미리 컴파일 → 런타임 첫 등장 히치 제거
         const t0 = performance.now();
         try {
           const p = r.compileAsync?.(o, camera, scene);
           if (p) pending.push(p.catch(() => undefined));
+          // [depthfade] Depth 반투명 크레인 변형도 미리 컴파일 (런타임 첫 페이드 히치 방지)
+          // [areafade] 구역 Depth 반투명 정적 메시(지면·건물·수목) 변형도 함께
+          // [occupancy] userData.warmMaterials = 전환 때 갈아끼울 재질 (선적 컨테이너 등)
+          const mesh = o as Mesh;
+          const extras = mesh.isMesh ? (mesh.userData.warmMaterials as Material[] | undefined) ?? [] : [];
+          const variants = mesh.isMesh ? [getCraneFadeVariant(mesh), ...getAreaFadeVariants(mesh), ...extras] : [];
+          for (const variant of variants) {
+            if (!variant) continue;
+            const orig = mesh.material;
+            mesh.material = variant;
+            try {
+              const pv = r.compileAsync?.(o, camera, scene);
+              if (pv) pending.push(pv.catch(() => undefined));
+            } finally {
+              mesh.material = orig;
+            }
+          }
         } catch (e) {
           if (import.meta.env.DEV) console.warn("[warm] compile 실패", o.name, e);
-        } finally {
-          o.visible = vis;
-          o.frustumCulled = fc;
         }
         const d = performance.now() - t0;
         syncMs += d;
@@ -564,6 +613,12 @@ export function SceneWarmup() {
         await slice();
       }
       await Promise.all(pending);
+      for (const item of restore) {
+        item.o.visible = item.visible;
+        if (item.culled !== undefined) (item.o as Mesh).frustumCulled = item.culled;
+      }
+      // 스냅샷이 예열 도중 켜진 값을 기억해도, 스토어 기준으로 오큐펀시 전용 메시는 다시 숨긴다.
+      syncOccupancyVisibility(scene);
       endWarm(`${targets.length} objects, 노드 빌드(메인) 합계 ${syncMs.toFixed(0)}ms`);
       if (import.meta.env.DEV && slow.length) console.info("[load] warm 느린 객체(>40ms)", slow);
       // 게이트 개방 → 첫 화면 렌더(그림자 패스 등 잔여 빌드)를 로더 뒤에서 몇 프레임 소화한 뒤 완료
@@ -685,7 +740,7 @@ export function QuayCraneReflection({ model }: { model: Object3D }) {
   useFrame(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    mesh.visible = visible && reflectionCameraOk(camera.position.y);
+    mesh.visible = visible && reflectionActive(camera.position.y);
   });
 
   return null;
@@ -750,7 +805,7 @@ export function ShipReflection({
       group.add(mesh);
       meshes.current.push(mesh);
     }
-    const on = visible && reflectionCameraOk(camera.position.y);
+    const on = visible && reflectionActive(camera.position.y);
     group.visible = on;
     if (!on) return;
     meshes.current.forEach((mesh, i) => {

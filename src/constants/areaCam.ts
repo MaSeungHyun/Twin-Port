@@ -49,14 +49,15 @@ export const CRANE_GROUP_BUTTON_LIFT = 40;
 /** 그룹 클릭 시 카메라: 그룹 중심에서 크레인 줄 수직 방향(현재 카메라 쪽) 수평 거리(m) */
 export const CRANE_GROUP_CAM_DISTANCE = 420;
 
-/** C구역 버튼 위치 = 야드 블록 코드(B21 … B27) 범위 블록들의 합친 footprint 중심 위 */
-export const AREA_C_BLOCK_RANGE: [number, number] = [21, 27];
-/** 야드 블록 코드 → 번호 (B21, B021, B.021, B_21 …) */
-export const AREA_C_BLOCK_CODE_PATTERN = /^B[._-]?0*(\d+)$/i;
+/** C구역 버튼 위치 = 크레인 43~48 앞 야드 블록(GLB Block040 ~ Block045, 화면 라벨 B19·B20·B21·B22·B24·B27) footprint 중심.
+ *  화면 B-코드는 z 순 정렬이라 B23·B25·B26 이 D구역(회전 블록 Block046~048)에 섞임 → 코드 대신 GLB 이름으로 고름 */
+export const AREA_C_BLOCK_NAME_RANGE: [number, number] = [40, 45];
+/** GLB 블록 이름 → 번호 (Block040, Block.040, Block_40 등) */
+export const AREA_C_BLOCK_NAME_PATTERN = /^Block[._-]?0*(\d+)$/i;
 /** C구역 fallback 카메라: 거리 = max(최소, 프레이밍 폭 × 배율), 높이 = 거리 × 비율 */
-export const AREA_C_CAM_MIN_DISTANCE = 500;
-export const AREA_C_CAM_SPAN_FACTOR = 1.1;
-export const AREA_C_CAM_HEIGHT_RATIO = 0.6;
+export const AREA_C_CAM_MIN_DISTANCE = 600;
+export const AREA_C_CAM_SPAN_FACTOR = 1.35;
+export const AREA_C_CAM_HEIGHT_RATIO = 0.45;
 /** 그룹 클릭 시 카메라 높이(그룹 중심 기준, m) */
 export const CRANE_GROUP_CAM_HEIGHT = 260;
 /** 바다(정박 선박) 쪽 판정: 그룹 중심에서 이 거리(m) 안의 가장 가까운 선박 쪽을 바다로 봄 */
@@ -77,3 +78,11 @@ export const DEPTH_BREADCRUMB_SEPARATOR = ">";
 export const DEPTH_BREADCRUMB_TRAILING = true;
 /** 구역 버튼 depth level */
 export const AREA_DEPTH_LEVEL = 0;
+
+/** [depthfade] Depth 진입 시 포커스 밖 안벽 크레인 불투명도 / 페이드 시간(s) */
+export const DEPTH_UNFOCUSED_OPACITY = 0.1;
+export const DEPTH_FADE_DURATION_S = 0.4;
+/** [areafade] 구역 영역(블록 footprint + 구역 크레인 XZ 경계)에 더할 여유(m) */
+export const AREA_FADE_BOUNDS_MARGIN = 40;
+/** [areafade] XZ 크기가 이 값(m) 이상인 메시(Ground·Plane002 등 항만 전체를 덮는 판)는 구역으로 나눌 수 없어 Depth 동안 통째로 페이드 */
+export const AREA_FADE_WHOLE_SPAN = 1500;

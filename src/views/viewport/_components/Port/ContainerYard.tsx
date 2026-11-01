@@ -9,6 +9,7 @@ import {
 import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { composeContainerMatrix } from "@/domain/container";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
+import { getBlockFadeLevel, getFadeMaterial, useAreaDepthFadeVersion } from "@/domain/areaDepthFade";
 import { useYardStore } from "@/stores/yard";
 import type { Container } from "@/types/container";
 import { useOccupancyStore } from "@/stores/occupancy";
@@ -29,6 +30,7 @@ import {
   DynamicDrawUsage,
   type InstancedMesh,
   LineBasicMaterial,
+  type Material,
   Matrix4,
   Quaternion,
   Vector3,
@@ -107,6 +109,10 @@ export default function ContainerYard({
     Partial<Record<ContainerColorKey, InstancedMesh>>
   >({});
   const [meshesReady, setMeshesReady] = useState(false);
+  // [areafade] 구역 Depth: 포커스 밖 블록 컨테이너는 반투명 메시로 [레벨1(구역 밖), 레벨2(그룹 밖)]
+  const fadeVersion = useAreaDepthFadeVersion();
+  const fadeSolidRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>[]>([{}, {}]);
+  const fadeColumnRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>[]>([{}, {}]);
 
   const matchedIds = useMemo(() => {
     if (!selectedContainerId) return null;
@@ -125,6 +131,16 @@ export default function ContainerYard({
   const prototypes = useMemo(() => buildContainerPrototypes(scene), [scene]);
   const columnRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>>(
     {},
+  );
+  const fadeMaterials = useMemo(
+    () =>
+      ([1, 2] as const).map(
+        (level) =>
+          Object.fromEntries(
+            CONTAINER_COLORS.map((c) => [c.key, getFadeMaterial(prototypes[c.key].material, level)]),
+          ) as Record<ContainerColorKey, Material>,
+      ),
+    [prototypes],
   );
 
   // [containerLod] 블록별 스택 기둥 + 블록 중심 미리 계산
@@ -256,7 +272,20 @@ export default function ContainerYard({
       if (wire) wire.count = 0;
       const column = columnRefs.current[c.key];
       if (column) column.count = 0;
+      for (const r of [...fadeSolidRefs.current, ...fadeColumnRefs.current]) {
+        const m = r[c.key];
+        if (m) m.count = 0;
+      }
     });
+    const fadeCounts = new Map<InstancedMesh, number>();
+    const pushFade = (mesh: InstancedMesh | undefined, m: Matrix4) => {
+      if (!mesh) return;
+      const i = fadeCounts.get(mesh) ?? 0;
+      if (i >= MAX_PER_COLOR) return;
+      mesh.setMatrixAt(i, m);
+      fadeCounts.set(mesh, i + 1);
+      mesh.count = i + 1;
+    };
 
     // [containerLod] 선택 중이 아니면 먼 블록은 스택 기둥으로
     const useLod = CONTAINER_LOD_ENABLED && !matchedIds;
@@ -267,6 +296,11 @@ export default function ContainerYard({
       for (const code of farBlocks) {
         const b = blockLods.get(code);
         if (!b) continue;
+        const lvl = getBlockFadeLevel(code);
+        if (lvl) {
+          for (const col of b.columns) pushFade(fadeColumnRefs.current[lvl - 1]![col.colorKey], col.matrix);
+          continue;
+        }
         for (const col of b.columns) {
           const mesh = columnRefs.current[col.colorKey];
           const idx = columnCounts[col.colorKey];
@@ -309,6 +343,11 @@ export default function ContainerYard({
         continue;
       }
 
+      const lvl = matchedIds ? 0 : getBlockFadeLevel(container.location.block);
+      if (lvl) {
+        pushFade(fadeSolidRefs.current[lvl - 1]![colorKey], matrix);
+        continue;
+      }
       const mesh = solidRefs.current[colorKey];
       const idx = solidCounts[colorKey];
       if (!mesh || idx >= MAX_PER_COLOR) continue;
@@ -326,8 +365,12 @@ export default function ContainerYard({
       if (wire) wire.instanceMatrix.needsUpdate = true;
       const column = columnRefs.current[c.key];
       if (column) column.instanceMatrix.needsUpdate = true;
+      for (const r of [...fadeSolidRefs.current, ...fadeColumnRefs.current]) {
+        const m = r[c.key];
+        if (m) m.instanceMatrix.needsUpdate = true;
+      }
     });
-  }, [containers, meshesReady, matchedIds, blockByCode, deckY, farBlocks, blockLods]);
+  }, [containers, meshesReady, matchedIds, blockByCode, deckY, farBlocks, blockLods, fadeVersion]);
 
   function tryMarkReady() {
     if (meshesReady) return;
@@ -393,6 +436,26 @@ export default function ContainerYard({
             raycast={() => null}
           />
         ))}
+        {([1, 2] as const).flatMap((level) =>
+          (["solid", "column"] as const).flatMap((kind) =>
+            CONTAINER_COLORS.map((c) => (
+              <instancedMesh
+                key={`fade${level}-${kind}-${c.key}`}
+                ref={(node) => {
+                  if (!node) return;
+                  node.instanceMatrix.setUsage(DynamicDrawUsage);
+                  (kind === "solid" ? fadeSolidRefs : fadeColumnRefs).current[level - 1]![c.key] = node;
+                }}
+                args={[prototypes[c.key].geometry, fadeMaterials[level - 1]![c.key], MAX_PER_COLOR]}
+                frustumCulled={false}
+                renderOrder={10}
+                castShadow={false}
+                receiveShadow
+                raycast={() => null}
+              />
+            )),
+          ),
+        )}
         {CONTAINER_COLORS.map((c) => (
           <instancedMesh
             key={`wire-${c.key}`}

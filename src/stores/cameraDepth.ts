@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isViewportTracking, useViewportStore } from "@/stores/viewport";
 
 /** [depth] 카메라 depth 경로. level 0 = 구역(A~D), level 1 = 크레인(추후) … */
 export type CameraPose = { p: [number, number, number]; t: [number, number, number] };
@@ -36,3 +37,10 @@ export const useCameraDepthStore = create<CameraDepthState>((set, get) => ({
     return root.back;
   },
 }));
+
+// [depthtrack] 추적 시작(Track 버튼·토스트 클릭·알람 토스트 추적·자동 알람) → Depth 해제.
+// stack 이 비면 AreaCamButtons 기존 경로가 구역/크레인 페이드를 opacity 1 로 복구하고 브레드크럼을 숨김
+const trackingOn = (v: ReturnType<typeof useViewportStore.getState>) => isViewportTracking(v) || v.alarmFollow != null;
+useViewportStore.subscribe((v, prev) => {
+  if (trackingOn(v) && !trackingOn(prev) && useCameraDepthStore.getState().stack.length) useCameraDepthStore.setState({ stack: [] });
+});

@@ -1,5 +1,6 @@
 import shipUrl from "@/assets/model/ship.glb";
 import { enableGlbShadows } from "@/domain/glb";
+import { registerOccupancySync } from "@/domain/occupancyLook/occupancySync";
 import {
   DEBUG_SHIP_OCCUPANCY_MATERIAL,
   OCCUPANCY_SHIP_COLOR,
@@ -58,7 +59,7 @@ import {
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import HoverOutlineMesh from "./HoverOutlineMesh";
-import { ShipReflection } from "./WaterReflection";
+import { beginSceneWarmTask, ShipReflection } from "./WaterReflection";
 import { useShipDebugStore } from "@/stores/shipDebug";
 
 export type ShipInstance = {
@@ -552,10 +553,14 @@ export default function Ship({ instances, posesRef }: ShipProps) {
 
   // [shipLod] 비-waterway 파트 LOD geometry 비동기 생성
   const [lodGeoms, setLodGeoms] = useState<BufferGeometry[][] | null>(null);
+  const releaseLodWarm = useRef<(() => void) | null>(null);
   useEffect(() => {
     setLodGeoms(null);
     if (!SHIP_LOD_ENABLED) return;
     let cancelled = false;
+    // occupancy 메시가 LOD geometry 로 갈아끼워진 뒤에 로더 컴파일이 돌게 붙잡는다
+    const release = beginSceneWarmTask();
+    releaseLodWarm.current = release;
     buildShipLodGeometries(parts.map((p) => (p.waterway ? null : p.geometry)))
       .then(({ levels, trianglesPerLevel }) => {
         if (cancelled) return;
@@ -564,11 +569,21 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         }
         setLodGeoms(levels);
       })
-      .catch((e) => console.warn("[shipLod] 생성 실패, 원본 유지", e));
+      .catch((e) => {
+        console.warn("[shipLod] 생성 실패, 원본 유지", e);
+        release();
+      });
     return () => {
       cancelled = true;
+      release();
+      releaseLodWarm.current = null;
     };
   }, [parts]);
+  useLayoutEffect(() => {
+    if (!lodGeoms) return;
+    releaseLodWarm.current?.();
+    releaseLodWarm.current = null;
+  }, [lodGeoms]);
 
   useFrame(({ camera }, delta) => {
     {
@@ -611,10 +626,15 @@ export default function Ship({ instances, posesRef }: ShipProps) {
       DEBUG_SHIP_OCCUPANCY_MATERIAL ||
       useOccupancyStore.getState().occupancyLook;
     apply(look);
-    return useOccupancyStore.subscribe((state, prev) => {
+    const unsub = useOccupancyStore.subscribe((state, prev) => {
       if (state.occupancyLook === prev.occupancyLook) return;
       apply(DEBUG_SHIP_OCCUPANCY_MATERIAL || state.occupancyLook);
     });
+    const unregister = registerOccupancySync((next) => apply(DEBUG_SHIP_OCCUPANCY_MATERIAL || next));
+    return () => {
+      unsub();
+      unregister();
+    };
   }, [parts, lodGeoms]);
 
   const count = instances?.length ?? 0;
@@ -686,6 +706,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
                 (occupancyRefs.current[index] ??= [])[lv] = node;
               }}
               args={[geo, occupancyMaterial, count]}
+              userData={{ occupancyOnly: true }}
               visible={DEBUG_SHIP_OCCUPANCY_MATERIAL}
               frustumCulled={false}
               castShadow

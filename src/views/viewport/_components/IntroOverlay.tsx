@@ -6,7 +6,7 @@ import Button from "@/components/Button";
 import { useSceneWarmReady } from "./Port/WaterReflection";
 
 /** [warm] 예열이 끝나지 않아도 이 시간(ms) 후엔 버튼 표시 (안전장치) */
-const WARM_TIMEOUT_MS = 15000;
+const WARM_TIMEOUT_MS = 40000;
 
 /**
  * [camintro] "관제 시작" intro overlay — viewport only, semi-transparent so the scene (camera at slot 1) shows through.

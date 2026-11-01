@@ -156,6 +156,7 @@ function BlockOccupancyBar({
   return (
     <group
       visible={visible}
+      userData={{ occupancyOnly: true }}
       position={[center[0], baseY, center[2]]}
       rotation={[0, block.yaw ?? 0, 0]}
       onPointerOver={handleOver}
@@ -225,7 +226,7 @@ export default function BlockOccupancyView({
   }, [containers, selectedContainerId]);
 
   return (
-    <group position={[...yardOffset]} visible={visible}>
+    <group position={[...yardOffset]} visible={visible} userData={{ occupancyOnly: true }}>
       {occupancies.map((occupancy, index) => (
         <BlockOccupancyBar
           key={occupancy.blockCode}

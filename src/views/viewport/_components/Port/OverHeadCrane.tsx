@@ -1,5 +1,6 @@
 import overheadCraneUrl from "@/assets/model/overhead_crane.glb";
 import { enableGlbShadows } from "@/domain/glb";
+import { getBlockFadeLevel, getFadeMaterials, isAreaDepthFadeActive } from "@/domain/areaDepthFade";
 import {
   hoveredIndexOf,
   instanceHoverId,
@@ -52,6 +53,9 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
   );
   const { scene } = useGLTF(overheadCraneUrl, false, true, extendKtx2);
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
+  /** [areafade] 부품별 반투명 인스턴스 메시 [레벨1(구역 밖), 레벨2(그룹 밖)] ? 인덱스 유지 위해 해당 안 되는 쪽엔 0 스케일 행렬 */
+  const fadeRefs = useRef<(InstancedMesh | null)[][]>([[], []]);
+  const zeroMatrix = useMemo(() => new Matrix4().makeScale(0, 0, 0), []);
   const outlineRefs = useRef<(Mesh | null)[]>([]);
   const failureRefs = useRef<(Mesh | null)[]>([]);
   const dummy = useMemo(() => new Object3D(), []);
@@ -131,6 +135,9 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
       parts.forEach((part, partIndex) => {
         const instanced = meshRefs.current[partIndex];
         if (!instanced) return;
+        const fadeA = fadeRefs.current[0]![partIndex];
+        const fadeG = fadeRefs.current[1]![partIndex];
+        const fading = isAreaDepthFadeActive();
 
         resolvedInstances.forEach((instance, index) => {
           const t = elapsed * instance.speed + instance.phase;
@@ -169,16 +176,28 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
 
           dummy.updateMatrix();
           matrix.multiplyMatrices(dummy.matrix, part.localMatrix);
-          instanced.setMatrixAt(index, matrix);
+          if (!fading) {
+            instanced.setMatrixAt(index, matrix);
+          } else {
+            const level = getBlockFadeLevel(blocks[index]?.code);
+            instanced.setMatrixAt(index, level === 0 ? matrix : zeroMatrix);
+            fadeA?.setMatrixAt(index, level === 1 ? matrix : zeroMatrix);
+            fadeG?.setMatrixAt(index, level === 2 ? matrix : zeroMatrix);
+          }
         });
 
         instanced.count = resolvedInstances.length;
         instanced.instanceMatrix.needsUpdate = true;
+        for (const f of [fadeA, fadeG]) {
+          if (!f) continue;
+          f.count = fading ? resolvedInstances.length : 0;
+          f.instanceMatrix.needsUpdate = true;
+        }
       });
 
       applyHoverOutline();
     },
-    [applyHoverOutline, dummy, matrix, parts, resolvedInstances],
+    [applyHoverOutline, blocks, dummy, matrix, parts, resolvedInstances, zeroMatrix],
   );
 
   useLayoutEffect(() => {
@@ -210,6 +229,19 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
               portHoverOut(event, "overheadCrane", instanceHoverId(event))
             }
           />
+          {([1, 2] as const).map((level) => (
+            <instancedMesh
+              key={`fade-${level}`}
+              ref={(node) => {
+                fadeRefs.current[level - 1]![index] = node;
+              }}
+              args={[part.geometry, getFadeMaterials(part.material, level), resolvedInstances.length]}
+              castShadow
+              receiveShadow
+              frustumCulled={false}
+              raycast={() => null}
+            />
+          ))}
           <HoverOutlineMesh
             geometry={part.geometry}
             meshRef={(node) => {

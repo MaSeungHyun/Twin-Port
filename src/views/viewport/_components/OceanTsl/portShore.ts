@@ -3,6 +3,7 @@ import { SHORE_N, setShoreField } from "./scene/resources";
 import { oceanState } from "./oceanApi";
 import { bakeShoreCore, type ShoreBakeInput, type ShoreBakeMesh } from "./shoreBakeCore";
 import { beginSceneWarmTask } from "../Port/WaterReflection";
+import { holdOceanWarmup } from "./oceanWarm";
 
 /** [worker] 워커에서 베이크(전송: typed array transfer). 워커 실패 시 메인 스레드 폴백 */
 let shoreWorkerMs = -1;
@@ -111,6 +112,8 @@ export function bakePortShoreOnce(root: THREE.Object3D) {
   const finishWarm = beginSceneWarmTask();
   const finish = (info: string) => {
     shoreBaking = false;
+    // 바다 마운트·FFT 컴파일이 끝나기 전에 로더가 닫히지 않게
+    holdOceanWarmup();
     useShoreReady.setState({ ready: true, info });
     finishWarm();
   };

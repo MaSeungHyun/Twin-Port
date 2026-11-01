@@ -51,22 +51,23 @@ function getPool() {
   }
 }
 
-async function simplifyMain(indices: Uint32Array, positions: Float32Array, levels: Level[]) {
+async function simplifyMain(indices: Uint32Array, positions: Float32Array, levels: Level[], absolute?: boolean) {
   await MeshoptSimplifier.ready;
-  return levels.map(({ target, error }) => MeshoptSimplifier.simplify(indices, positions, 3, target, error, ["Prune"])[0]);
+  const flags = absolute ? (["Prune", "ErrorAbsolute"] as const) : (["Prune"] as const);
+  return levels.map(({ target, error }) => MeshoptSimplifier.simplify(indices, positions, 3, target, error, [...flags])[0]);
 }
 
-/** levels 각각에 대해 단순화된 index 배열. indices/positions 는 복제되어 전송(원본 유지) */
-export function simplifyLevels(indices: Uint32Array, positions: Float32Array, levels: Level[]): Promise<Uint32Array[]> {
+/** levels 각각에 대해 단순화된 index 배열. indices/positions 는 복제되어 전송(원본 유지). absolute 면 error 는 m */
+export function simplifyLevels(indices: Uint32Array, positions: Float32Array, levels: Level[], absolute?: boolean): Promise<Uint32Array[]> {
   const pool = getPool();
-  if (!pool) return simplifyMain(indices, positions, levels);
+  if (!pool) return simplifyMain(indices, positions, levels, absolute);
   return new Promise((resolve) => {
     const id = nextId++;
     pending.set(id, {
       resolve,
-      fallback: () => void simplifyMain(indices, positions, levels).then(resolve),
+      fallback: () => void simplifyMain(indices, positions, levels, absolute).then(resolve),
     });
-    const req: MeshoptRequest = { id, indices, positions, levels };
+    const req: MeshoptRequest = { id, indices, positions, levels, absolute };
     pool[rr++ % pool.length]!.postMessage(req);
   });
 }

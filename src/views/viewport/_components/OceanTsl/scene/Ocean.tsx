@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { skyState } from "../spectrum";
@@ -9,6 +9,7 @@ import { PRI, useScene } from "./context";
 import { probeRT } from "./resources";
 import { Bubbles } from "./Bubbles";
 import { oceanClock, oceanState, sampleOceanY } from "../oceanApi";
+import { holdOceanWarmup, releaseOceanWarmup } from "../oceanWarm";
 import * as THREE_U from "three";
 import { airFogU, oceanEdgeU } from "../webgpu/oceanTSL";
 import { cameraPosition, exp, fog, length, mix, normalize, positionView, positionWorld, renderGroup, smoothstep, uniform } from "three/tsl";
@@ -53,6 +54,36 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
   const seaRef = useRef<THREE.Mesh>(null);
   const time = useRef(0);
   const scene = useThree((s) => s.scene);
+  // [loader] 첫 화면 전에 FFT 패스·프로브·수중 안개를 한 번 돌려 파이프라인을 만든다.
+  // 안개 노드를 여기서 붙여 두어야 이후 SceneWarmup 컴파일이 첫 프레임에 다시 깨지지 않는다.
+  useLayoutEffect(() => {
+    holdOceanWarmup();
+    try {
+      const s = useSettings.getState();
+      sim.setParams(s.params);
+      sim.setFoam(s.shore.collFoam, s.shore.persist);
+      ocean.uniforms.uHs.value = sim.hs;
+      oceanState.hs = sim.hs;
+      const cur = sim.update(gl, 0, 0, "every", 1);
+      for (let c = 0; c < 3; c++) {
+        ocean.uniforms[`uDisp${c}`].value = sim.disp[c][cur[c]].texture;
+        ocean.uniforms[`uDer${c}`].value = sim.deriv[c].texture;
+      }
+      if (!uw.active) {
+        uw.active = true;
+        for (const m of [ocean, sky, island]) (m as unknown as { fog: boolean }).fog = false;
+        (scene as unknown as { fogNode: unknown }).fogNode = uwFogNode;
+      }
+      const prev = gl.getRenderTarget();
+      gl.setRenderTarget(probeRT as never);
+      gl.render(probe.scene, probe.cam);
+      gl.setRenderTarget(prev);
+    } catch (e) {
+      console.warn("[OceanTsl] warmup failed", e);
+    } finally {
+      releaseOceanWarmup();
+    }
+  }, [sim, ocean, sky, island, probe, gl, scene]);
   // 스펙트럼 재계산은 슬라이더 조작 중 끊김을 줄이려고 짧게 디바운스
   useSettingsEffect(
     (s) => [s.params.wind, s.params.peak, s.params.choppy, s.params.windDir],
