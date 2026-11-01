@@ -5,7 +5,7 @@
  * 가까운 LOD0는 원본 그대로 (호버 외곽선/선택/카메라 포커스는 항상 원본 기준)
  */
 export const CRANE_LOD_LEVELS = [
-  { distance: 400, ratio: 0.5, error: 0.005 }, // LOD1: 작은 부품 정리 (~47%)
+  { distance: 150, ratio: 0.5, error: 0.005 }, // LOD1: 150m 밖은 작은 부품 정리
   { distance: 1000, ratio: 0.3, error: 0.01 }, // LOD2: 중간 거리 (~29%)
   { distance: 2000, ratio: 0.06, error: 0.04 }, // LOD3: 원거리 (~20%)
 ] as const;

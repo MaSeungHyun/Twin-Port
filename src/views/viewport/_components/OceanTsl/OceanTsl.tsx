@@ -179,7 +179,7 @@ function PortOceanScene({ skyDome }: { skyDome: boolean }) {
   return (
     <SceneContext.Provider value={ctx}>
       <Sky dome={skyDome} lights={false} />
-      <Ocean geo={grid.geo} />
+      <Ocean geos={grid.geos} />
     </SceneContext.Provider>
   );
 }

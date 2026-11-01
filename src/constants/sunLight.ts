@@ -24,8 +24,8 @@ export const SUN_GLOW_OPACITY = 0.05;
 /** deck 위 z-fighting 방지용 미세 오프셋 */
 export const SUN_GLOW_Y_OFFSET = -0.376;
 
-/** mapSize는 radius를 키우기 전에 충분히 확보 (2048+) */
-export const SUN_SHADOW_MAP_SIZE = 4096;
+/** 그림자 맵. 선체 원본을 4096에 다시 그리는 비용이 커서 2048을 기본으로 둔다. */
+export const SUN_SHADOW_MAP_SIZE = 2048;
 /** 태양광 그림자 기본 ON */
 export const SUN_CAST_SHADOW = true;
 export const SUN_SHADOW_BLUR_SAMPLES = 16;

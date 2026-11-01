@@ -1,9 +1,10 @@
 import { SHIP_INSTANCES } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { bindShipPoses } from "@/domain/shipWake";
+import { occupancyStage, subscribeOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useYardStore } from "@/stores/yard";
-import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useRef, useSyncExternalStore, type RefObject } from "react";
 import { Group } from "three";
 import Ship, { type ShipInstance } from "./Ship";
 import ShipCargo from "./ShipCargo";
@@ -35,17 +36,18 @@ function OccupancyHiddenCargo({
   berths: readonly ShipInstance[];
 }) {
   const groupRef = useRef<Group>(null);
+  const restoreStage = useSyncExternalStore(subscribeOccupancyHeavy, occupancyStage, () => 99);
 
   useLayoutEffect(() => {
     const apply = (look: boolean) => {
-      if (groupRef.current) groupRef.current.visible = !look;
+      if (groupRef.current) groupRef.current.visible = !look && restoreStage >= 3;
     };
     apply(useOccupancyStore.getState().occupancyLook);
     return useOccupancyStore.subscribe((state, prev) => {
       if (state.occupancyLook === prev.occupancyLook) return;
       apply(state.occupancyLook);
     });
-  }, []);
+  }, [restoreStage]);
 
   return (
     <group ref={groupRef}>

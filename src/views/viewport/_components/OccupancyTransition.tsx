@@ -1,8 +1,14 @@
+import { AREA_CAM_MOVE_DURATION, CAMERA_FLY_TO_EVENT } from "@/constants/areaCam";
+import { CAMERA_INTRO_SLOT2 } from "@/constants/cameraIntro";
 import {
   OCCUPANCY_TRANSITION as T,
   occupancyDimRef,
   occupancyTransitionProgressRef,
 } from "@/constants/occupancyTransition";
+import { setAreaDepthFocus } from "@/domain/areaDepthFade";
+import { setCraneDepthFocus } from "@/domain/craneDepthFade";
+import { holdOccupancyHeavy, releaseOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
+import { useCameraDepthStore } from "@/stores/cameraDepth";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -90,6 +96,8 @@ export default function OccupancyTransition() {
             ? progress.current.t >= T.lookAt
             : progress.current.t > T.lookAt);
         if (look !== occupancy.occupancyLook) {
+          if (look) releaseOccupancyHeavy();
+          else holdOccupancyHeavy();
           occupancy.setOccupancyLook(look);
         }
       });
@@ -97,6 +105,19 @@ export default function OccupancyTransition() {
   });
 
   useEffect(() => {
+    if (occupancyMode) {
+      useCameraDepthStore.getState().exitAll();
+      setCraneDepthFocus(null);
+      setAreaDepthFocus(null);
+      const far = CAMERA_INTRO_SLOT2;
+      if (far) {
+        window.dispatchEvent(
+          new CustomEvent(CAMERA_FLY_TO_EVENT, {
+            detail: { p: far.p, t: far.t, duration: AREA_CAM_MOVE_DURATION },
+          }),
+        );
+      }
+    }
     const target = occupancyMode ? 1 : 0;
     const from = progress.current.t;
     tweenRef.current?.kill();

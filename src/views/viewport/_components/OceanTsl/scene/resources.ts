@@ -33,13 +33,20 @@ export function setShoreField(data: Float32Array, rect: [number, number, number]
 }
 
 
-export function radialGrid(rings: number, rMin = 0.3, rMax = 26000) {
-  const g = Math.log(rMax / rMin) / rings,
+/** busan.glb sky 돔 반지름. 로컬 ±912567m × 노드 스케일 0.01 */
+export const OCEAN_RADIUS = 9126;
+/** 링 개수는 예전 26km 반경 기준으로 맞춰 둔 밀도. 반경이 줄면 같은 간격이 되도록 링도 줄인다. */
+const OCEAN_RING_REFERENCE_RADIUS = 26000;
+const OCEAN_SECTORS = 12;
+
+export function radialGrid(rings: number, rMin = 0.3, rMax = OCEAN_RADIUS) {
+  const tuned = Math.max(48, Math.round(rings * Math.log(rMax / rMin) / Math.log(OCEAN_RING_REFERENCE_RADIUS / rMin)));
+  const g = Math.log(rMax / rMin) / tuned,
     seg = Math.max(64, Math.round((2 * Math.PI) / g));
-  const pos = new Float32Array((1 + (rings + 1) * seg) * 3),
+  const pos = new Float32Array((1 + (tuned + 1) * seg) * 3),
     idx: number[] = [];
   let o = 3;
-  for (let j = 0; j <= rings; j++) {
+  for (let j = 0; j <= tuned; j++) {
     const rr = rMin * Math.exp(j * g);
     for (let i = 0; i < seg; i++) {
       const a = (i / seg) * Math.PI * 2 + (j % 2) * (Math.PI / seg);
@@ -49,7 +56,7 @@ export function radialGrid(rings: number, rMin = 0.3, rMax = 26000) {
     }
   }
   for (let i = 0; i < seg; i++) idx.push(0, 1 + ((i + 1) % seg), 1 + i);
-  for (let j = 0; j < rings; j++)
+  for (let j = 0; j < tuned; j++)
     for (let i = 0; i < seg; i++) {
       const a = 1 + j * seg + i,
         b = 1 + j * seg + ((i + 1) % seg),
@@ -57,10 +64,49 @@ export function radialGrid(rings: number, rMin = 0.3, rMax = 26000) {
         d = 1 + (j + 1) * seg + ((i + 1) % seg);
       idx.push(a, b, c, b, d, c);
     }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  return { geo, g };
+  const geos = splitOceanSectors(pos, idx, OCEAN_SECTORS);
+  if (import.meta.env.DEV) {
+    const tris = geos.map((geo) => (geo.getIndex()?.count ?? 0) / 3);
+    console.info(`[ocean] radius ${rMax}m, ${geos.length} sectors, tris`, tris.map(Math.round));
+  }
+  return { geos, g };
+}
+
+/** 부채꼴로 나눠 카메라 밖 조각은 프러스텀 컬링으로 정점 계산을 건너뛴다. */
+function splitOceanSectors(pos: Float32Array, idx: number[], sectors: number) {
+  const span = (Math.PI * 2) / sectors;
+  const buckets: number[][] = Array.from({ length: sectors }, () => []);
+  for (let t = 0; t < idx.length; t += 3) {
+    const ia = idx[t]!, ib = idx[t + 1]!, ic = idx[t + 2]!;
+    let x = 0, z = 0, w = -1;
+    for (const v of [ia, ib, ic]) {
+      const px = pos[v * 3]!, pz = pos[v * 3 + 2]!;
+      const d = px * px + pz * pz;
+      if (d > w) { w = d; x = px; z = pz; }
+    }
+    let a = Math.atan2(z, x);
+    if (a < 0) a += Math.PI * 2;
+    buckets[Math.min(sectors - 1, Math.floor(a / span))]!.push(ia, ib, ic);
+  }
+  return buckets.filter((list) => list.length >= 3).map((list) => {
+    const map = new Map<number, number>();
+    const index: number[] = [];
+    const out: number[] = [];
+    for (const v of list) {
+      let n = map.get(v);
+      if (n == null) {
+        n = map.size;
+        map.set(v, n);
+        out.push(pos[v * 3]!, pos[v * 3 + 1]!, pos[v * 3 + 2]!);
+      }
+      index.push(n);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+    geo.setIndex(index);
+    geo.computeBoundingSphere();
+    return geo;
+  });
 }
 
 export const skyU = () => ({

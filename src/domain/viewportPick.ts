@@ -1,6 +1,7 @@
 import { SHIP_PLACEMENTS } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
+import { quayGlbIndexNear } from "@/domain/quayCraneInstance";
 import { instanceHoverId } from "@/domain/hoverOutline";
 import { useContentViewStore } from "@/stores/contentView";
 import { useYardStore } from "@/stores/yard";
@@ -44,7 +45,12 @@ export function pickShipKeyFromClick(
 export function pickCraneGlbIndexFromClick(
   event: ThreeEvent<PointerEvent>,
 ): number | null {
-  return parseQuayCraneGlbIndex(event.object);
+  const indices = (event.object.userData as { glbIndices?: number[] }).glbIndices;
+  const instanceId = event.instanceId ?? event.intersections.find((hit) => hit.object === event.object)?.instanceId;
+  if (indices && instanceId != null) return indices[instanceId] ?? null;
+  const named = parseQuayCraneGlbIndex(event.object);
+  if (named != null) return named;
+  return event.point ? quayGlbIndexNear(event.point) : null;
 }
 
 export function activateShipFromViewport(key: string) {

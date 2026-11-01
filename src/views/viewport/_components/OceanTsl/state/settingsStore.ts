@@ -40,10 +40,11 @@ export const PERF_Q: Record<Quality, [number, number, number]> = {
   high: [512, 512, 512],
 };
 // 성능 설정 저장 (localStorage, 버전 키). 우선순위: 기본값 < 저장값 < URL 파라미터
-const PERF_KEY = "ocean-tsl.r3f.perf.v1";
-export const perfDefault = (q: Quality = "high"): Perf => ({
+const PERF_KEY = "ocean-tsl.r3f.perf.v2";
+const OCEAN_QUALITY_DEFAULT: Quality = "medium";
+export const perfDefault = (q: Quality = OCEAN_QUALITY_DEFAULT): Perf => ({
   n: [...PERF_Q[q]] as Perf["n"],
-  mode: "every",
+  mode: "alt",
   nth: 2,
   detail: 600,
   dprCap: 2,
@@ -74,7 +75,7 @@ function loadPerf(qs: URLSearchParams): { quality: Quality; perf: Perf } {
     /* 손상된 값 무시 */
   }
   const uq = qs.get("q");
-  const quality: Quality = isQ(uq) ? uq : isQ(st.quality) ? st.quality : "high";
+  const quality: Quality = isQ(uq) ? uq : isQ(st.quality) ? st.quality : OCEAN_QUALITY_DEFAULT;
   const d = perfDefault(quality),
     sp = (st.perf && typeof st.perf === "object" ? st.perf : {}) as Record<
       string,
@@ -114,7 +115,7 @@ function loadPerf(qs: URLSearchParams): { quality: Quality; perf: Perf } {
 function savePerf(quality: Quality, perf: Perf) {
   try {
     if (
-      quality === "high" &&
+      quality === OCEAN_QUALITY_DEFAULT &&
       JSON.stringify(perf) === JSON.stringify(perfDefault())
     )
       localStorage.removeItem(PERF_KEY);
@@ -261,7 +262,7 @@ export const useSettings = create<Settings>()(
         /* 무시 */
       }
       set((s) => ({
-        quality: "high",
+        quality: OCEAN_QUALITY_DEFAULT,
         perf: perfDefault(),
         dynDpr: Math.min(s.dpr, 2),
       }));

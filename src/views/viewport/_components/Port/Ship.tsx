@@ -1,6 +1,6 @@
 import shipUrl from "@/assets/model/ship.glb";
 import { enableGlbShadows } from "@/domain/glb";
-import { registerOccupancySync } from "@/domain/occupancyLook/occupancySync";
+import { occupancyStage, registerOccupancySync, subscribeOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
 import {
   DEBUG_SHIP_OCCUPANCY_MATERIAL,
   OCCUPANCY_SHIP_COLOR,
@@ -41,7 +41,7 @@ import { applyBuoyancy, makeBuoyState, updateBuoyancy, type BuoyState } from "..
 import { Box3 as BuoyBox3, Vector3 } from "three";
 import { buildShipProfile, oceanState, SHIP_BINS } from "../OceanTsl/oceanApi";
 const PROF_LEVELS = 32;
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { SHIP_LOD_CHECK_EVERY, SHIP_LOD_ENABLED } from "@/constants/shipLod";
 import { buildShipLodGeometries, shipLodLevel } from "@/domain/shipLod";
 import {
@@ -171,6 +171,8 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   // [shipLod] [partIndex][lodLevel]
   const meshRefs = useRef<(InstancedMesh | null)[][]>([]);
   const occupancyRefs = useRef<(InstancedMesh | null)[][]>([]);
+  /** 그림자 패스 전용. 레이어 1, 파트별 최저 LOD. 색 패스는 거리 LOD를 유지한다. */
+  const shadowRefs = useRef<(InstancedMesh | null)[]>([]);
   /** [shipLod] 인스턴스별 현재 LOD 단계 */
   const shipLevels = useRef<number[]>([]);
   const lodFrame = useRef(0);
@@ -498,6 +500,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         mats = partMatrices.current[partIndex] = new Float32Array(list.length * 16);
       }
       const hit = partIndex === hitPartIndex ? hitRef.current : null;
+      const shadow = part.waterway ? null : shadowRefs.current[partIndex];
 
       list.forEach((instance, index) => {
         dummy.position.set(...instance.position);
@@ -521,6 +524,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         slots[lv] = slot + 1;
         instancedLv[lv]?.setMatrixAt(slot, matrix);
         occupancyLv[lv]?.setMatrixAt(slot, matrix);
+        shadow?.setMatrixAt(index, matrix);
         if (hit) {
           hitMatrix.multiplyMatrices(dummy.matrix, hitLocal);
           hit.setMatrixAt(index, hitMatrix);
@@ -545,6 +549,10 @@ export default function Ship({ instances, posesRef }: ShipProps) {
           b.count = c;
           b.instanceMatrix.needsUpdate = true;
         }
+      }
+      if (shadow) {
+        shadow.count = list.length;
+        shadow.instanceMatrix.needsUpdate = true;
       }
     });
 
@@ -607,18 +615,22 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     writeMatrices(list, delta);
   });
 
+  const restoreStage = useSyncExternalStore(subscribeOccupancyHeavy, occupancyStage, () => 99);
   useLayoutEffect(() => {
     const apply = (look: boolean) => {
+      const showReal = !look && restoreStage >= 1;
       parts.forEach((part, index) => {
         if (part.waterway) {
           meshRefs.current[index]?.forEach((m) => { if (m) m.visible = true; });
           occupancyRefs.current[index]?.forEach((m) => { if (m) m.visible = false; });
-          setWaterwayOccupancyEmissive(part.material, look);
+          setWaterwayOccupancyEmissive(part.material, !showReal);
           return;
         }
 
-        meshRefs.current[index]?.forEach((m) => { if (m) m.visible = !look; });
-        occupancyRefs.current[index]?.forEach((m) => { if (m) m.visible = look; });
+        meshRefs.current[index]?.forEach((m) => { if (m) m.visible = showReal; });
+        occupancyRefs.current[index]?.forEach((m) => { if (m) m.visible = !showReal; });
+        const shadow = shadowRefs.current[index];
+        if (shadow) shadow.visible = showReal;
       });
     };
 
@@ -635,7 +647,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
       unsub();
       unregister();
     };
-  }, [parts, lodGeoms]);
+  }, [parts, lodGeoms, restoreStage]);
 
   const count = instances?.length ?? 0;
   if (count === 0) return null;
@@ -692,7 +704,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
               (meshRefs.current[index] ??= [])[lv] = node;
             }}
             args={[geo, part.material, count]}
-            castShadow
+            castShadow={false}
             receiveShadow
             frustumCulled={false}
             visible={!DEBUG_SHIP_OCCUPANCY_MATERIAL}
@@ -709,11 +721,30 @@ export default function Ship({ instances, posesRef }: ShipProps) {
               userData={{ occupancyOnly: true }}
               visible={DEBUG_SHIP_OCCUPANCY_MATERIAL}
               frustumCulled={false}
-              castShadow
+              castShadow={false}
               receiveShadow
               raycast={NO_RAYCAST}
             />
           ))}
+          {part.waterway || !lodGeoms?.[index]?.length ? null : (
+            <instancedMesh
+              ref={(node) => {
+                shadowRefs.current[index] = node;
+                if (!node) return;
+                node.layers.set(1);
+                node.count = 0;
+              }}
+              args={[
+                lodGeoms[index]![lodGeoms[index]!.length - 1]!,
+                part.material,
+                count,
+              ]}
+              castShadow
+              receiveShadow={false}
+              frustumCulled={false}
+              raycast={NO_RAYCAST}
+            />
+          )}
           {part.waterway ? null : (
             <HoverOutlineMesh
               geometry={part.geometry}

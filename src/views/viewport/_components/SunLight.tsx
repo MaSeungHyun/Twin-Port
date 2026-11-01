@@ -11,11 +11,12 @@ import {
   SUN_SHADOW_MAP_SIZE,
   SUN_TARGET,
 } from "@/constants/sunLight";
+import { occupancyStage } from "@/domain/occupancyLook/occupancySync";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { useShipDebugStore } from "@/stores/shipDebug";
 import { SHADOW_PRESET, useViewportSettingsStore } from "@/stores/useViewportSettingsStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  type Camera,
   CameraHelper,
   Color,
   DirectionalLight,
@@ -175,12 +176,24 @@ export default function SunLight() {
   const snapped = useMemo(() => new Vector3(), []);
   useFrame(() => {
     const light = lightRef.current;
-    if (!light || !tg.followCamera || !controls?.target) return;
+    if (!light) return;
+    // 선박 그림자 전용(최저 LOD, 레이어 1). 비트 0만 켜져 있으면 ShadowNode가 메인 카메라 레이어로 덮어쓴다.
+    light.shadow.camera.layers.enable(1);
+    // 오큐펀시를 푼 프레임에 그림자 패스까지 같이 돌리면 방금 다시 켠 메시와 겹쳐 멈춘다.
+    const pauseShadow = useOccupancyStore.getState().occupancyLook || occupancyStage() < 99;
+    if (pauseShadow) {
+      light.shadow.autoUpdate = false;
+      light.shadow.needsUpdate = false;
+    } else if (!light.shadow.autoUpdate) {
+      light.shadow.autoUpdate = true;
+      light.shadow.needsUpdate = true;
+    }
+    if (!tg.followCamera || !controls?.target) return;
     // [pt109u] auto-scale: frustum grows with camera distance so cranes in view never fall off the shadow edge
     const camDist = camera.position.distanceTo(controls.target);
     const half = Math.max(followHalfSize, Math.ceil((camDist * 0.9) / 50) * 50);
     const sc = light.shadow.camera;
-    if (sc.right !== half) { sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix(); light.shadow.needsUpdate = true; }
+    if (sc.right !== half) { sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix(); if (!pauseShadow) light.shadow.needsUpdate = true; }
     const texel = (2 * half) / light.shadow.mapSize.x;
     snapped.copy(controls.target);
     snapped.x = Math.round(snapped.x / texel) * texel;
@@ -195,7 +208,7 @@ export default function SunLight() {
     rotProxy.position.copy(snapped);
     light.position.copy(snapped).add(offset);
     light.updateMatrixWorld();
-    if (moved) light.shadow.needsUpdate = true;
+    if (moved && !pauseShadow) light.shadow.needsUpdate = true;
   });
 
   // leva → 기즈모 프록시 동기화 (드래그 중에는 기즈모가 주인)
@@ -272,32 +285,14 @@ export default function SunLight() {
   // [shadow] 사용자 프리셋(헤더 Graphics settings)이 leva / tp.sunShadow.v3 보다 우선. leva 는 개발 전용 오버라이드.
   // 그림자 갱신은 기존처럼 매 프레임(shadow.autoUpdate=true): 움직이는 배/크레인 그림자가 멈추지 않도록 보수적으로 유지.
   const shadowQuality = useViewportSettingsStore((st) => st.shadowQuality);
+  const occupancyLook = useOccupancyStore((st) => st.occupancyLook);
   const devOverride = import.meta.env.DEV && sh.devOverride;
   const preset = shadowQuality === "off" ? null : SHADOW_PRESET[shadowQuality];
+  // castShadow 를 끄면 받는 재질이 전부 다시 컴파일되고, 그림자 맵이 빠지면 화면이 검게 남는다.
+  // 오큐펀시는 같은 셰이더를 유지한 채 그림자 갱신만 멈추고 세기를 0으로 둔다.
   const castShadow = devOverride ? c.castShadow : preset !== null;
   const mapSize = devOverride ? Number(sh.mapSize) : (preset?.mapSize ?? SHADOW_PRESET.low.mapSize);
   const followHalfSize = devOverride ? tg.followHalfSize : (preset?.followHalfSize ?? tg.followHalfSize);
-
-  useEffect(() => {
-    const light = lightRef.current;
-    if (!light) return;
-    light.shadow.needsUpdate = true;
-  }, [castShadow]);
-
-  // 품질 변경 시 셰이더 워밍업 (castShadow 토글은 리시버 머티리얼 재컴파일을 유발). 최초 마운트는 건너뜀.
-  const gl = useThree((st) => st.gl);
-  const warmed = useRef(false);
-  useEffect(() => {
-    if (!warmed.current) {
-      warmed.current = true;
-      return;
-    }
-    const id = requestAnimationFrame(() => {
-      const r = gl as unknown as { compileAsync?: (o: Object3D, cam: Camera) => Promise<unknown> };
-      void r.compileAsync?.(scene, camera)?.catch(() => undefined);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [castShadow, mapSize, gl, scene, camera]);
 
   // 그림자 카메라/맵 변경 반영
   useEffect(() => {
@@ -305,6 +300,7 @@ export default function SunLight() {
     if (!light) return;
     saveSun({ mapSize: Number(sh.mapSize), bias: sh.bias, normalBias: sh.normalBias, radius: sh.radius, strength: sh.strength, halfWidth: sh.halfWidth, halfHeight: sh.halfHeight, near: sh.near, far: sh.far });
     const cam = light.shadow.camera;
+    cam.layers.enable(1);
     // follow mode: tight square frustum around the look-at point (much higher texel density)
     const hw = tg.followCamera ? followHalfSize : sh.halfWidth;
     const hh = tg.followCamera ? followHalfSize : sh.halfHeight;
@@ -318,14 +314,17 @@ export default function SunLight() {
     light.shadow.bias = sh.bias * 1e-4;
     light.shadow.normalBias = sh.normalBias;
     light.shadow.radius = sh.radius;
-    light.shadow.intensity = sh.strength;
+    light.shadow.intensity = occupancyLook ? 0 : sh.strength;
+    if (occupancyLook) {
+      light.shadow.autoUpdate = false;
+      light.shadow.needsUpdate = false;
+    }
     const ms = mapSize;
     if (light.shadow.mapSize.x !== ms) {
       // ShadowNode가 매 업데이트마다 mapSize로 shadowMap.setSize() 하므로 dispose 불필요
       light.shadow.mapSize.set(ms, ms);
     }
-    light.shadow.needsUpdate = true;
-  }, [sh, tg.followCamera, followHalfSize, mapSize]);
+  }, [sh, tg.followCamera, followHalfSize, mapSize, occupancyLook]);
 
   const handleRadius = c.handleSize > 0 ? c.handleSize : Math.max(3, c.distance * 0.02);
   const showHandle = c.helper && c.visible;

@@ -45,13 +45,13 @@ const UWLOG = typeof location !== "undefined" && /[?&]debuglog/.test(location.se
 // [twin-port] 셰이더는 수면 로컬(y=0) 좌표 → 카메라를 level 만큼 내려서 전달, 메시는 level 만큼 올림
 const camL = new THREE.Vector3(), _fw = new THREE.Vector3(), _rt = new THREE.Vector3(), _v2 = new THREE.Vector2();
 
-export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
+export function Ocean({ geos }: { geos: THREE.BufferGeometry[] }) {
   countRender("scene.ocean");
   const { sim, ocean, sky, island, probe } = useScene();
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const bgRef = useRef<THREE.Mesh>(null);
-  const seaRef = useRef<THREE.Mesh>(null);
+  const seaRef = useRef<THREE.Group>(null);
   const time = useRef(0);
   const scene = useThree((s) => s.scene);
   // [loader] 첫 화면 전에 FFT 패스·프로브·수중 안개를 한 번 돌려 파이프라인을 만든다.
@@ -189,10 +189,13 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
     const t = time.current;
     oceanClock.t = t;
     const u = ocean.uniforms;
-    const cur = sim.update(gl, t, dt, perf.mode, perf.nth);
-    for (let c = 0; c < 3; c++) {
-      u[`uDisp${c}`].value = sim.disp[c][cur[c]].texture;
-      u[`uDer${c}`].value = sim.deriv[c].texture;
+    // 바다가 꺼져 있으면 FFT 를 돌리지 않는다. 위상은 절대 시각이라 다시 보일 때 맞는다.
+    if (oceanState.visible) {
+      const cur = sim.update(gl, t, dt, perf.mode, perf.nth);
+      for (let c = 0; c < 3; c++) {
+        u[`uDisp${c}`].value = sim.disp[c][cur[c]].texture;
+        u[`uDer${c}`].value = sim.deriv[c].texture;
+      }
     }
     u.uTime.value = u.uTimeV.value = t;
     sky.uniforms.uTime.value = island.uniforms.uTime.value = t;
@@ -205,12 +208,12 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
     camL.copy(camera.position);
     camL.y -= oceanState.level;
     // [hmr] 메시 높이도 렌더 시점 1회가 아니라 매 프레임 같은 출처(oceanState.level)에서 → 셰이더 camL 과 항상 일치
-    if (seaRef.current) seaRef.current.position.y = oceanState.level;
+    if (seaRef.current) seaRef.current.position.set(0, oceanState.level, 0);
     island.uniforms.uCam.value.copy(camL);
     u.uCam.value.copy(camL);
     u.uCamV.value.copy(camL);
     sky.uniforms.uCam.value.copy(camL);
-    u.uOffset.value.set(camera.position.x, camera.position.z);
+    probe.m.uniforms.uOffset.value.set(camera.position.x, camera.position.z);
     // 근평면 가로 스트립의 실제 FFT 파고를 이번 프레임에 GPU 로 계산 (probeRT) → 셰이더가 픽셀 단위로 수면 위/아래 분할
     pc.getWorldDirection(_fw);
     _rt.setFromMatrixColumn(pc.matrixWorld, 0).normalize();
@@ -218,7 +221,7 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
     const pu = probe.m.uniforms;
     pu.uNearL.value.copy(_fw).multiplyScalar(pc.near).addScaledVector(_rt, -half);
     pu.uNearR.value.copy(_fw).multiplyScalar(pc.near).addScaledVector(_rt, half);
-    { const prev = gl.getRenderTarget(); gl.setRenderTarget(probeRT as never); gl.render(probe.scene, probe.cam); gl.setRenderTarget(prev); }
+    if (oceanState.visible) { const prev = gl.getRenderTarget(); gl.setRenderTarget(probeRT as never); gl.render(probe.scene, probe.cam); gl.setRenderTarget(prev); }
     gl.getDrawingBufferSize(_v2);
     for (const m of [ocean, sky, island]) {
       const q = m.uniforms;
@@ -295,7 +298,11 @@ export function Ocean({ geo }: { geo: THREE.BufferGeometry }) {
     <>
       <Bubbles under={uwFogU.under} />
       <mesh ref={bgRef} geometry={uwBgGeo} material={uwBgMat} frustumCulled={false} renderOrder={-10} />
-      <mesh ref={seaRef} geometry={geo} material={ocean} frustumCulled={false} position-y={oceanState.level} receiveShadow />
+      <group ref={seaRef} position-y={oceanState.level}>
+        {geos.map((geo, i) => (
+          <mesh key={i} geometry={geo} material={ocean} receiveShadow />
+        ))}
+      </group>
     </>
   );
 }

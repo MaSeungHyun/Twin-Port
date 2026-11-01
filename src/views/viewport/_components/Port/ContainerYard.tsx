@@ -10,8 +10,10 @@ import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { composeContainerMatrix } from "@/domain/container";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import { getBlockFadeLevel, getFadeMaterial, useAreaDepthFadeVersion } from "@/domain/areaDepthFade";
+import { beginSceneWarmTask } from "./WaterReflection";
 import { useYardStore } from "@/stores/yard";
 import type { Container } from "@/types/container";
+import { occupancyStage, subscribeOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
@@ -24,17 +26,23 @@ import {
   CONTAINER_LOD_HYSTERESIS,
   CONTAINER_LOD_MOVE_EPS,
 } from "@/constants/containerLod";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Color,
   DynamicDrawUsage,
-  type InstancedMesh,
+  Group,
+  InstancedMesh,
   LineBasicMaterial,
   type Material,
   Matrix4,
   Quaternion,
   Vector3,
 } from "three";
+
+/** 블록 1개·색 1개의 인스턴스 상한. 슬롯 최대(20×6×4)보다 넉넉하다. */
+const BLOCK_INSTANCE_CAP = 1024;
+
+type BlockMeshKind = "solid" | "fade0" | "fade1" | "column" | "col0" | "col1";
 
 /** [containerLod] 블록 1개의 원거리 표현 */
 type BlockLod = {
@@ -98,10 +106,10 @@ export default function ContainerYard({
   const { scene } = useGLTF(containersUrl, false, true, extendKtx2);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
   const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
+  const restoreStage = useSyncExternalStore(subscribeOccupancyHeavy, occupancyStage, () => 99);
 
-  const solidRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>>(
-    {},
-  );
+  const blockRoot = useMemo(() => new Group(), []);
+  const blockMeshes = useRef(new Map<string, InstancedMesh>());
   const highlightRefs = useRef<
     Partial<Record<ContainerColorKey, InstancedMesh>>
   >({});
@@ -109,10 +117,16 @@ export default function ContainerYard({
     Partial<Record<ContainerColorKey, InstancedMesh>>
   >({});
   const [meshesReady, setMeshesReady] = useState(false);
+  const releaseYardWarm = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    releaseYardWarm.current = beginSceneWarmTask();
+    return () => {
+      releaseYardWarm.current?.();
+      releaseYardWarm.current = null;
+    };
+  }, []);
   // [areafade] 구역 Depth: 포커스 밖 블록 컨테이너는 반투명 메시로 [레벨1(구역 밖), 레벨2(그룹 밖)]
   const fadeVersion = useAreaDepthFadeVersion();
-  const fadeSolidRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>[]>([{}, {}]);
-  const fadeColumnRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>[]>([{}, {}]);
 
   const matchedIds = useMemo(() => {
     if (!selectedContainerId) return null;
@@ -129,9 +143,6 @@ export default function ContainerYard({
   );
 
   const prototypes = useMemo(() => buildContainerPrototypes(scene), [scene]);
-  const columnRefs = useRef<Partial<Record<ContainerColorKey, InstancedMesh>>>(
-    {},
-  );
   const fadeMaterials = useMemo(
     () =>
       ([1, 2] as const).map(
@@ -253,9 +264,50 @@ export default function ContainerYard({
   useEffect(() => {
     if (!meshesReady) return;
 
-    const solidCounts = Object.fromEntries(
-      CONTAINER_COLORS.map((c) => [c.key, 0]),
-    ) as Record<ContainerColorKey, number>;
+    const materialFor = (kind: BlockMeshKind, color: ContainerColorKey) => {
+      const proto = prototypes[color];
+      if (kind === "solid" || kind === "column") return proto.material;
+      if (kind === "fade0" || kind === "col0") return fadeMaterials[0]![color];
+      return fadeMaterials[1]![color];
+    };
+    const warmedColor = new Set<ContainerColorKey>();
+    const ensureBlockMesh = (code: string, kind: BlockMeshKind, color: ContainerColorKey) => {
+      const key = `${code}|${kind}|${color}`;
+      const proto = prototypes[color];
+      let mesh = blockMeshes.current.get(key);
+      if (mesh && (mesh.geometry !== proto.geometry || mesh.material !== materialFor(kind, color))) {
+        mesh.removeFromParent();
+        blockMeshes.current.delete(key);
+        mesh = undefined;
+      }
+      if (!mesh) {
+        mesh = new InstancedMesh(proto.geometry, materialFor(kind, color), BLOCK_INSTANCE_CAP);
+        mesh.name = `yard-${key}`;
+        mesh.count = 0;
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        mesh.frustumCulled = true;
+        mesh.renderOrder = 10;
+        mesh.raycast = () => null;
+        mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+        blockRoot.add(mesh);
+        blockMeshes.current.set(key, mesh);
+        if (kind === "solid" && !warmedColor.has(color)) {
+          warmedColor.add(color);
+          mesh.userData.warmMaterials = [fadeMaterials[0]![color], fadeMaterials[1]![color]];
+        }
+      }
+      return mesh;
+    };
+    const pushBlock = (code: string, kind: BlockMeshKind, color: ContainerColorKey, m: Matrix4) => {
+      const mesh = ensureBlockMesh(code, kind, color);
+      const i = mesh.count;
+      if (i >= BLOCK_INSTANCE_CAP) return;
+      mesh.setMatrixAt(i, m);
+      mesh.count = i + 1;
+      mesh.visible = true;
+    };
+
     const highlightCounts = Object.fromEntries(
       CONTAINER_COLORS.map((c) => [c.key, 0]),
     ) as Record<ContainerColorKey, number>;
@@ -263,52 +315,26 @@ export default function ContainerYard({
       CONTAINER_COLORS.map((c) => [c.key, 0]),
     ) as Record<ContainerColorKey, number>;
 
+    for (const mesh of blockMeshes.current.values()) {
+      mesh.count = 0;
+      mesh.visible = false;
+    }
     CONTAINER_COLORS.forEach((c) => {
-      const solid = solidRefs.current[c.key];
       const highlight = highlightRefs.current[c.key];
       const wire = wireframeRefs.current[c.key];
-      if (solid) solid.count = 0;
       if (highlight) highlight.count = 0;
       if (wire) wire.count = 0;
-      const column = columnRefs.current[c.key];
-      if (column) column.count = 0;
-      for (const r of [...fadeSolidRefs.current, ...fadeColumnRefs.current]) {
-        const m = r[c.key];
-        if (m) m.count = 0;
-      }
     });
-    const fadeCounts = new Map<InstancedMesh, number>();
-    const pushFade = (mesh: InstancedMesh | undefined, m: Matrix4) => {
-      if (!mesh) return;
-      const i = fadeCounts.get(mesh) ?? 0;
-      if (i >= MAX_PER_COLOR) return;
-      mesh.setMatrixAt(i, m);
-      fadeCounts.set(mesh, i + 1);
-      mesh.count = i + 1;
-    };
 
-    // [containerLod] 선택 중이 아니면 먼 블록은 스택 기둥으로
+    // [containerLod] 선택 중이 아니면 먼 블록은 스택 기둥으로. 블록마다 메시라 화면 밖은 프러스텀에서 빠진다.
     const useLod = CONTAINER_LOD_ENABLED && !matchedIds;
     if (useLod) {
-      const columnCounts = Object.fromEntries(
-        CONTAINER_COLORS.map((c) => [c.key, 0]),
-      ) as Record<ContainerColorKey, number>;
       for (const code of farBlocks) {
         const b = blockLods.get(code);
         if (!b) continue;
         const lvl = getBlockFadeLevel(code);
-        if (lvl) {
-          for (const col of b.columns) pushFade(fadeColumnRefs.current[lvl - 1]![col.colorKey], col.matrix);
-          continue;
-        }
-        for (const col of b.columns) {
-          const mesh = columnRefs.current[col.colorKey];
-          const idx = columnCounts[col.colorKey];
-          if (!mesh || idx >= MAX_PER_COLOR) continue;
-          mesh.setMatrixAt(idx, col.matrix);
-          columnCounts[col.colorKey] = idx + 1;
-          mesh.count = idx + 1;
-        }
+        const columnKind: BlockMeshKind = lvl === 1 ? "col0" : lvl === 2 ? "col1" : "column";
+        for (const col of b.columns) pushBlock(code, columnKind, col.colorKey, col.matrix);
       }
     }
 
@@ -343,119 +369,51 @@ export default function ContainerYard({
         continue;
       }
 
-      const lvl = matchedIds ? 0 : getBlockFadeLevel(container.location.block);
-      if (lvl) {
-        pushFade(fadeSolidRefs.current[lvl - 1]![colorKey], matrix);
-        continue;
-      }
-      const mesh = solidRefs.current[colorKey];
-      const idx = solidCounts[colorKey];
-      if (!mesh || idx >= MAX_PER_COLOR) continue;
-      mesh.setMatrixAt(idx, matrix);
-      solidCounts[colorKey] = idx + 1;
-      mesh.count = idx + 1;
+      const lvl = getBlockFadeLevel(container.location.block);
+      let kind: BlockMeshKind = "solid";
+      if (lvl === 1) kind = "fade0";
+      else if (lvl === 2) kind = "fade1";
+      pushBlock(container.location.block, kind, colorKey, matrix);
     }
 
     CONTAINER_COLORS.forEach((c) => {
-      const solid = solidRefs.current[c.key];
       const highlight = highlightRefs.current[c.key];
       const wire = wireframeRefs.current[c.key];
-      if (solid) solid.instanceMatrix.needsUpdate = true;
       if (highlight) highlight.instanceMatrix.needsUpdate = true;
       if (wire) wire.instanceMatrix.needsUpdate = true;
-      const column = columnRefs.current[c.key];
-      if (column) column.instanceMatrix.needsUpdate = true;
-      for (const r of [...fadeSolidRefs.current, ...fadeColumnRefs.current]) {
-        const m = r[c.key];
-        if (m) m.instanceMatrix.needsUpdate = true;
-      }
     });
-  }, [containers, meshesReady, matchedIds, blockByCode, deckY, farBlocks, blockLods, fadeVersion]);
+    for (const mesh of blockMeshes.current.values()) {
+      if (mesh.count === 0) continue;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.boundingSphere = null;
+    }
+    releaseYardWarm.current?.();
+    releaseYardWarm.current = null;
+  }, [containers, meshesReady, matchedIds, blockByCode, deckY, farBlocks, blockLods, fadeVersion, prototypes, fadeMaterials, blockRoot]);
+
+  useEffect(() => {
+    const meshes = blockMeshes.current;
+    return () => {
+      for (const mesh of meshes.values()) mesh.removeFromParent();
+      meshes.clear();
+    };
+  }, []);
 
   function tryMarkReady() {
     if (meshesReady) return;
-    const solidsReady = CONTAINER_COLORS.every(
-      (item) => solidRefs.current[item.key],
-    );
     const highlightsReady = CONTAINER_COLORS.every(
       (item) => highlightRefs.current[item.key],
     );
     const wiresReady = CONTAINER_COLORS.every(
       (item) => wireframeRefs.current[item.key],
     );
-    const columnsReady = CONTAINER_COLORS.every(
-      (item) => columnRefs.current[item.key],
-    );
-    if (solidsReady && highlightsReady && wiresReady && columnsReady) {
-      setMeshesReady(true);
-    }
+    if (highlightsReady && wiresReady) setMeshesReady(true);
   }
 
   return (
     <group position={[...yardOffset]} visible={visible}>
-      <group visible={!occupancyLook}>
-        {CONTAINER_COLORS.map((c) => (
-          <instancedMesh
-            key={`solid-${c.key}`}
-            ref={(node) => {
-              if (!node) return;
-              node.instanceMatrix.setUsage(DynamicDrawUsage);
-              solidRefs.current[c.key] = node;
-              tryMarkReady();
-            }}
-            args={[
-              prototypes[c.key].geometry,
-              prototypes[c.key].material, // GLB 원본 텍스처 색 (occupancy 시 이 그룹은 숨김)
-              MAX_PER_COLOR,
-            ]}
-            frustumCulled={false}
-            renderOrder={10}
-            castShadow={false} // 야드 컨테이너: 그림자 받기만
-            receiveShadow
-            raycast={() => null}
-          />
-        ))}
-        {CONTAINER_COLORS.map((c) => (
-          <instancedMesh
-            key={`column-${c.key}`}
-            ref={(node) => {
-              if (!node) return;
-              node.instanceMatrix.setUsage(DynamicDrawUsage);
-              columnRefs.current[c.key] = node;
-              tryMarkReady();
-            }}
-            args={[
-              prototypes[c.key].geometry,
-              prototypes[c.key].material, // 원거리 스택 기둥: 맨 위 컨테이너 색 텍스처
-              MAX_PER_COLOR,
-            ]}
-            frustumCulled={false}
-            renderOrder={10}
-            castShadow={false}
-            receiveShadow
-            raycast={() => null}
-          />
-        ))}
-        {([1, 2] as const).flatMap((level) =>
-          (["solid", "column"] as const).flatMap((kind) =>
-            CONTAINER_COLORS.map((c) => (
-              <instancedMesh
-                key={`fade${level}-${kind}-${c.key}`}
-                ref={(node) => {
-                  if (!node) return;
-                  node.instanceMatrix.setUsage(DynamicDrawUsage);
-                  (kind === "solid" ? fadeSolidRefs : fadeColumnRefs).current[level - 1]![c.key] = node;
-                }}
-                args={[prototypes[c.key].geometry, fadeMaterials[level - 1]![c.key], MAX_PER_COLOR]}
-                frustumCulled={false}
-                renderOrder={10}
-                castShadow={false}
-                receiveShadow
-                raycast={() => null}
-              />
-            )),
-          ),
-        )}
+      <group visible={!occupancyLook && restoreStage >= 2}>
+        <primitive object={blockRoot} />
         {CONTAINER_COLORS.map((c) => (
           <instancedMesh
             key={`wire-${c.key}`}

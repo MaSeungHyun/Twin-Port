@@ -93,6 +93,7 @@ async function buildCraneLodsImpl(model: Object3D): Promise<CraneLodSet> {
   model.traverse((o) => {
     const mesh = o as Mesh;
     if (!mesh.isMesh || (mesh as { isInstancedMesh?: boolean }).isInstancedMesh) return;
+    if (mesh.userData.quaySource || mesh.userData.quayDraw) return;
     if (parseQuayCraneGlbIndex(mesh) == null || /overhead/i.test(mesh.name)) return;
     meshes.push(mesh);
     bases.add(mesh.geometry);
@@ -127,6 +128,8 @@ async function buildCraneLodsImpl(model: Object3D): Promise<CraneLodSet> {
     levels.forEach((g, i) => (trianglesPerLevel[i] += triangleCount(g)));
     base.computeBoundingSphere();
     const center = base.boundingSphere!.center.clone().applyMatrix4(mesh.matrixWorld);
+    const extra = levels.filter((g, i) => i > 0 && g !== base);
+    if (extra.length) mesh.userData.warmGeometries = extra;
     entries.push({ mesh, levels, current: 0, center });
     await slice();
   }

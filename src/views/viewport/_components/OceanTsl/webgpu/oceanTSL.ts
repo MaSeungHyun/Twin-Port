@@ -55,8 +55,7 @@ import { renderGroup as _rgAF } from "three/tsl";
 export const airFogU = { on: uniform(0).setGroup(_rgAF), col: uniform(new THREE.Color(0xc9d6df)).setGroup(_rgAF), near: uniform(300).setGroup(_rgAF), far: uniform(3000).setGroup(_rgAF) };
 // [occ] 점유율 전환 시 바다/섬 밝기 배율 (1=원래, 전역 유니폼)
 export const oceanDimU = uniform(1).setGroup(_rgAF);
-// [edge] ocean grid edge fade (fraction of grid radius 26000m)
-export const OCEAN_RADIUS = 26000;
+// [edge] 수면 가장자리 페이드. 반지름은 busan.glb sky 돔과 같다 (resources.OCEAN_RADIUS).
 export const oceanEdgeU = { start: uniform(0.75).setGroup(_rgAF), end: uniform(1.0).setGroup(_rgAF) };
 const airFogMix = (c, dist, under) => mix(c, airFogU.col, airFogU.on.mul(float(1).sub(under)).mul(smoothstep(airFogU.near, airFogU.far, dist)));
 import { CASCADE_L, CASCADE_OFF, CASCADE_ROT } from "../spectrum";
@@ -110,7 +109,7 @@ import {
   OCEAN_WAKE_LENGTH,
   OCEAN_WAKE_FOAM_STRENGTH,
 } from "@/constants/ocean";
-import { MAX_PTS, SHORE, STRIP, probeRT, shoreTex } from "../scene/resources";
+import { MAX_PTS, OCEAN_RADIUS, SHORE, STRIP, probeRT, shoreTex } from "../scene/resources";
 
 const PI = 3.14159;
 const [L0, L1, L2] = CASCADE_L;
@@ -662,7 +661,7 @@ function displacer(u) {
     // [twin-port] 안벽 앞 수 m 에서 FFT 변위를 0 으로 (벽 쪽은 더 넓게 감쇠)
     d.mulAssign(
       float(1)
-        .sub(smoothstep(9000.0, 24000.0, r))
+        .sub(smoothstep(OCEAN_RADIUS * 0.85, OCEAN_RADIUS, r))
         .mul(mix(smoothstep(-0.5, 3.0, si.y), smoothstep(0.5, 6.0, si.y), wl)),
     );
     // [twin-port] 수평(choppy) 변위가 육지 쪽으로 밀어 넣지 않게: 육지 방향 성분을 (해안까지 거리-0.5m) 이하로 제한
@@ -777,6 +776,7 @@ export function makeOceanMatGPU(g) {
     const w = disp(positionLocal).toVar();
     vXZ.assign(positionLocal.xz.add(u.uOffset));
     vW.assign(w);
+    // 수면은 월드에 고정. uOffset 은 0 이라 정점이 카메라로 끌려가지 않는다.
     return w;
   })();
   const derB = (t, f, Lc, a, off, seed) => {
@@ -1248,7 +1248,7 @@ export function makeOceanMatGPU(g) {
     );
     col.assign(airFogMix(col, dist, uw.under).mul(oceanDimU)); // [fog2][occ]
     // [edge] fade far ocean into the sky horizon colour (same formula as sky: horizon + air fog near y~0)
-    const edgeR = length(vW.xz.sub(u.uCam.xz)).div(OCEAN_RADIUS);
+    const edgeR = length(vW.xz).div(OCEAN_RADIUS);
     const edgeF = smoothstep(oceanEdgeU.start, max(oceanEdgeU.end, oceanEdgeU.start.add(0.001)), edgeR).mul(float(1).sub(uw.under)).toVar();
     const edgeSky = L.sky(normalize(vec3(V.x.negate(), 0.015, V.z.negate())), 0, 0).toVar();
     edgeSky.assign(mix(edgeSky, airFogU.col, airFogU.on.mul(float(1).sub(uw.under)).mul(float(1).sub(smoothstep(0.0, 0.12, 0.015)))));
@@ -1512,6 +1512,8 @@ export function makeProbeGPU(ocean) {
   const pts = Array.from({ length: MAX_PTS }, () => new THREE.Vector2());
   const u = {
     ...ocean.uniforms,
+    // 수면 메시의 uOffset 은 0(월드 고정). 프로브만 카메라 원점이 필요하다.
+    uOffset: uniform(new THREE.Vector2()),
     uNearL: uniform(new THREE.Vector3()),
     uNearR: uniform(new THREE.Vector3()),
     uStripN: uniform(STRIP),

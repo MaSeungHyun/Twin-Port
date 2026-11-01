@@ -20,8 +20,8 @@ export const SHADOW_PRESET: Record<
   Exclude<ShadowQuality, "off">,
   { mapSize: number; followHalfSize: number }
 > = {
-  low: { mapSize: 2048, followHalfSize: 600 },
-  high: { mapSize: 4096, followHalfSize: 1000 },
+  low: { mapSize: 1024, followHalfSize: 400 },
+  high: { mapSize: 2048, followHalfSize: 700 },
 };
 
 const STORE_KEY = "twin-port.viewportSettings";
@@ -76,7 +76,7 @@ function legacyDefaults(): Persisted {
     rendererPref: r === "webgl" ? "webgl" : "webgpu",
     quality,
     renderScale: hasScale ? s : QUALITY_DPR[quality],
-    shadowQuality: mapSize && mapSize < 4096 ? "low" : "high",
+    shadowQuality: mapSize && mapSize < 2048 ? "low" : "high",
     perfOverlay: false,
     perfExpanded: false,
   };

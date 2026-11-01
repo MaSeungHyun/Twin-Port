@@ -1,9 +1,12 @@
 /**
  * [depthfade] 구역/그룹 Depth 진입 시 포커스 밖 안벽 크레인을 반투명으로.
+ * 인스턴스로 묶이지 않은 부품만 여기서 다룬다.
  * 로드 시 크레인 메시마다 transparent 복제 머티리얼을 미리 만들어 두고(SceneWarmup 에서 함께 컴파일),
- * 런타임에는 material 참조 교체 + opacity(uniform) 트윈만 ? transparent 토글/셰이더 재컴파일 없음.
+ * 런타임에는 material 참조 교체 + opacity(uniform) 트윈만 한다.
  */
 import { DEPTH_FADE_DURATION_S, DEPTH_UNFOCUSED_OPACITY } from "@/constants/areaCam";
+import { attachCraneFade, writeFadeOpacity } from "@/domain/fadeOpacity";
+import { setQuayInstanceFocus } from "@/domain/quayCraneInstance";
 import { parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
 import { Material, Mesh, type Object3D } from "three";
 
@@ -24,15 +27,20 @@ export function bindCraneDepthFade(model: Object3D | null) {
   if (!model) return;
   model.traverse((o) => {
     if (!(o instanceof Mesh) || o.name.endsWith("-occupancy")) return;
+    if (o.userData.quaySource || o.userData.quayDraw || o.userData.quayDepth) return;
     const index = parseQuayCraneGlbIndex(o);
     if (index == null) return;
     // 크레인끼리 공유하는 머티리얼 → 메시별 복제 (크레인마다 독립 페이드)
     const faded = list(o.material).map((m) => {
       const c = m.clone();
-      c.transparent = true;
-      c.depthWrite = true; // 자기 부재끼리 비침 방지 (반투명 실루엣)
-      c.opacity = 1;
-      c.needsUpdate = true;
+      // 원본과 셰이더를 공유하면 opacity 노드가 빠져 그대로 진하게 남는다.
+      c.customProgramCacheKey = () => "quay-part-fade";
+      const lit = c as Material & { emissive?: { set: (hex: number) => void }; emissiveMap?: unknown; emissiveIntensity?: number };
+      lit.emissive?.set(0);
+      lit.emissiveMap = null;
+      lit.emissiveIntensity = 0;
+      attachCraneFade(c);
+      c.depthWrite = true;
       return c;
     });
     const e: Entry = { mesh: o, index, original: o.material, faded, opacity: 1, target: 1 };
@@ -53,6 +61,7 @@ export function getCraneFadeVariant(mesh: Mesh): Material | Material[] | null {
 export function setCraneDepthFocus(next: ReadonlySet<number> | null) {
   focus = next;
   applyTargets();
+  setQuayInstanceFocus(next);
 }
 
 function applyTargets() {
@@ -71,6 +80,6 @@ export function updateCraneDepthFade(dt: number) {
       continue;
     }
     if (e.mesh.material === e.original) e.mesh.material = Array.isArray(e.original) ? e.faded : e.faded[0]!;
-    for (const m of e.faded) m.opacity = e.opacity;
+    writeFadeOpacity(e.faded, e.opacity);
   }
 }

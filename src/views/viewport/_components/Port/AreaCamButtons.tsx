@@ -28,6 +28,7 @@ import { getBlockFootprintSize } from "@/domain/blockFootprint";
 import { getCraneFocusTarget, getShipFocusTarget } from "@/domain/cameraFocus";
 import { SHIP_INSTANCES } from "@/constants/model";
 import { useCameraDepthStore } from "@/stores/cameraDepth";
+import { useOccupancyStore } from "@/stores/occupancy";
 import { setCraneDepthFocus } from "@/domain/craneDepthFade";
 import { setAreaDepthFocus } from "@/domain/areaDepthFade";
 import { useViewportStore } from "@/stores/viewport";
@@ -135,6 +136,7 @@ function buildAreaCFallback(t: AreaCamTarget): Resolved | null {
 function AreaCamButtons() {
   const { scene } = useGLTF(areaCamUrl);
   const interactionReady = useViewportStore((s) => s.interactionReady);
+  const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   const stack = useCameraDepthStore((s) => s.stack);
   const quayCranes = useYardStore((s) => s.quayCranes);
   const blocks = useYardStore((s) => s.blocks);
@@ -181,20 +183,33 @@ function AreaCamButtons() {
   // [depthfade] 구역 Depth = 구역 크레인 범위, 그룹 Depth(A1 …) = 그룹 3대만 불투명, 나머지 크레인 반투명
   const groupLabel = stack.length > 1 ? stack[1]!.label : null;
   useEffect(() => {
-    if (!area) { setCraneDepthFocus(null); setAreaDepthFocus(null); return; }
-    const group = groupLabel ? groups.find((g) => g.label === groupLabel) : undefined;
-    // [areafade] 지면·수목·건물·야드 크레인/컨테이너: 구역 밖(구역 Depth) / 구역 안 전부(그룹 Depth) 반투명
-    setAreaDepthFocus({ area: area.key, group: !!group });
-    if (group) { setCraneDepthFocus(new Set(group.cranes)); return; }
-    const range = AREA_CRANE_RANGES[area.key];
-    if (!range) { setCraneDepthFocus(null); return; }
-    const ids = new Set<number>();
-    for (let i = range[0]; i <= range[1]; i++) ids.add(i);
-    setCraneDepthFocus(ids);
+    // 클릭 턴에서 페이드·야드 재배치를 하면 카메라 rAF 보다 먼저 메인 스레드가 막힌다.
+    // 한 프레임 그린 뒤에 포커스를 건다.
+    let raf1 = 0;
+    let raf2 = 0;
+    const apply = () => {
+      if (!area) { setCraneDepthFocus(null); setAreaDepthFocus(null); return; }
+      const group = groupLabel ? groups.find((g) => g.label === groupLabel) : undefined;
+      // [areafade] 지면·수목·건물·야드 크레인/컨테이너: 구역 밖(구역 Depth) / 구역 안 전부(그룹 Depth) 반투명
+      setAreaDepthFocus({ area: area.key, group: !!group });
+      if (group) { setCraneDepthFocus(new Set(group.cranes)); return; }
+      const range = AREA_CRANE_RANGES[area.key];
+      if (!range) { setCraneDepthFocus(null); return; }
+      const ids = new Set<number>();
+      for (let i = range[0]; i <= range[1]; i++) ids.add(i);
+      setCraneDepthFocus(ids);
+    };
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(apply);
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [area, groupLabel, groups]);
   useEffect(() => () => { setCraneDepthFocus(null); setAreaDepthFocus(null); }, []);
 
-  if (!interactionReady) return null;
+  if (!interactionReady || occupancyMode) return null;
   if (stack.length) {
     return (
       <>

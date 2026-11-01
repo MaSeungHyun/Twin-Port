@@ -37,7 +37,7 @@ export default function ContentPanel() {
   return (
     <div
       className={cn(
-        "pointer-events-auto absolute z-20 flex min-w-0 gap-sm",
+        "pointer-events-auto absolute z-40 flex min-w-0 gap-sm",
         detailGraphOpen
           ? "top-md right-md bottom-md left-md"
           : "top-md bottom-md left-md",

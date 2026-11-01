@@ -128,6 +128,8 @@ function looksLikeQuayCrane(object: Object3D) {
 }
 
 export function findQuayCraneRoot(object: Object3D): Object3D | null {
+  // 묶음 메시(crane-instanced)는 크레인 한 대가 아니다. 호버는 인스턴스 → 원본 루트로 찾는다.
+  if (object.userData.quayDraw) return null;
   if ((object as InstancedMesh).isInstancedMesh && looksLikeQuayCrane(object)) {
     return object;
   }
@@ -155,7 +157,7 @@ export function collectQuayHoverTargets(model: Object3D): QuayHoverTarget[] {
 
   model.traverse((child) => {
     if (!(child instanceof Mesh)) return;
-    if (child.name.endsWith("-occupancy")) return;
+    if (child.name.endsWith("-occupancy") || child.userData.quayDraw) return;
     const root = findQuayCraneRoot(child);
     if (!root || seen.has(child)) return;
     seen.add(child);

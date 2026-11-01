@@ -62,13 +62,25 @@ import {
 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import HoverOutlineMesh from "./HoverOutlineMesh";
-import { QuayCraneReflection, SceneWarmup } from "./WaterReflection";
+import { beginSceneWarmTask, QuayCraneReflection, SceneWarmup } from "./WaterReflection";
 import { parseCraneNameIndex, parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
-import { rememberQuayHoverIndex } from "@/domain/hoverTooltip";
+import { quayGlbIndexOfHover, rememberQuayHoverIndex } from "@/domain/hoverTooltip";
 import { getFailedIndices } from "@/stores/useFailureStore";
 import { bakePortShoreOnce } from "../OceanTsl/portShore";
+import { instanceQuayCranes, quayDrawPointer, quayGlbIndexNear, quayHoverId, updateQuayCraneFade, updateQuayCraneLods } from "@/domain/quayCraneInstance";
 import { instanceRepeatedGround, buildGroundLods, resetGroundLods, updateGroundLods, type GroundLodSet } from "@/domain/repeatMesh";
 import { GROUND_LOD_CHECK_EVERY, GROUND_LOD_LEVELS } from "@/constants/groundLod";
+
+/** 인스턴스 히트 → 원래 크레인. instanceId 가 없으면 맞은 점에서 가장 가까운 크레인. */
+function quayHoverFromEvent(event: ThreeEvent<PointerEvent>) {
+  const fromHit = event.intersections?.find((hit) => hit.object === event.object)?.instanceId;
+  const drawn = quayDrawPointer(event.object, event.instanceId ?? fromHit);
+  if (drawn) return drawn;
+  const glbIndex = event.point ? quayGlbIndexNear(event.point) : null;
+  if (glbIndex == null) return null;
+  const id = quayHoverId(glbIndex);
+  return id ? { id, glbIndex } : null;
+}
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
 function enableGroundAlpha(root: Object3D) {
@@ -186,11 +198,14 @@ function attachOccupancyClones(
   return clones;
 }
 
+let groundReveal = 0;
+
 function applyOccupancyGroundLook(
   cache: OccupancyMeshCache,
   clones: Mesh[],
   enabled: boolean,
 ) {
+  const token = ++groundReveal;
   for (const mesh of cache.ground) {
     rememberOriginalVisible(mesh);
     mesh.visible = enabled ? false : mesh.userData.occupancyOriginalVisible;
@@ -198,10 +213,33 @@ function applyOccupancyGroundLook(
   for (const clone of clones) {
     clone.visible = enabled;
   }
-  for (const mesh of cache.others) {
-    rememberOriginalVisible(mesh);
-    mesh.visible = enabled ? false : mesh.userData.occupancyOriginalVisible;
+  for (const mesh of cache.others) rememberOriginalVisible(mesh);
+  if (enabled) {
+    for (const mesh of cache.others) {
+      mesh.userData.occupancyHidden = true;
+      mesh.visible = false;
+    }
+    return;
   }
+  // 로딩 복원은 한 번에. 오큐펀시를 풀 때만 나눠 켠다 — 한 프레임에 전부 켜면 파이프라인 바인딩이 수 초 멈춘다.
+  const hidden = cache.others.filter((mesh) => mesh.userData.occupancyHidden === true);
+  if (hidden.length === 0) {
+    for (const mesh of cache.others) mesh.visible = mesh.userData.occupancyOriginalVisible;
+    return;
+  }
+  const CHUNK = 60;
+  let index = 0;
+  const step = () => {
+    if (token !== groundReveal) return;
+    const end = Math.min(index + CHUNK, hidden.length);
+    for (; index < end; index += 1) {
+      const mesh = hidden[index]!;
+      mesh.userData.occupancyHidden = false;
+      mesh.visible = mesh.userData.occupancyOriginalVisible !== false;
+    }
+    if (index < hidden.length) requestAnimationFrame(step);
+  };
+  step();
 }
 
 type GroundProps = {
@@ -263,6 +301,8 @@ export default function Ground({
     });
     applyGroundPointerFilter(cloned);
     instanceRepeatedGround(cloned);
+    const releaseQuay = beginSceneWarmTask();
+    void instanceQuayCranes(cloned).finally(releaseQuay);
     endClone();
     return cloned;
   }, [scene]);
@@ -314,14 +354,14 @@ export default function Ground({
     };
   }, [model]);
   useFrame(({ camera: cam }) => {
-    const set = craneLods.current;
-    if (!set) return;
     if (++craneLodFrame.current % CRANE_LOD_CHECK_EVERY !== 0) return;
     const e = cam.matrixWorld.elements;
     const last = craneLodCam.current;
     if (last.length && Math.abs(last[12]! - e[12]!) + Math.abs(last[13]! - e[13]!) + Math.abs(last[14]! - e[14]!) < 0.5) return;
     craneLodCam.current = [e[12]!, e[13]!, e[14]!];
-    updateCraneLods(set, cam);
+    const set = craneLods.current;
+    if (set) updateCraneLods(set, cam);
+    updateQuayCraneLods(cam);
   });
 
   // [groundLod] 펜스/도로/차선 청크 거리 LOD (반복 구간 geometry 공유, 청크만 교체)
@@ -433,6 +473,7 @@ export default function Ground({
   // [depthfade] Depth 포커스 밖 크레인 opacity 트윈
   useFrame((_, dt) => {
     updateCraneDepthFade(Math.min(dt, 0.1));
+    updateQuayCraneFade(Math.min(dt, 0.1));
     updateAreaDepthFade(Math.min(dt, 0.1)); // [areafade]
   });
 
@@ -483,26 +524,22 @@ export default function Ground({
         position={position}
         rotation={rotation}
         onPointerOver={(event: ThreeEvent<PointerEvent>) => {
-          const root = findQuayCraneRoot(event.object);
-          if (!root) return;
+          const drawn = quayHoverFromEvent(event);
+          const root = drawn ? null : findQuayCraneRoot(event.object);
+          if (!drawn && !root) return;
           event.stopPropagation();
           setViewportPickCursor(true);
-          const id =
-            event.instanceId != null
-              ? `${root.uuid}:${event.instanceId}`
-              : root.uuid;
-          rememberQuayHoverIndex(id, parseQuayCraneGlbIndex(event.object));
+          const id = drawn ? drawn.id : root!.uuid;
+          rememberQuayHoverIndex(id, drawn?.glbIndex ?? parseQuayCraneGlbIndex(event.object));
           portHoverOver(event, "quayCrane", id);
         }}
         onPointerOut={(event: ThreeEvent<PointerEvent>) => {
-          const root = findQuayCraneRoot(event.object);
-          if (!root) return;
+          const drawn = quayHoverFromEvent(event);
+          const root = drawn ? null : findQuayCraneRoot(event.object);
+          if (!drawn && !root) return;
           event.stopPropagation();
           setViewportPickCursor(false);
-          const id =
-            event.instanceId != null
-              ? `${root.uuid}:${event.instanceId}`
-              : root.uuid;
+          const id = drawn ? drawn.id : root!.uuid;
           portHoverOut(event, "quayCrane", id);
         }}
         onClick={(event: ThreeEvent<PointerEvent>) => {
@@ -612,19 +649,22 @@ function QuayCraneHoverOutlines({ model }: { model: Object3D }) {
     const apply = () => {
       const hover = getPortHover();
       const hoverId = hover?.kind === "quayCrane" ? hover.id : null;
+      const hoverGlb = hoverId != null ? quayGlbIndexOfHover(hoverId) : null;
       const glbIndex = getActiveCraneGlbIndex(useViewportStore.getState());
       targets.forEach((target, index) => {
         const outline = outlineRefs.current[index];
         if (!outline) return;
+        const sourceGlb = parseQuayCraneGlbIndex(target.source);
         const showByHover =
-          hoverId != null && quayTargetMatches(target, hoverId);
+          (hoverId != null && quayTargetMatches(target, hoverId)) ||
+          (hoverGlb != null && sourceGlb === hoverGlb);
         const showByCrane =
           glbIndex != null &&
           quayTargetMatchesGlbIndex(target.source, glbIndex);
         const show = showByHover || showByCrane;
-        const wasVisible = outline.visible;
         outline.visible = show;
-        if (!show || (wasVisible && show)) return;
+        if (!show) return;
+        target.source.updateWorldMatrix(true, false);
         writeQuayOutlineMatrix(target, outline, hoverId);
       });
     };

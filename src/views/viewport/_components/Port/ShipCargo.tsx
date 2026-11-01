@@ -23,6 +23,7 @@ import { useShipDebugStore } from "@/stores/shipDebug";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
 import { getOccupancyContainerMaterial } from "@/domain/occupancyLook/occupancyContainerMaterial";
+import { occupancyStage, subscribeOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { portHoverOut, portHoverOver } from "@/domain/hoverOutline";
 import {
@@ -43,7 +44,7 @@ import {
   syncReflectionInstanced,
 } from "./WaterReflection";
 import gsap from "gsap";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import {
   DynamicDrawUsage,
   type InstancedMesh,
@@ -171,6 +172,8 @@ export default function ShipCargo({
 
   const prototypes = useMemo(() => buildContainerPrototypes(scene), [scene]);
   const occupancyLook = useOccupancyStore((s) => s.occupancyLook);
+  const restoreStage = useSyncExternalStore(subscribeOccupancyHeavy, occupancyStage, () => 99);
+  const showOccupancyCargo = occupancyLook || restoreStage < 3;
   const occupancyContainerMaterial = useMemo(
     () => getOccupancyContainerMaterial(),
     [],
@@ -759,12 +762,12 @@ export default function ShipCargo({
                 }}
                 args={[
                   prototypes[c.key].geometry,
-                  occupancyLook ? occupancyContainerMaterial : prototypes[c.key].material,
+                  showOccupancyCargo ? occupancyContainerMaterial : prototypes[c.key].material,
                   count,
                 ]}
                 frustumCulled={false}
-                // [shadow] 선박 적재 컨테이너는 선박과 함께 그림자 생성
-                castShadow
+                // [shadow] 적재 컨테이너는 그림자 패스에서 빼 둔다. 선체 그림자는 유지.
+                castShadow={false}
                 onPointerOver={(event) => {
                   event.stopPropagation();
                   setViewportPickCursor(true);

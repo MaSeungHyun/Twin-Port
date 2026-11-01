@@ -1,5 +1,5 @@
 import { loadMark, loadSpan } from "@/debug/loadTiming";
-import { syncOccupancyVisibility } from "@/domain/occupancyLook/occupancySync";
+import { occupancyStage, syncOccupancyVisibility } from "@/domain/occupancyLook/occupancySync";
 import { openRenderGate } from "@/domain/renderGate";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
@@ -400,7 +400,7 @@ export function reflectionCameraOk(cameraY: number) {
 
 /** 카메라 조건 + occupancy 모드가 아닐 때. occupancy 에선 바다가 사라져 수면 아래 복제본이 그대로 보임 */
 export function reflectionActive(cameraY: number) {
-  return reflectionCameraOk(cameraY) && !useOccupancyStore.getState().occupancyLook;
+  return reflectionCameraOk(cameraY) && !useOccupancyStore.getState().occupancyLook && occupancyStage() >= 5;
 }
 
 function useLevelSync() {
@@ -578,9 +578,16 @@ export function SceneWarmup() {
           node = node.parent;
         }
       }
+      const bumped: InstancedMesh[] = [];
       for (const o of targets) {
         if (!o.parent) continue;
         const t0 = performance.now();
+        const inst = o as InstancedMesh;
+        const empty = Boolean(inst.isInstancedMesh) && inst.count === 0;
+        if (empty) {
+          inst.count = 1;
+          bumped.push(inst);
+        }
         try {
           const p = r.compileAsync?.(o, camera, scene);
           if (p) pending.push(p.catch(() => undefined));
@@ -588,7 +595,7 @@ export function SceneWarmup() {
           // [areafade] 구역 Depth 반투명 정적 메시(지면·건물·수목) 변형도 함께
           // [occupancy] userData.warmMaterials = 전환 때 갈아끼울 재질 (선적 컨테이너 등)
           const mesh = o as Mesh;
-          const extras = mesh.isMesh ? (mesh.userData.warmMaterials as Material[] | undefined) ?? [] : [];
+          const extras = mesh.isMesh ? (mesh.userData.warmMaterials as (Material | Material[])[] | undefined) ?? [] : [];
           const variants = mesh.isMesh ? [getCraneFadeVariant(mesh), ...getAreaFadeVariants(mesh), ...extras] : [];
           for (const variant of variants) {
             if (!variant) continue;
@@ -599,6 +606,20 @@ export function SceneWarmup() {
               if (pv) pending.push(pv.catch(() => undefined));
             } finally {
               mesh.material = orig;
+            }
+          }
+          const geos = mesh.isMesh ? (mesh.userData.warmGeometries as BufferGeometry[] | undefined) : undefined;
+          if (geos?.length) {
+            const origGeo = mesh.geometry;
+            for (const geo of geos) {
+              if (!geo || geo === origGeo) continue;
+              mesh.geometry = geo;
+              try {
+                const pg = r.compileAsync?.(o, camera, scene);
+                if (pg) pending.push(pg.catch(() => undefined));
+              } finally {
+                mesh.geometry = origGeo;
+              }
             }
           }
         } catch (e) {
@@ -613,6 +634,7 @@ export function SceneWarmup() {
         await slice();
       }
       await Promise.all(pending);
+      for (const mesh of bumped) if (mesh.count === 1) mesh.count = 0;
       for (const item of restore) {
         item.o.visible = item.visible;
         if (item.culled !== undefined) (item.o as Mesh).frustumCulled = item.culled;

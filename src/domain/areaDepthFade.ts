@@ -15,6 +15,7 @@ import {
 } from "@/constants/areaCam";
 import type { BlockDefinition } from "@/constants/block";
 import { getBlockFootprintSize } from "@/domain/blockFootprint";
+import { attachFadeOpacity, writeFadeOpacity } from "@/domain/fadeOpacity";
 import { getCraneFocusTarget } from "@/domain/cameraFocus";
 import { parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
 import { useYardStore } from "@/stores/yard";
@@ -59,11 +60,9 @@ function opacityOf(level: 1 | 2) {
 function makeClone(m: Material, level: 1 | 2) {
   const c = m.clone();
   c.name = `${m.name}-areafade${level}`;
-  c.transparent = true;
-  if (!m.transparent) c.depthWrite = true; // 불투명 원본은 깊이 유지 (자기 가림·바다 가림 유지)
+  attachFadeOpacity(c, m.opacity * opacityOf(level));
+  if (!m.transparent) c.depthWrite = true;
   baseOpacity.set(c, m.opacity);
-  c.opacity = m.opacity * opacityOf(level);
-  c.needsUpdate = true;
   return c;
 }
 
@@ -194,6 +193,7 @@ export function bindAreaDepthFade(model: Object3D | null) {
   model.traverse((o) => {
     if (!(o instanceof Mesh) || o.name.endsWith("-occupancy")) return;
     if ([o.name, o.parent?.name ?? ""].some((n) => SAT_RE.test(n))) return; // [satfade] occupancy opacity 트윈과 합성 (Ground, getAreaWholeFadeOpacity)
+    if (o.userData.quayDraw || o.userData.quaySource) return; // 안벽 크레인 인스턴스
     if (parseQuayCraneGlbIndex(o) != null) return; // craneDepthFade 담당
     box.setFromObject(o);
     if (box.isEmpty()) return;
@@ -265,7 +265,7 @@ export function updateAreaDepthFade(dt: number) {
     const k = opacityOf(l);
     for (const pair of clones.values()) {
       const c = pair[l - 1];
-      c.opacity = (baseOpacity.get(c) ?? 1) * k;
+      writeFadeOpacity(c, (baseOpacity.get(c) ?? 1) * k);
     }
     moved = true;
   }
