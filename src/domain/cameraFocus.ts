@@ -3,11 +3,16 @@ import {
   SHIP_INSTANCES,
   SHIP_PLACEMENTS,
 } from "@/constants/model";
-import { SHIP_TRACKING_TARGET_Y_OFFSET } from "@/constants/camera";
+import {
+  CRANE_TRACKING_HEAD_LIFT,
+  CRANE_TRACKING_SEA_DISTANCE,
+  SHIP_TRACKING_TARGET_Y_OFFSET,
+} from "@/constants/camera";
 import type { QuayCranePlacement } from "@/domain/extractQuayBerths";
 import { getQuayCraneWorldTrackingTarget } from "@/domain/hoverOutline";
 import {
   formatQuayCraneGlbName,
+  parseQuayCraneGlbIndex,
   resolveQuayCraneGlbIndexFromKey,
 } from "@/domain/quayCraneIndex";
 import { getShipPoseAt } from "@/domain/shipWake";
@@ -17,7 +22,7 @@ import {
   getOverheadCraneLivePosition,
   type OverHeadCraneInstance,
 } from "@/views/viewport/_components/Port/overheadCraneInstances";
-import { type Object3D, Vector3 } from "three";
+import { Box3, Matrix4, Mesh, type Object3D, Vector3 } from "three";
 
 let quayCraneModel: Object3D | null = null;
 
@@ -83,6 +88,158 @@ export function getCraneFocusTarget(glbIndex: number): Vector3 | null {
   return new Vector3(x, 6, z);
 }
 
+const craneShotBox = new Box3();
+const craneShotLocal = new Box3();
+const craneShotInv = new Matrix4();
+const craneShotCorner = new Vector3();
+const craneShotSea = new Vector3();
+
+function craneRoot(glbIndex: number): Object3D | null {
+  if (!quayCraneModel) return null;
+  let root: Object3D | null = null;
+  quayCraneModel.traverse((node) => {
+    if (root || parseQuayCraneGlbIndex(node) !== glbIndex) return;
+    root = node;
+  });
+  return root;
+}
+
+/** 안벽 크레인: 붐이 향하는 바다(선박) 쪽에서 머리(붐 끝)를 바라보는 카메라 */
+export function getCraneTrackingShot(
+  glbIndex: number,
+): { target: Vector3; position: Vector3 } | null {
+  const center = getCraneFocusTarget(glbIndex);
+  if (!center) return null;
+
+  const root = craneRoot(glbIndex);
+  craneShotBox.makeEmpty();
+  if (root) {
+    root.updateWorldMatrix(true, true);
+    craneShotInv.copy(root.matrixWorld).invert();
+    craneShotLocal.makeEmpty();
+    root.traverse((child) => {
+      if (!(child instanceof Mesh) || child.name.endsWith("-occupancy")) return;
+      if (parseQuayCraneGlbIndex(child) !== glbIndex) return;
+      const geometry = child.geometry;
+      if (!geometry.boundingBox) geometry.computeBoundingBox();
+      if (!geometry.boundingBox) return;
+      const { min, max } = geometry.boundingBox;
+      for (const x of [min.x, max.x]) {
+        for (const y of [min.y, max.y]) {
+          for (const z of [min.z, max.z]) {
+            craneShotCorner
+              .set(x, y, z)
+              .applyMatrix4(child.matrixWorld)
+              .applyMatrix4(craneShotInv);
+            craneShotLocal.expandByPoint(craneShotCorner);
+          }
+        }
+      }
+    });
+  }
+
+  craneShotSea.set(1, 0, 0);
+  if (root && !craneShotLocal.isEmpty()) {
+    const extent = [
+      craneShotLocal.max.x - craneShotLocal.min.x,
+      craneShotLocal.max.y - craneShotLocal.min.y,
+      craneShotLocal.max.z - craneShotLocal.min.z,
+    ];
+    let best = -1;
+    for (let axis = 0; axis < 3; axis += 1) {
+      craneShotCorner.setFromMatrixColumn(root.matrixWorld, axis);
+      const xz = Math.hypot(craneShotCorner.x, craneShotCorner.z);
+      if (xz < 1e-8) continue;
+      const worldSize = Math.max(extent[axis]!, 1e-8) * craneShotCorner.length();
+      if (worldSize <= best) continue;
+      best = worldSize;
+      craneShotSea.set(craneShotCorner.x / xz, 0, craneShotCorner.z / xz);
+    }
+    for (const x of [craneShotLocal.min.x, craneShotLocal.max.x]) {
+      for (const y of [craneShotLocal.min.y, craneShotLocal.max.y]) {
+        for (const z of [craneShotLocal.min.z, craneShotLocal.max.z]) {
+          craneShotCorner.set(x, y, z).applyMatrix4(root.matrixWorld);
+          craneShotBox.expandByPoint(craneShotCorner);
+        }
+      }
+    }
+  }
+  if (craneShotBox.isEmpty()) {
+    craneShotBox.setFromCenterAndSize(center, craneShotCorner.set(20, 40, 80));
+  }
+
+  const origin = root
+    ? craneShotCorner.setFromMatrixPosition(root.matrixWorld)
+    : center;
+  let forward = 0;
+  let back = 0;
+  {
+    const min = craneShotBox.min;
+    const max = craneShotBox.max;
+    for (const x of [min.x, max.x]) {
+      for (const z of [min.z, max.z]) {
+        const along =
+          (x - origin.x) * craneShotSea.x + (z - origin.z) * craneShotSea.z;
+        forward = Math.max(forward, along);
+        back = Math.max(back, -along);
+      }
+    }
+  }
+  if (back > forward) craneShotSea.negate();
+  const span = Math.max(forward, back);
+  if (span > 1e-3 && Math.abs(forward - back) < span * 0.15) {
+    let seaX = 0;
+    let seaZ = 0;
+    let bestShip = Infinity;
+    const shipCount = Math.max(
+      useYardStore.getState().ships.length,
+      SHIP_INSTANCES.length,
+    );
+    for (let i = 0; i < shipCount; i += 1) {
+      const ship = getShipFocusTarget(`ship-${i}`);
+      if (!ship) continue;
+      const dx = ship.x - center.x;
+      const dz = ship.z - center.z;
+      const distance = Math.hypot(dx, dz);
+      if (distance >= bestShip) continue;
+      bestShip = distance;
+      seaX = dx;
+      seaZ = dz;
+    }
+    if (bestShip < Infinity && craneShotSea.x * seaX + craneShotSea.z * seaZ < 0) {
+      craneShotSea.negate();
+    }
+  }
+
+  let reach = 0;
+  let headY = center.y;
+  const min = craneShotBox.min;
+  const max = craneShotBox.max;
+  for (const x of [min.x, max.x]) {
+    for (const y of [min.y, max.y]) {
+      for (const z of [min.z, max.z]) {
+        const along =
+          (x - center.x) * craneShotSea.x + (z - center.z) * craneShotSea.z;
+        if (along >= reach) {
+          reach = along;
+          headY = Math.max(headY, y);
+        }
+      }
+    }
+  }
+
+  const target = new Vector3(
+    center.x + craneShotSea.x * reach,
+    headY,
+    center.z + craneShotSea.z * reach,
+  );
+  const position = target
+    .clone()
+    .addScaledVector(craneShotSea, CRANE_TRACKING_SEA_DISTANCE);
+  position.y += CRANE_TRACKING_HEAD_LIFT;
+  return { target, position };
+}
+
 export function getCraneListSource(): {
   placements: readonly QuayCranePlacement[];
   fromModel: boolean;
@@ -132,4 +289,15 @@ export function getOverheadCraneFocusTarget(index: number): Vector3 | null {
   const [x, y, z] = getOverheadCraneLivePosition(index) ?? instance.position;
   const height = instance.fit?.[1] ?? 10;
   return new Vector3(x, y + height * 0.5, z);
+}
+
+/** 상태 라벨 원점 — 크레인 몸통. 거더 끝은 멀리서 점만 공중에 떠 어느 크레인인지 안 보인다 */
+const OVERHEAD_CALLOUT_HEIGHT_RATIO = 0.38;
+
+export function getOverheadCraneCalloutAnchor(index: number): Vector3 | null {
+  const instance = overheadCraneInstances()[index];
+  if (!instance) return null;
+  const [x, y, z] = getOverheadCraneLivePosition(index) ?? instance.position;
+  const height = instance.fit?.[1] ?? 12;
+  return new Vector3(x, y + height * OVERHEAD_CALLOUT_HEIGHT_RATIO, z);
 }

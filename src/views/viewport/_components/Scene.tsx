@@ -142,7 +142,9 @@ const createRenderer = async (props: { canvas: unknown }) => {
 import CamParam from "@/debug/CamParam";
 import CameraSlots from "@/debug/CameraSlots";
 import AreaCamButtons from "./Port/AreaCamButtons";
+import StatusCallout from "./StatusCallout";
 import DepthBreadcrumb from "./DepthBreadcrumb";
+import CameraHomeButton from "./CameraHomeButton";
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -166,6 +168,7 @@ function Scene() {
       {/* TEMP: 디버그 UI 비활성화 */}
       {/* <DebugUI /> */}
       <DepthBreadcrumb />
+      <CameraHomeButton />
       <R3FCanvas
         className="h-full w-full touch-none"
         style={{
@@ -218,6 +221,7 @@ function Scene() {
           <CamParam />
           <CameraSlots />
           <AreaCamButtons />
+          <StatusCallout />
         </Suspense>
 
         <PerfCollector />

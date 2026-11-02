@@ -6,11 +6,11 @@
 import { DEPTH_FADE_DURATION_S, DEPTH_UNFOCUSED_OPACITY } from "@/constants/areaCam";
 import { CRANE_LOD_HYSTERESIS, CRANE_LOD_LEVELS } from "@/constants/craneLod";
 import { simplifiedGeometriesAsync } from "@/domain/craneLod";
+import { attachCraneFade, writeFadeOpacity } from "@/domain/fadeOpacity";
 import { findQuayCraneRoot } from "@/domain/hoverOutline";
 import { parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
 import {
   DynamicDrawUsage,
-  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
   Mesh,
@@ -26,6 +26,8 @@ type Member = { glbIndex: number; matrix: Matrix4 };
 type PartGroup = {
   geometry: BufferGeometry;
   material: Material | Material[];
+  fadedMaterial: Material | Material[];
+  shadow: InstancedMesh;
   members: Member[];
   /** [solid|dim][lod]. lod 0 은 동기, 이후 단계는 단순화 후 채운다. */
   slots: (InstancedMesh | null)[][];
@@ -53,54 +55,72 @@ function materialKey(material: Material | Material[]) {
   return list.map((m) => m.uuid).join(",");
 }
 
-/** 딤 슬롯은 같은 재질을 쓰고, 인스턴스 색으로만 0.1 을 곱한다. opacity 유니폼은 겹친 부품이 다시 진해지고 셰이더가 무시했다. */
-function attachDimColor(mesh: InstancedMesh) {
-  const cap = mesh.instanceMatrix.count;
-  const color = new InstancedBufferAttribute(new Float32Array(cap * 3).fill(1), 3);
-  color.setUsage(DynamicDrawUsage);
-  mesh.instanceColor = color;
+/** 비포커스 슬롯만 전용 알파 재질 사용. 모든 LOD가 같은 opacity uniform을 공유한다. */
+function makeFadeMaterial(material: Material | Material[]) {
+  const clone = (source: Material) => {
+    const faded = source.clone();
+    faded.customProgramCacheKey = () => `${source.customProgramCacheKey()}|quay-instance-fade`;
+    // 부품이 겹치면 opacity만으로는 다시 진해진다. 알베도도 같이 0.1까지 낮춘다.
+    return attachCraneFade(faded);
+  };
+  return Array.isArray(material) ? material.map(clone) : clone(material);
 }
 
 function paintDim(value: number) {
   for (const group of groups) {
-    for (const mesh of group.slots[1] ?? []) {
-      const color = mesh?.instanceColor;
-      if (!color) continue;
-      const arr = color.array as Float32Array;
-      if (arr[0] === value && arr[1] === value && arr[2] === value) continue;
-      arr.fill(value);
-      color.addUpdateRange(0, arr.length);
-      color.needsUpdate = true;
-    }
+    writeFadeOpacity(group.fadedMaterial, value);
   }
 }
 
 /** StrictMode 가 빌드를 두 번 돌려도 이전 인스턴스가 불투명으로 겹쳐 남지 않게 걷어낸다. */
 function dropQuayDraw(root: Object3D) {
   const stale: InstancedMesh[] = [];
+  const fadedMaterials = new Set<Material>();
   root.traverse((child) => {
     const mesh = child as InstancedMesh;
     if (mesh.isInstancedMesh && mesh.userData.quayDraw) stale.push(mesh);
   });
   for (const mesh of stale) {
+    if (mesh.userData.quayFade) {
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) fadedMaterials.add(material);
+    }
     mesh.parent?.remove(mesh);
     mesh.instanceMatrix.dispose();
     mesh.dispose();
   }
+  for (const material of fadedMaterials) material.dispose();
 }
 
 function makeMesh(geometry: BufferGeometry, material: Material | Material[], capacity: number, dim: boolean) {
   const mesh = new InstancedMesh(geometry, material, capacity);
   mesh.name = "crane-instanced";
   mesh.userData.quayDraw = true;
+  mesh.userData.quayFade = dim;
   mesh.userData.glbIndices = [] as number[];
   mesh.count = 0;
   mesh.visible = false;
-  mesh.castShadow = true;
+  // 그림자는 카메라 LOD와 무관한 고정 프록시에서 그린다.
+  mesh.castShadow = false;
   mesh.receiveShadow = true;
-  mesh.frustumCulled = false;
-  if (dim) attachDimColor(mesh);
+  mesh.frustumCulled = true;
+  mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   modelRoot!.add(mesh);
+  return mesh;
+}
+
+function makeShadow(geometry: BufferGeometry, material: Material | Material[], members: Member[]) {
+  const mesh = makeMesh(geometry, material, members.length, false);
+  mesh.name = "crane-shadow";
+  mesh.userData.quayShadow = true;
+  mesh.layers.set(1); // SunLight의 그림자 카메라만 포함 (선박 그림자와 동일).
+  mesh.castShadow = true;
+  mesh.receiveShadow = false;
+  mesh.raycast = () => undefined;
+  mesh.count = members.length;
+  mesh.visible = true;
+  members.forEach((member, i) => mesh.setMatrixAt(i, member.matrix));
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
   return mesh;
 }
 
@@ -128,10 +148,18 @@ function place() {
       bins.get(mesh)!.push(member);
     }
     for (const [mesh, list] of bins) {
+      // LOD가 바뀌지 않은 슬롯까지 다시 업로드하지 않는다.
+      const previous = mesh.userData.quayMembers as Member[] | undefined;
+      if (previous?.length === list.length && list.every((member, i) => member === previous[i])) continue;
+      mesh.userData.quayMembers = list;
       mesh.count = list.length;
       mesh.visible = list.length > 0;
       for (let i = 0; i < list.length; i += 1) mesh.setMatrixAt(i, list[i]!.matrix);
-      if (list.length > 0) mesh.instanceMatrix.needsUpdate = true;
+      if (list.length > 0) {
+        mesh.instanceMatrix.needsUpdate = true;
+        // 버킷의 구성원이 바뀌면 culling/raycast 경계도 새 행렬에 맞춘다.
+        mesh.computeBoundingSphere();
+      }
       mesh.userData.glbIndices = list.map((member) => member.glbIndex);
     }
   }
@@ -182,11 +210,13 @@ export function instanceQuayCranes(root: Object3D): Promise<void> {
     const group: PartGroup = {
       geometry: bucket.geometry,
       material: bucket.material,
+      fadedMaterial: makeFadeMaterial(bucket.material),
+      shadow: makeShadow(bucket.geometry, bucket.material, bucket.members),
       members: bucket.members,
       slots: [Array(LOD_COUNT).fill(null), Array(LOD_COUNT).fill(null)],
     };
     group.slots[0]![0] = makeMesh(bucket.geometry, bucket.material, bucket.members.length, false);
-    group.slots[1]![0] = makeMesh(bucket.geometry, bucket.material, bucket.members.length, true);
+    group.slots[1]![0] = makeMesh(bucket.geometry, group.fadedMaterial, bucket.members.length, true);
     groups.push(group);
     for (const member of bucket.members) {
       const pos = new Vector3().setFromMatrixPosition(member.matrix);
@@ -251,8 +281,11 @@ export function instanceQuayCranes(root: Object3D): Promise<void> {
           prev = next;
           if (next === group.geometry) return;
           group.slots[0]![level + 1] = makeMesh(next, group.material, group.members.length, false);
-          group.slots[1]![level + 1] = makeMesh(next, group.material, group.members.length, true);
+          group.slots[1]![level + 1] = makeMesh(next, group.fadedMaterial, group.members.length, true);
         });
+        // 카메라 이동 중 새 LOD 그림자 셰이더를 만들거나 고해상도 부품을 다시 그리지 않는다.
+        group.shadow.geometry = prev;
+        group.shadow.computeBoundingSphere();
       });
       place();
       paintDim(dimOpacity);

@@ -71,6 +71,10 @@ export const TRACKING_FOCUS_DISTANCE = 480;
 /** 컨테이너 tracking — 슬롯 근접 뷰 (Ship/Crane보다 가깝게) */
 export const CONTAINER_TRACKING_FOCUS_DISTANCE = 240;
 
+/** 안벽 크레인 tracking — 붐이 향하는 바다 쪽에서 머리까지 거리 / 머리보다 카메라가 더 높은 높이 */
+export const CRANE_TRACKING_SEA_DISTANCE = TRACKING_FOCUS_DISTANCE;
+export const CRANE_TRACKING_HEAD_LIFT = 120;
+
 /** 선박 tracking pivot — berth y 기준 추가 높이 (낮을수록 수선면 쪽) */
 export const SHIP_TRACKING_TARGET_Y_OFFSET = 31.325;
 

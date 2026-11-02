@@ -3,7 +3,7 @@ import type { FailureKind } from "@/constants/failureScenario";
 import { FAILURE_SCENARIO } from "@/constants/failureScenario";
 import { useViewportStore } from "@/stores/viewport";
 
-export type FailureState = "warning" | "failure";
+export type FailureState = "warning" | "failure" | "safe";
 
 export type ActiveFailure = {
   kind: FailureKind;
@@ -61,11 +61,20 @@ export const useFailureStore = create<FailureStore>((set) => ({
     })),
 }));
 
+/** React 밖(3D useFrame 등)에서 — 경고·고장·복구 중인 장비 */
+export function getActiveByKind(kind: FailureKind): ActiveFailure[] {
+  const out: ActiveFailure[] = [];
+  for (const f of Object.values(useFailureStore.getState().active)) {
+    if (f.kind === kind) out.push(f);
+  }
+  return out;
+}
+
 /** React 밖(3D useFrame 등)에서 — 고장(failure) 상태인 index 목록 */
 export function getFailedIndices(kind: FailureKind): number[] {
   const out: number[] = [];
-  for (const f of Object.values(useFailureStore.getState().active)) {
-    if (f.kind === kind && f.state === "failure") out.push(f.index);
+  for (const f of getActiveByKind(kind)) {
+    if (f.state === "failure") out.push(f.index);
   }
   return out;
 }

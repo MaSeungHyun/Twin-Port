@@ -12,9 +12,11 @@ export default function DepthBreadcrumb() {
     <div className="pointer-events-none absolute bottom-[32px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-sm rounded-lg border-2 border-white/40 bg-[#00000080] px-md py-xs shadow-lg select-none">
       <span className="text-md tracking-wide text-text-primary">
         {stack.map((e) => e.label).join(` ${DEPTH_BREADCRUMB_SEPARATOR} `)}
-        {DEPTH_BREADCRUMB_TRAILING ? ` ${DEPTH_BREADCRUMB_SEPARATOR}` : ""}
+        {/* {DEPTH_BREADCRUMB_TRAILING ? ` ${DEPTH_BREADCRUMB_SEPARATOR}` : ""} */}
       </span>
-      <span className="text-sm font-light text-white/50">ESC</span>
+      {stack.length < 2 && (
+        <span className="text-sm font-light text-white/50">ESC</span>
+      )}
     </div>
   );
 }

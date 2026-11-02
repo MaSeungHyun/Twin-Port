@@ -9,6 +9,7 @@ import {
 import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { composeContainerMatrix } from "@/domain/container";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
+import { ensureContainerBlockMesh } from "@/domain/containerInstancePool";
 import { getBlockFadeLevel, getFadeMaterial, useAreaDepthFadeVersion } from "@/domain/areaDepthFade";
 import { beginSceneWarmTask } from "./WaterReflection";
 import { useYardStore } from "@/stores/yard";
@@ -143,6 +144,20 @@ export default function ContainerYard({
   );
 
   const prototypes = useMemo(() => buildContainerPrototypes(scene), [scene]);
+  // 카메라 이동은 적재 데이터 변경이 아니다. 17,000여 개 슬롯의 행렬을 매번 재계산하지 않는다.
+  const placements = useMemo(() => containers.flatMap((container) => {
+    if (container.status !== "stored" || !isCompany(container.company)) return [];
+    const matrix = slotToMatrix(container, blockByCode, deckY);
+    return matrix ? [{ container, matrix, colorKey: COMPANY_COLOR[container.company] }] : [];
+  }), [containers, blockByCode, deckY]);
+  const blockColors = useMemo(() => {
+    const pairs = new Map<string, { code: string; colorKey: ContainerColorKey }>();
+    for (const { container, colorKey } of placements) {
+      const code = container.location.block;
+      pairs.set(`${code}|${colorKey}`, { code, colorKey });
+    }
+    return [...pairs.values()];
+  }, [placements]);
   const fadeMaterials = useMemo(
     () =>
       ([1, 2] as const).map(
@@ -261,6 +276,8 @@ export default function ContainerYard({
     });
   });
 
+  // setMatrixAt은 캐시된 원본 행렬을 읽어 GPU 버퍼로 복사하며 placements를 변경하지 않는다.
+  // eslint-disable-next-line react-hooks/immutability
   useEffect(() => {
     if (!meshesReady) return;
 
@@ -270,35 +287,17 @@ export default function ContainerYard({
       if (kind === "fade0" || kind === "col0") return fadeMaterials[0]![color];
       return fadeMaterials[1]![color];
     };
-    const warmedColor = new Set<ContainerColorKey>();
     const ensureBlockMesh = (code: string, kind: BlockMeshKind, color: ContainerColorKey) => {
-      const key = `${code}|${kind}|${color}`;
       const proto = prototypes[color];
-      let mesh = blockMeshes.current.get(key);
-      if (mesh && (mesh.geometry !== proto.geometry || mesh.material !== materialFor(kind, color))) {
-        mesh.removeFromParent();
-        blockMeshes.current.delete(key);
-        mesh = undefined;
-      }
-      if (!mesh) {
-        mesh = new InstancedMesh(proto.geometry, materialFor(kind, color), BLOCK_INSTANCE_CAP);
-        mesh.name = `yard-${key}`;
-        mesh.count = 0;
-        mesh.castShadow = false;
-        mesh.receiveShadow = true;
-        mesh.frustumCulled = true;
-        mesh.renderOrder = 10;
-        mesh.raycast = () => null;
-        mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-        blockRoot.add(mesh);
-        blockMeshes.current.set(key, mesh);
-        if (kind === "solid" && !warmedColor.has(color)) {
-          warmedColor.add(color);
-          mesh.userData.warmMaterials = [fadeMaterials[0]![color], fadeMaterials[1]![color]];
-        }
-      }
+      const mesh = ensureContainerBlockMesh(blockMeshes.current, blockRoot, code, color,
+        proto.geometry, [proto.material, fadeMaterials[0]![color], fadeMaterials[1]![color]], BLOCK_INSTANCE_CAP);
+      mesh.material = materialFor(kind, color);
       return mesh;
     };
+    // 처음부터 원거리여도 하단에만 있는 색까지 실제 블록·색 전체를 예열한다.
+    for (const { code, colorKey } of blockColors) {
+      ensureBlockMesh(code, "solid", colorKey);
+    }
     const pushBlock = (code: string, kind: BlockMeshKind, color: ContainerColorKey, m: Matrix4) => {
       const mesh = ensureBlockMesh(code, kind, color);
       const i = mesh.count;
@@ -338,15 +337,8 @@ export default function ContainerYard({
       }
     }
 
-    for (const container of containers) {
-      if (container.status !== "stored") continue;
-      if (!isCompany(container.company)) continue;
+    for (const { container, matrix, colorKey } of placements) {
       if (useLod && farBlocks.has(container.location.block)) continue;
-
-      const matrix = slotToMatrix(container, blockByCode, deckY);
-      if (!matrix) continue;
-
-      const colorKey = COMPANY_COLOR[container.company];
       const matched = matchedIds?.has(container.id) ?? false;
 
       if (matchedIds && matched) {
@@ -373,6 +365,7 @@ export default function ContainerYard({
       let kind: BlockMeshKind = "solid";
       if (lvl === 1) kind = "fade0";
       else if (lvl === 2) kind = "fade1";
+      // eslint-disable-next-line react-hooks/immutability -- setMatrixAt copies from matrix; it never mutates the cached source.
       pushBlock(container.location.block, kind, colorKey, matrix);
     }
 
@@ -389,12 +382,15 @@ export default function ContainerYard({
     }
     releaseYardWarm.current?.();
     releaseYardWarm.current = null;
-  }, [containers, meshesReady, matchedIds, blockByCode, deckY, farBlocks, blockLods, fadeVersion, prototypes, fadeMaterials, blockRoot]);
+  }, [placements, blockColors, meshesReady, matchedIds, farBlocks, blockLods, fadeVersion, prototypes, fadeMaterials, blockRoot]);
 
   useEffect(() => {
     const meshes = blockMeshes.current;
     return () => {
-      for (const mesh of meshes.values()) mesh.removeFromParent();
+      for (const mesh of meshes.values()) {
+        mesh.removeFromParent();
+        mesh.dispose();
+      }
       meshes.clear();
     };
   }, []);

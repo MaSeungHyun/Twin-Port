@@ -113,9 +113,9 @@ const ship = (
  * 사이드스텝 방향은 위에서 본 화면(북쪽 위) 기준, 모두 땅에서 멀어지는 쪽.
  */
 export const SHIP_TWEENS: readonly ShipTweenConfig[] = [
-  // 0 (000): 화면 위로 45m → 우현 18° → 동쪽 직진 (7번 정박 위치를 넉넉히 비켜감)
+  // 0 (000): 크레인(z≈-192) 반대인 +Z(바다)로 30m → 우현 18° → 동쪽 직진. -Z 는 안벽 쪽이라 첫 이동이 땅으로 들어갔음
   ship(0, "0 (000)", {
-    sidestepZ: -30,
+    sidestepZ: 30,
     turnDeg: -18,
     departDistance: 640,
     departDuration: 35.6,

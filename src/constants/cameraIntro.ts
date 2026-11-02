@@ -26,3 +26,5 @@ export const CAMERA_PULLBACK_DELAY = 0;
 export const CAMERA_PULLBACK_DURATION = 8;
 /** window event: ShipCargo → CameraSlots (지정 배 출항 시작) */
 export const CAMERA_PULLBACK_EVENT = "tp:camera-pullback";
+/** window event: R키와 같은 원경(intro slot 2)으로 이동 */
+export const CAMERA_HOME_EVENT = "tp:camera-home";

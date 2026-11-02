@@ -47,7 +47,7 @@ function Segment<T extends string>({
   );
 }
 
-/** 헤더 톱니: 그래픽 설정 (품질 프리셋, 그림자, 렌더러, 성능 오버레이) */
+/** 그래픽 설정 (품질 프리셋, 그림자, 렌더러, 성능 오버레이) */
 export default function RenderSettings() {
   const quality = useViewportSettingsStore((s) => s.quality);
   const setQuality = useViewportSettingsStore((s) => s.setQuality);
@@ -64,9 +64,18 @@ export default function RenderSettings() {
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
-        <IconButton icon="Settings" label="Graphics settings" />
+        <IconButton
+          icon="Settings"
+          label="Graphics settings"
+          className="aspect-square w-full"
+        />
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content className="min-w-64 p-sm text-lg">
+      <DropdownMenu.Content
+        side="right"
+        align="end"
+        className="min-w-64 p-sm text-lg"
+        sideOffset={20}
+      >
         <div className="flex flex-col gap-md px-xs py-xs text-lg text-white">
           <Segment<QualityPreset>
             label="품질"
@@ -99,7 +108,12 @@ export default function RenderSettings() {
           />
           <div className="flex items-center justify-between gap-sm text-base text-white/70">
             <span title={reason ?? undefined}>
-              현재: {active === "webgpu" ? "WebGPU" : active === "webgl2" ? "WebGL2" : "…"}
+              현재:{" "}
+              {active === "webgpu"
+                ? "WebGPU"
+                : active === "webgl2"
+                  ? "WebGL2"
+                  : "…"}
               {reason ? " (폴백)" : ""}
             </span>
             <button

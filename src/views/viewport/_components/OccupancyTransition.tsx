@@ -7,7 +7,7 @@ import {
 } from "@/constants/occupancyTransition";
 import { setAreaDepthFocus } from "@/domain/areaDepthFade";
 import { setCraneDepthFocus } from "@/domain/craneDepthFade";
-import { holdOccupancyHeavy, releaseOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
+import { cancelOccupancyRestore, holdOccupancyHeavy, releaseOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
 import { useCameraDepthStore } from "@/stores/cameraDepth";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
@@ -72,7 +72,6 @@ export default function OccupancyTransition() {
   const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   const scene = useThree((state) => state.scene);
   const progress = useRef({ t: occupancyMode ? 1 : 0 });
-  const tweenRef = useRef<gsap.core.Tween | null>(null);
   const cache = useRef<AtmosphereTargets>({
     ambient: null,
     water: null,
@@ -96,9 +95,9 @@ export default function OccupancyTransition() {
             ? progress.current.t >= T.lookAt
             : progress.current.t > T.lookAt);
         if (look !== occupancy.occupancyLook) {
+          occupancy.setOccupancyLook(look);
           if (look) releaseOccupancyHeavy();
           else holdOccupancyHeavy();
-          occupancy.setOccupancyLook(look);
         }
       });
     }
@@ -106,6 +105,7 @@ export default function OccupancyTransition() {
 
   useEffect(() => {
     if (occupancyMode) {
+      cancelOccupancyRestore();
       useCameraDepthStore.getState().exitAll();
       setCraneDepthFocus(null);
       setAreaDepthFocus(null);
@@ -118,23 +118,26 @@ export default function OccupancyTransition() {
         );
       }
     }
-    const target = occupancyMode ? 1 : 0;
-    const from = progress.current.t;
-    tweenRef.current?.kill();
-
-    if (Math.abs(from - target) < 1e-4) {
-      progress.current.t = target;
-      return;
-    }
-
-    tweenRef.current = gsap.to(progress.current, {
-      t: target,
-      duration: T.duration * Math.abs(target - from),
-      ease: "power2.inOut",
+    // 같은 프레임에서 이전 트윈을 kill 하면 GSAP이 새 트윈까지 지운다. 다음 프레임에 건다.
+    const frame = requestAnimationFrame(() => {
+      gsap.killTweensOf(progress.current);
+      const target = occupancyMode ? 1 : 0;
+      const from = progress.current.t;
+      if (Math.abs(from - target) < 1e-4) {
+        progress.current.t = target;
+        return;
+      }
+      gsap.to(progress.current, {
+        t: target,
+        duration: T.duration * Math.abs(target - from),
+        ease: "power2.inOut",
+        overwrite: true,
+      });
     });
 
     return () => {
-      tweenRef.current?.kill();
+      cancelAnimationFrame(frame);
+      gsap.killTweensOf(progress.current);
     };
   }, [occupancyMode]);
 

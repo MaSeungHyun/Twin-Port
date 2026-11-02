@@ -336,9 +336,9 @@ const shoreU = () => ({
   uDepth: uniform(10),
   uWallFoamW: uniform(4),
 });
-// [twin-port] 수직 안벽 판정: 해안선 너머(육지 쪽) 3m 지점 지형 높이가 수면 +1~2.5m 이상이면 벽(1), 완만한 해변(0)
+// [twin-port] 안벽 판정: 해안선 너머 3m 지형이 수면보다 낮으면 해변(0). 방파제·에이프런처럼 수십 cm만 높아도 벽(1)
 const wallness = (xz, si) =>
-  smoothstep(1.0, 2.5, shoreInfo(xz.add(si.zw.mul(max(si.y, 0.0).add(3.0)))).x);
+  smoothstep(0.35, 1.1, shoreInfo(xz.add(si.zw.mul(max(si.y, 0.0).add(3.0)))).x);
 
 // ---------- 유니폼 의존 라이브러리 (common + shoreLib + sampling) ----------
 function lib(u) {
@@ -658,19 +658,26 @@ function displacer(u) {
       )
       .toVar();
     const wl = wallness(xz, si).toVar();
-    // [twin-port] 안벽 앞 수 m 에서 FFT 변위를 0 으로 (벽 쪽은 더 넓게 감쇠)
-    d.mulAssign(
-      float(1)
-        .sub(smoothstep(OCEAN_RADIUS * 0.85, OCEAN_RADIUS, r))
-        .mul(mix(smoothstep(-0.5, 3.0, si.y), smoothstep(0.5, 6.0, si.y), wl)),
-    );
+    // 해안선과 삼각형을 공유하는 정점이 수평으로 밀리면, 땅과 닿는 선이 물결 모양으로 출렁인다
+    const edge = float(1).sub(smoothstep(OCEAN_RADIUS * 0.85, OCEAN_RADIUS, r));
+    const vertK = mix(smoothstep(-0.5, 3.0, si.y), smoothstep(0.5, 8.0, si.y), wl);
+    const horizK = mix(smoothstep(1.0, 14.0, si.y), smoothstep(2.0, 18.0, si.y), wl);
+    d.y.mulAssign(edge.mul(vertK));
+    d.x.mulAssign(edge.mul(horizK));
+    d.z.mulAssign(edge.mul(horizK));
     // [twin-port] 수평(choppy) 변위가 육지 쪽으로 밀어 넣지 않게: 육지 방향 성분을 (해안까지 거리-0.5m) 이하로 제한
     const toLand = si.zw;
     const into = dot(d.xz, toLand);
     const allow = max(si.y.sub(0.5), 0.0);
     const cut = max(into.sub(allow), 0.0).mul(smoothstep(40.0, 5.0, si.y));
     const dh = d.xz.sub(toLand.mul(cut));
-    const sy = d.y.add(SL.swash(xz, si, u.uTime).x).toVar();
+    const swY = SL.swash(xz, si, u.uTime).x;
+    // 쇄파 높이를 파도 변위 위에 그대로 더하면 흰 거품이 마루보다 떠 오른다. 육지 런업만 지형 높이를 쓰고, 바다에서는 마루를 넘지 않게 한다.
+    const sy = select(
+      si.y.lessThan(0.0),
+      swY,
+      d.y.add(min(swY, max(float(0.12).sub(d.y), 0.0))),
+    ).toVar();
     // 벽 근처/육지 셀: 수면 +0.15m 이상 올라가지 않게
     If(wl.greaterThan(0.01), () => {
       sy.assign(mix(sy, min(sy, mix(0.15, sy, smoothstep(1.0, 8.0, si.y))), wl));
@@ -1205,17 +1212,20 @@ export function makeOceanMatGPU(g) {
      });
      });
     });
+    // 윤곽 바깥 띠만 그리면 선체와 거품 사이가 빈다. 수선 안쪽 몇 m도 채우고, 갑판 한가운데는 비운다.
+    const hullNear = float(1).sub(smoothstep(80.0, 380.0, dist));
+    const hullReach = mix(2.2, 6.2, hullNear);
     const hullFoam = u.uShipHalf.z
-      .mul(smoothstep(7.0, 0.3, shipD))
-      .mul(step(0.0, shipD))
-      .mul(u.uShoreFoam.mul(0.5).add(0.5));
-    // [twin-port] 안벽(수직 벽) 접촉 거품: 수직 안벽은 경사가 없어 스워시가 생기지 않고 띠(0.5~5m)가 얇음 → 해안선 바로 앞 접촉 띠 추가
-    // 반사 거품: 벽에서 바다 쪽으로 빠져나가는 띠 (위상 + 노이즈로 끊김)
-    const wRefl = sin(d.mul(0.9).add(T.mul(1.6)).add(vnoise(vec3(vXZ.mul(0.08), T.mul(0.2))).mul(6.0))).mul(0.5).add(0.5);
-    const brk = smoothstep(0.35, 0.75, vnoise(vec3(vXZ.mul(0.35), T.mul(0.5))));
+      .mul(smoothstep(hullReach, 0.35, shipD))
+      .mul(smoothstep(-5.0, -1.0, shipD))
+      .mul(u.uShoreFoam.mul(0.5).add(0.5))
+      .mul(mix(0.55, 1.0, hullNear));
+    // 안벽 접촉은 얇고 잔잔한 선만. 위상 물결을 넣으면 직선 안벽이 파도 경계처럼 보인다
     const wallFoam = u.uShoreFoam
-      .mul(smoothstep(u.uWallFoamW, 0.2, d)).mul(step(0.0, d))
-      .mul(mix(0.25, 1.0, wRefl.mul(brk))).mul(wlF);
+      .mul(smoothstep(1.4, 0.15, d))
+      .mul(step(0.0, d))
+      .mul(0.35)
+      .mul(wlF);
     const wakeFoam = wake.mul(OCEAN_WAKE_FOAM_STRENGTH).mul(step(0.0, shipD));
     const mask = clamp(foamA.add(shoreMask).add(hullFoam).add(wallFoam.mul(0.75)).add(wakeFoam), 0.0, 1.0).toVar();
     const lp = float(0.55).toVar();
@@ -1258,8 +1268,8 @@ export function makeOceanMatGPU(g) {
     // [twin-port] 선체 내부에는 물을 그리지 않음
     // [twin-port] 안벽: SDF 상 육지(d<0) 인 물 프래그먼트는 그리지 않음 (부드러운 경계)
     alpha.mulAssign(mix(1.0, smoothstep(-0.6, 0.4, d), wlF));
-    // [twin-port] 물 컷아웃은 실제 윤곽 안쪽 1m 이상에서만 (불투명 선체가 경계를 덮음 → 틈 없음)
-    alpha.mulAssign(mix(1.0, smoothstep(-1.5, -0.8, shipD), u.uShipHalf.z));
+    // 수선 근처(잠긴 선저가 비치는 구간)는 바다색을 유지. 갑판 한가운데만 물을 비운다.
+    alpha.mulAssign(mix(1.0, smoothstep(-8.0, -4.0, shipD), u.uShipHalf.z));
     If(uw.under.greaterThan(0.001), () => {
       const Nd = N.negate(),
         I = V.negate();

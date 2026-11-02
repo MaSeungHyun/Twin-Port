@@ -8,6 +8,7 @@ import {
   AREA_C_BLOCK_NAME_PATTERN,
   AREA_C_BLOCK_NAME_RANGE,
   AREA_CRANE_RANGES,
+  AREA_D_BLOCK_CODE_RANGE,
   AREA_FADE_BOUNDS_MARGIN,
   AREA_FADE_WHOLE_SPAN,
   DEPTH_FADE_DURATION_S,
@@ -24,11 +25,13 @@ import { Box3, Material, Mesh, Vector3, type Object3D } from "three";
 
 export type FadeLevel = 0 | 1 | 2;
 type Rect = { minX: number; maxX: number; minZ: number; maxZ: number };
-type StaticEntry = { mesh: Mesh; original: Material | Material[]; cx: number; cz: number; whole: boolean; veg: boolean };
+type StaticEntry = { mesh: Mesh; original: Material | Material[]; cx: number; cz: number; whole: boolean; veg: boolean; wse: boolean };
 
 const SAT_RE = /^EXPORT_GOOGLE_SAT_WM\.?001$/;
 /** [areafade] 덤불(bush, bush.001, bush.002: 야드 사이 장식) — 중심점이 구역 사각형 안에 걸려 남던 문제 → 구역 Depth 에서 항상 페이드 */
 const VEGETATION_RE = /^(bush|tree|veg|plant|grass)/i;
+/** [areafade] WSE_* 건물 — 구역 안에 있어도 Depth 에서는 페이드 */
+const WSE_RE = /wse/i;
 
 /** 레벨 1/2 페이드 진행도(0..1)와 목표 (index 0 미사용) */
 const progress = [0, 0, 0];
@@ -39,6 +42,8 @@ let areaKey: string | null = null;
 let groupOn = false;
 let areaBlocks = new Set<string>();
 let areaRect: Rect | null = null;
+/** 블록 footprint. 구역 사각형 안에 있어도 멤버가 아니면 페이드 */
+let blockZones: { member: boolean; corners: readonly (readonly [number, number])[] }[] = [];
 
 let version = 0;
 const listeners = new Set<() => void>();
@@ -87,8 +92,55 @@ function blockCorners(b: BlockDefinition, off: readonly number[]) {
   );
 }
 
-/** 블록 → 구역: C 는 버튼과 같은 GLB 이름(Block040~045), 나머지는 가장 가까운 안벽 크레인(C 제외)의 구역.
- *  구역 영역 = 그 구역 블록 footprint + 구역 크레인 위치의 XZ 경계 + 여유 */
+const BLOCK_CODE_PATTERN = /^B0*(\d+)$/i;
+
+function blockCodeNum(block: BlockDefinition) {
+  return Number(BLOCK_CODE_PATTERN.exec(block.code)?.[1]);
+}
+
+function blockNameNum(block: BlockDefinition) {
+  return Number(AREA_C_BLOCK_NAME_PATTERN.exec(block.name)?.[1]);
+}
+
+function inRange(value: number, range: readonly [number, number]) {
+  return value >= range[0] && value <= range[1];
+}
+
+function isAreaCBlock(block: BlockDefinition) {
+  return inRange(blockNameNum(block), AREA_C_BLOCK_NAME_RANGE);
+}
+
+function isAreaDBlock(block: BlockDefinition) {
+  if (isAreaCBlock(block)) return false;
+  return inRange(blockCodeNum(block), AREA_D_BLOCK_CODE_RANGE);
+}
+
+/** C = Block040~045, D = B23~B33 중 C 블록 제외. 그 외는 가장 가까운 크레인 */
+function blockInArea(
+  block: BlockDefinition,
+  key: string,
+  cranes: { area: string; x: number; z: number }[],
+  center: readonly [number, number],
+) {
+  const inC = isAreaCBlock(block);
+  const inD = isAreaDBlock(block);
+  if (key === "C") return inC;
+  if (key === "D") return inD;
+  if (inC || inD) return false;
+  let area: string | null = null;
+  let best = Infinity;
+  for (const crane of cranes) {
+    if (crane.area === "C") continue;
+    const distance = Math.hypot(crane.x - center[0], crane.z - center[1]);
+    if (distance < best) {
+      best = distance;
+      area = crane.area;
+    }
+  }
+  return area === key;
+}
+
+/** 구역 영역 = 그 구역 블록 footprint + 구역 크레인 위치의 XZ 경계 + 여유 */
 function computeArea(key: string) {
   const { blocks, yardOffset } = useYardStore.getState();
   const cranes: { area: string; x: number; z: number }[] = [];
@@ -99,6 +151,7 @@ function computeArea(key: string) {
     }
   }
   const members = new Set<string>();
+  const zones: { member: boolean; corners: readonly (readonly [number, number])[] }[] = [];
   const rect: Rect = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   const grow = (x: number, z: number) => {
     rect.minX = Math.min(rect.minX, x);
@@ -108,35 +161,33 @@ function computeArea(key: string) {
   };
   for (const b of blocks) {
     const corners = blockCorners(b, yardOffset);
-    let area: string | null = null;
-    const m = AREA_C_BLOCK_NAME_PATTERN.exec(b.name);
-    const n = m ? Number(m[1]) : NaN;
-    if (n >= AREA_C_BLOCK_NAME_RANGE[0] && n <= AREA_C_BLOCK_NAME_RANGE[1]) area = "C";
-    else {
-      const cx = corners.reduce((a, p) => a + p[0], 0) / 4;
-      const cz = corners.reduce((a, p) => a + p[1], 0) / 4;
-      let best = Infinity;
-      for (const c of cranes) {
-        if (c.area === "C") continue; // C 블록은 이름으로만 지정
-        const d = Math.hypot(c.x - cx, c.z - cz);
-        if (d < best) {
-          best = d;
-          area = c.area;
-        }
-      }
-    }
-    if (area !== key) continue;
+    const cx = corners.reduce((sum, point) => sum + point[0], 0) / 4;
+    const cz = corners.reduce((sum, point) => sum + point[1], 0) / 4;
+    const member = blockInArea(b, key, cranes, [cx, cz]);
+    zones.push({ member, corners });
+    if (!member) continue;
     members.add(b.code);
     for (const [x, z] of corners) grow(x, z);
   }
   for (const c of cranes) if (c.area === key) grow(c.x, c.z);
-  if (!Number.isFinite(rect.minX)) return { members, rect: null };
+  if (!Number.isFinite(rect.minX)) return { members, rect: null, zones };
   rect.minX -= AREA_FADE_BOUNDS_MARGIN;
   rect.maxX += AREA_FADE_BOUNDS_MARGIN;
   rect.minZ -= AREA_FADE_BOUNDS_MARGIN;
   rect.maxZ += AREA_FADE_BOUNDS_MARGIN;
   if (import.meta.env.DEV) console.info(`[areafade] ${key}구역 블록 ${[...members].join(", ") || "없음"}`, rect);
-  return { members, rect };
+  return { members, rect, zones };
+}
+
+function pointInPoly(x: number, z: number, corners: readonly (readonly [number, number])[]) {
+  let inside = false;
+  for (let i = 0, j = corners.length - 1; i < corners.length; j = i++) {
+    const [xi, zi] = corners[i]!;
+    const [xj, zj] = corners[j]!;
+    const denom = zj - zi;
+    if ((zi > z) !== (zj > z) && denom !== 0 && x < ((xj - xi) * (z - zi)) / denom + xi) inside = !inside;
+  }
+  return inside;
 }
 
 const inside = (x: number, z: number) =>
@@ -144,8 +195,11 @@ const inside = (x: number, z: number) =>
 
 function staticLevel(e: StaticEntry): FadeLevel {
   if (!areaKey) return 0;
-  if (e.veg) return groupOn ? 2 : 1;
-  if (e.whole || !inside(e.cx, e.cz)) return 1;
+  if (e.veg || e.wse) return groupOn ? 2 : 1;
+  if (e.whole) return 1;
+  const zone = blockZones.find((item) => pointInPoly(e.cx, e.cz, item.corners));
+  if (zone) return zone.member ? (groupOn ? 2 : 0) : 1;
+  if (!inside(e.cx, e.cz)) return 1;
   return groupOn ? 2 : 0;
 }
 
@@ -199,7 +253,14 @@ export function bindAreaDepthFade(model: Object3D | null) {
     if (box.isEmpty()) return;
     box.getSize(size);
     box.getCenter(center);
-    const e: StaticEntry = { mesh: o, original: o.material, cx: center.x, cz: center.z, whole: Math.max(size.x, size.z) >= AREA_FADE_WHOLE_SPAN, veg: [o.name, o.parent?.name ?? ""].some((n) => VEGETATION_RE.test(n)) };
+    const named = [o.name, o.parent?.name ?? ""];
+    let node: Object3D | null = o;
+    let wse = false;
+    while (node && !wse) {
+      wse = WSE_RE.test(node.name);
+      node = node.parent;
+    }
+    const e: StaticEntry = { mesh: o, original: o.material, cx: center.x, cz: center.z, whole: Math.max(size.x, size.z) >= AREA_FADE_WHOLE_SPAN, veg: named.some((n) => VEGETATION_RE.test(n)), wse };
     getFadeMaterials(o.material, 1);
     getFadeMaterials(o.material, 2);
     statics.push(e);
@@ -234,6 +295,7 @@ function settle() {
     areaKey = desired.area;
     areaBlocks = r.members;
     areaRect = r.rect;
+    blockZones = r.zones;
     changed = true;
   }
   if (desired?.group && !groupOn) {
@@ -249,6 +311,7 @@ function settle() {
     groupOn = false;
     areaBlocks = new Set();
     areaRect = null;
+    blockZones = [];
     changed = true;
   }
   if (changed) relevel();

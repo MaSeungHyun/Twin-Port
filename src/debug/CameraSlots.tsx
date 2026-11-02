@@ -11,6 +11,7 @@ import {
   CAMERA_INTRO_SLOT1,
   CAMERA_INTRO_SLOT2,
   CAMERA_INTRO_START_EVENT,
+  CAMERA_HOME_EVENT,
 } from "@/constants/cameraIntro";
 import { AREA_CAM_MOVE_DURATION, CAM_SLOT_NOTICE_BOTTOM_PX, CAM_SLOT_NOTICE_MS, DEPTH_EXIT_WHEEL_WINDOW_MS, DEPTH_EXIT_ZOOM_FACTOR, CAMERA_FLY_TO_EVENT, type CameraFlyToDetail } from "@/constants/areaCam";
 import { useCameraDepthStore } from "@/stores/cameraDepth";
@@ -164,8 +165,13 @@ export default function CameraSlots() {
         showCamNotice(`카메라 ${id}번 저장됨`);
       } else recallRef.current(id);
     };
+    const onHome = () => goHomeRef.current();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(CAMERA_HOME_EVENT, onHome);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(CAMERA_HOME_EVENT, onHome);
+    };
   }, []);
 
   // [camintro] Monitoring Mode toggle intentionally does NOT move the camera (user request): camera stays where it is.

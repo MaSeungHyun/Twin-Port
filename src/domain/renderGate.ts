@@ -17,6 +17,7 @@ export function openRenderGate(reason: string) {
 }
 
 type Gl = {
+  info?: { render: { drawCalls: number; triangles: number }; memory: { programs: number } };
   render: (s: unknown, c: unknown) => unknown;
   compileAsync?: (o: unknown, c: unknown, s?: unknown) => Promise<unknown>;
   getRenderTarget: () => unknown;
@@ -36,10 +37,11 @@ export function instrumentRenderer(renderer: unknown) {
     }
     if (!import.meta.env.DEV || !screen) return render(s, c);
     const t0 = performance.now();
+    const programs = r.info?.memory.programs ?? 0;
     const out = render(s, c);
     const d = performance.now() - t0;
     if (after < 5 || d > 50) {
-      console.info(`[load] screen render #${after} start@${t0.toFixed(0)} ${d.toFixed(0)}ms${after === 0 ? ` (게이트 동안 건너뛴 프레임 ${skipped})` : ""}`);
+      console.info(`[load] screen render #${after} start@${t0.toFixed(0)} ${d.toFixed(0)}ms programs+${(r.info?.memory.programs ?? 0) - programs} draws=${r.info?.render.drawCalls} tris=${r.info?.render.triangles}${after === 0 ? ` (게이트 동안 건너뛴 프레임 ${skipped})` : ""}`);
     }
     after++;
     return out;

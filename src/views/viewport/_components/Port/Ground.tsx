@@ -61,11 +61,11 @@ import {
   type Vector3Tuple,
 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import HoverOutlineMesh from "./HoverOutlineMesh";
+import HoverOutlineMesh, { setAlertOutlineVariant } from "./HoverOutlineMesh";
 import { beginSceneWarmTask, QuayCraneReflection, SceneWarmup } from "./WaterReflection";
 import { parseCraneNameIndex, parseQuayCraneGlbIndex } from "@/domain/quayCraneIndex";
 import { quayGlbIndexOfHover, rememberQuayHoverIndex } from "@/domain/hoverTooltip";
-import { getFailedIndices } from "@/stores/useFailureStore";
+import { getActiveByKind } from "@/stores/useFailureStore";
 import { bakePortShoreOnce } from "../OceanTsl/portShore";
 import { instanceQuayCranes, quayDrawPointer, quayGlbIndexNear, quayHoverId, updateQuayCraneFade, updateQuayCraneLods } from "@/domain/quayCraneInstance";
 import { instanceRepeatedGround, buildGroundLods, resetGroundLods, updateGroundLods, type GroundLodSet } from "@/domain/repeatMesh";
@@ -301,8 +301,6 @@ export default function Ground({
     });
     applyGroundPointerFilter(cloned);
     instanceRepeatedGround(cloned);
-    const releaseQuay = beginSceneWarmTask();
-    void instanceQuayCranes(cloned).finally(releaseQuay);
     endClone();
     return cloned;
   }, [scene]);
@@ -332,6 +330,7 @@ export default function Ground({
   const craneLodCam = useRef<number[]>([]);
   useEffect(() => {
     let cancelled = false;
+    const releaseWarm = beginSceneWarmTask();
     buildCraneLods(model)
       .then((set) => {
         if (cancelled) return;
@@ -346,7 +345,8 @@ export default function Ground({
           );
         }
       })
-      .catch((e) => console.warn("[craneLod] 생성 실패, 원본 유지", e));
+      .catch((e) => console.warn("[craneLod] 생성 실패, 원본 유지", e))
+      .finally(releaseWarm);
     return () => {
       cancelled = true;
       if (craneLods.current) resetCraneLods(craneLods.current);
@@ -370,6 +370,7 @@ export default function Ground({
   const groundLodCam = useRef<number[]>([]);
   useEffect(() => {
     let cancelled = false;
+    const releaseWarm = beginSceneWarmTask();
     buildGroundLods(model)
       .then((set) => {
         if (cancelled) return;
@@ -385,7 +386,8 @@ export default function Ground({
           );
         }
       })
-      .catch((e) => console.warn("[groundLod] 생성 실패, 원본 유지", e));
+      .catch((e) => console.warn("[groundLod] 생성 실패, 원본 유지", e))
+      .finally(releaseWarm);
     return () => {
       cancelled = true;
       if (groundLods.current) resetGroundLods(groundLods.current);
@@ -461,6 +463,10 @@ export default function Ground({
   ]);
 
   useLayoutEffect(() => {
+    // StrictMode는 useMemo 계산을 두 번 호출하고 한 모델을 버린다.
+    // 전역 인스턴스 레지스트리는 커밋된 모델에만 연결해야 Depth가 실제 화면에 반영된다.
+    const releaseQuay = beginSceneWarmTask();
+    void instanceQuayCranes(model).finally(releaseQuay);
     bindQuayCraneModel(model);
     bindCraneDepthFade(model);
     bindAreaDepthFade(model);
@@ -578,14 +584,15 @@ function QuayCraneFailureOutlines({ model }: { model: Object3D }) {
   const outlineRefs = useRef<(Mesh | null)[]>([]);
 
   useFrame(() => {
-    const failed = getFailedIndices("quayCrane");
+    const active = new Map(getActiveByKind("quayCrane").map((item) => [item.index, item.state]));
     targets.forEach((target, i) => {
       const outline = outlineRefs.current[i];
       if (!outline) return;
       const idx = targetIndex[i];
-      const show = idx != null && failed.includes(idx);
-      outline.visible = show;
-      if (!show) return;
+      const state = idx == null ? undefined : active.get(idx);
+      outline.visible = state != null;
+      if (!state) return;
+      setAlertOutlineVariant(outline, state);
       outline.matrixAutoUpdate = false;
       outline.matrix.copy(target.source.matrixWorld);
       outline.matrixWorldNeedsUpdate = true;

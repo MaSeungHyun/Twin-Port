@@ -1,5 +1,6 @@
 import IconButton from "@/components/IconButton";
 import { CONTENT_VIEW_NAV, useContentViewStore } from "@/stores/contentView";
+import RenderSettings from "../header/RenderSettings";
 
 /** 카테고리 nav — Scene과 flex로 영역 분리 */
 export default function Content() {
@@ -24,6 +25,9 @@ export default function Content() {
           />
         );
       })}
+      <div className="mt-auto w-full pb-2">
+        <RenderSettings />
+      </div>
     </nav>
   );
 }

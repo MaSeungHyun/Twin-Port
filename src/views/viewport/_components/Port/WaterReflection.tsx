@@ -53,6 +53,7 @@ import { getAreaFadeVariants } from "@/domain/areaDepthFade";
 import { useObjectStore } from "@/stores/object";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
+import { SHIP_POSITION_Y } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { oceanState } from "../OceanTsl/oceanApi";
 import { SHORE, shoreTex } from "../OceanTsl/scene/resources";
@@ -328,6 +329,43 @@ function makeReflectionMesh(geometry: BufferGeometry) {
   return mesh;
 }
 
+const _clipA = new Vector3();
+const _clipB = new Vector3();
+
+function pushTri(out: number[], a: Vector3, b: Vector3, c: Vector3) {
+  out.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+}
+
+function pointAtY(p: Vector3, q: Vector3, y: number, target: Vector3) {
+  const dy = q.y - p.y;
+  const t = dy === 0 ? 0 : (y - p.y) / dy;
+  target.copy(p).lerp(q, t);
+}
+
+/** 로컬 y 위쪽만 남긴다. 수선을 가로지르는 삼각형은 그 높이에서 잘라 반사면으로 퍼지지 않게 한다. */
+function pushAboveY(out: number[], a: Vector3, b: Vector3, c: Vector3, y: number) {
+  const above: Vector3[] = [];
+  const below: Vector3[] = [];
+  for (const p of [a, b, c]) (p.y >= y ? above : below).push(p);
+  if (above.length === 3) {
+    pushTri(out, a, b, c);
+    return;
+  }
+  if (above.length === 0) return;
+  if (above.length === 1) {
+    const top = above[0]!;
+    pointAtY(top, below[0]!, y, _clipA);
+    pointAtY(top, below[1]!, y, _clipB);
+    pushTri(out, top, _clipA, _clipB);
+    return;
+  }
+  const bot = below[0]!;
+  pointAtY(above[0]!, bot, y, _clipA);
+  pointAtY(above[1]!, bot, y, _clipB);
+  pushTri(out, above[0]!, above[1]!, _clipA);
+  pushTri(out, above[1]!, _clipB, _clipA);
+}
+
 /** 위치만 남긴 비인덱스 geometry. matrix 적용 후 수면 아래(원본)인 삼각형은 제외 */
 function appendTriangles(
   out: number[],
@@ -336,6 +374,8 @@ function appendTriangles(
   cullBelow: number | null,
   cullAbove: number | null = null,
   maxNormalY: number | null = null,
+  /** 한 점이라도 이 높이(로컬 y) 아래면 삼각형 전체 제외. 수면 아래 선체가 물 위에 납작하게 깔리는 것 방지 */
+  cullAnyBelow: number | null = null,
 ) {
   const e1 = new Vector3(),
     e2 = new Vector3();
@@ -360,6 +400,10 @@ function appendTriangles(
       c.y < cullBelow
     )
       continue;
+    if (cullAnyBelow != null) {
+      pushAboveY(out, a, b, c, cullAnyBelow);
+      continue;
+    }
     if (
       cullAbove != null &&
       a.y > cullAbove &&
@@ -541,6 +585,7 @@ export function SceneWarmup() {
     const endWarm = loadSpan("warm compile (객체별)");
     const targets: Object3D[] = [];
     scene.traverse((o) => {
+      if (o.userData.quaySource) return; // 인스턴스의 아웃라인 기준 원본은 직접 렌더하지 않는다.
       const t = o as Object3D & { isMesh?: boolean; isPoints?: boolean; isLine?: boolean; isSprite?: boolean };
       if (t.isMesh || t.isPoints || t.isLine || t.isSprite) targets.push(o);
     });
@@ -552,9 +597,8 @@ export function SceneWarmup() {
     };
     void (async () => {
       const slice = createTimeSlicer(12);
-      const pending: Promise<unknown>[] = [];
       const slow: string[] = [];
-      let syncMs = 0;
+      let compileMs = 0;
       // [occupancy] 숨긴 조상(블록 막대 그룹, 선박 occupancy 메시)까지 켠 채 컴파일하고, 전부 끝난 뒤에 되돌린다.
       // 객체마다 바로 숨기면 compileAsync 가 돌기 전에 visible=false 가 되어 전환 때 처음 컴파일된다.
       const restore: { o: Object3D; visible: boolean; culled?: boolean }[] = [];
@@ -579,8 +623,8 @@ export function SceneWarmup() {
         }
       }
       const bumped: InstancedMesh[] = [];
-      for (const o of targets) {
-        if (!o.parent) continue;
+      const compileTarget = async (o: Object3D) => {
+        if (!o.parent) return;
         const t0 = performance.now();
         const inst = o as InstancedMesh;
         const empty = Boolean(inst.isInstancedMesh) && inst.count === 0;
@@ -589,8 +633,7 @@ export function SceneWarmup() {
           bumped.push(inst);
         }
         try {
-          const p = r.compileAsync?.(o, camera, scene);
-          if (p) pending.push(p.catch(() => undefined));
+          await r.compileAsync?.(o, camera, scene);
           // [depthfade] Depth 반투명 크레인 변형도 미리 컴파일 (런타임 첫 페이드 히치 방지)
           // [areafade] 구역 Depth 반투명 정적 메시(지면·건물·수목) 변형도 함께
           // [occupancy] userData.warmMaterials = 전환 때 갈아끼울 재질 (선적 컨테이너 등)
@@ -598,12 +641,11 @@ export function SceneWarmup() {
           const extras = mesh.isMesh ? (mesh.userData.warmMaterials as (Material | Material[])[] | undefined) ?? [] : [];
           const variants = mesh.isMesh ? [getCraneFadeVariant(mesh), ...getAreaFadeVariants(mesh), ...extras] : [];
           for (const variant of variants) {
-            if (!variant) continue;
+            if (!variant || variant === mesh.material) continue;
             const orig = mesh.material;
             mesh.material = variant;
             try {
-              const pv = r.compileAsync?.(o, camera, scene);
-              if (pv) pending.push(pv.catch(() => undefined));
+              await r.compileAsync?.(o, camera, scene);
             } finally {
               mesh.material = orig;
             }
@@ -615,8 +657,9 @@ export function SceneWarmup() {
               if (!geo || geo === origGeo) continue;
               mesh.geometry = geo;
               try {
-                const pg = r.compileAsync?.(o, camera, scene);
-                if (pg) pending.push(pg.catch(() => undefined));
+                // compileAsync는 첫 await 뒤에도 object.geometry를 읽는다.
+                // 완료 전에 복구하면 원본만 예열되고 실제 LOD의 첫 렌더가 이동 중에 컴파일된다.
+                await r.compileAsync?.(o, camera, scene);
               } finally {
                 mesh.geometry = origGeo;
               }
@@ -626,14 +669,18 @@ export function SceneWarmup() {
           if (import.meta.env.DEV) console.warn("[warm] compile 실패", o.name, e);
         }
         const d = performance.now() - t0;
-        syncMs += d;
+        compileMs += d;
         if (d > 40) {
           const m = (o as Mesh).material as { type?: string; name?: string } | undefined;
           slow.push(`${o.name || o.type}[${m?.name || m?.type || "-"}] ${d.toFixed(0)}ms`);
         }
         await slice();
-      }
-      await Promise.all(pending);
+      };
+      // 서로 다른 객체는 제한적으로 병렬 처리하되 같은 객체의 변형은 반드시 순차 예열한다.
+      let nextTarget = 0;
+      await Promise.all(Array.from({ length: 4 }, async () => {
+        while (nextTarget < targets.length) await compileTarget(targets[nextTarget++]!);
+      }));
       for (const mesh of bumped) if (mesh.count === 1) mesh.count = 0;
       for (const item of restore) {
         item.o.visible = item.visible;
@@ -641,7 +688,7 @@ export function SceneWarmup() {
       }
       // 스냅샷이 예열 도중 켜진 값을 기억해도, 스토어 기준으로 오큐펀시 전용 메시는 다시 숨긴다.
       syncOccupancyVisibility(scene);
-      endWarm(`${targets.length} objects, 노드 빌드(메인) 합계 ${syncMs.toFixed(0)}ms`);
+      endWarm(`${targets.length} objects, 객체별 비동기 예열 시간 합계 ${compileMs.toFixed(0)}ms (최대 4개 병렬)`);
       if (import.meta.env.DEV && slow.length) console.info("[load] warm 느린 객체(>40ms)", slow);
       // 게이트 개방 → 첫 화면 렌더(그림자 패스 등 잔여 빌드)를 로더 뒤에서 몇 프레임 소화한 뒤 완료
       openRenderGate("warm-done");
@@ -796,8 +843,10 @@ export function ShipReflection({
       if (cancelled) return;
       const values: number[] = [];
       const slice = createTimeSlicer();
+      // 선저(로컬 y=0)부터 수선까지는 반사에서 뺀다. 수면 아래 정점을 수면에 붙이면 선저 색이 바다 위에 깔린다.
+      const waterline = oceanState.level - SHIP_POSITION_Y;
       for (let i = 0; i < solid.length; i++) {
-        appendTriangles(values, lows[i]!, solid[i]!.localMatrix, null);
+        appendTriangles(values, lows[i]!, solid[i]!.localMatrix, null, null, null, waterline);
         await slice();
         if (cancelled) return;
       }

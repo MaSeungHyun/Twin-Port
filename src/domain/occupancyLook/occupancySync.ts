@@ -38,6 +38,7 @@ export function holdOccupancyHeavy() {
   let index = 0;
   let wait = 3;
   const step = () => {
+    if (useOccupancyStore.getState().occupancyMode) return;
     if (wait > 0) {
       wait -= 1;
       holdFrame = requestAnimationFrame(step);
@@ -49,6 +50,11 @@ export function holdOccupancyHeavy() {
     if (index < marks.length) holdFrame = requestAnimationFrame(step);
   };
   holdFrame = requestAnimationFrame(step);
+}
+
+/** 복구 도중 오큐펀시를 다시 켠 경우. 단계를 99로 올리지 않아 그림자·메시가 한 프레임에 되살아나지 않는다. */
+export function cancelOccupancyRestore() {
+  cancelAnimationFrame(holdFrame);
 }
 
 export function releaseOccupancyHeavy() {

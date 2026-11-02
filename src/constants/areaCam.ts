@@ -8,7 +8,7 @@ export type AreaCamTarget = { id: string; key: string; label: string; glb?: { po
 /** [areagroup] 구역별 크레인 번호 범위 [시작, 끝] (GLB crane.NNN 의 NNN). 범위 안의 실제 존재하는 크레인만 사용 */
 export const AREA_CRANE_RANGES: Record<string, [number, number]> = {
   A: [1, 15],
-  B: [19, 42],
+  B: [19, 39],
   C: [43, 48],
   D: [55, 63],
   E: [64, 75],
@@ -49,9 +49,10 @@ export const CRANE_GROUP_BUTTON_LIFT = 40;
 /** 그룹 클릭 시 카메라: 그룹 중심에서 크레인 줄 수직 방향(현재 카메라 쪽) 수평 거리(m) */
 export const CRANE_GROUP_CAM_DISTANCE = 420;
 
-/** C구역 버튼 위치 = 크레인 43~48 앞 야드 블록(GLB Block040 ~ Block045, 화면 라벨 B19·B20·B21·B22·B24·B27) footprint 중심.
- *  화면 B-코드는 z 순 정렬이라 B23·B25·B26 이 D구역(회전 블록 Block046~048)에 섞임 → 코드 대신 GLB 이름으로 고름 */
+/** C구역 = GLB Block040~045. 화면 코드는 z 순이라 B19·B20·B21·B22·B24·B27 이고, B23·B25·B26 은 D(회전 블록) */
 export const AREA_C_BLOCK_NAME_RANGE: [number, number] = [40, 45];
+/** D구역 화면 코드 B23~B33. C 이름(Block040~045)에 해당하는 B22·B24·B27 은 제외 */
+export const AREA_D_BLOCK_CODE_RANGE: [number, number] = [23, 33];
 /** GLB 블록 이름 → 번호 (Block040, Block.040, Block_40 등) */
 export const AREA_C_BLOCK_NAME_PATTERN = /^Block[._-]?0*(\d+)$/i;
 /** C구역 fallback 카메라: 거리 = max(최소, 프레이밍 폭 × 배율), 높이 = 거리 × 비율 */

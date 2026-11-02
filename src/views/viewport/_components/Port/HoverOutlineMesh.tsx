@@ -80,10 +80,19 @@ function getOutlineMaterial() {
   return m;
 }
 
-/** [failure] 고장 outline — 같은 inverted hull, 빨강 깜빡임(TSL time 기반, CPU 갱신 없음), 두께 hover×scale */
-let failureMat: MeshBasicNodeMaterial | null = null;
-function getFailureOutlineMaterial() {
-  if (failureMat) return failureMat;
+export type AlertOutlineVariant = "warning" | "failure" | "safe";
+
+const ALERT_OUTLINE_COLOR: Record<AlertOutlineVariant, string> = {
+  warning: "#FFB020",
+  failure: FAILURE_BLINK.color,
+  safe: "#2ECC71",
+};
+
+/** 경고·고장·복구 outline — 같은 inverted hull, 상태색 깜빡임 */
+const alertMats: Partial<Record<AlertOutlineVariant, MeshBasicNodeMaterial>> = {};
+function getAlertOutlineMaterial(variant: AlertOutlineVariant) {
+  const cached = alertMats[variant];
+  if (cached) return cached;
   const m = new MeshBasicNodeMaterial({ side: BackSide, toneMapped: false });
   const worldPos = modelWorldMatrix.mul(vec4(positionLocal, 1)).xyz;
   const dist = cameraPosition.distance(worldPos);
@@ -92,9 +101,21 @@ function getFailureOutlineMaterial() {
   m.positionNode = positionLocal.add(normalLocal.mul(px.mul(dist).mul(0.001).div(nScale)));
   const pulse = sin(time.mul((2 * Math.PI) / FAILURE_BLINK.periodSec)).mul(0.5).add(0.5);
   const intensity = pulse.mul(1 - FAILURE_BLINK.minIntensity).add(FAILURE_BLINK.minIntensity);
-  m.colorNode = tslColor(new Color(FAILURE_BLINK.color)).mul(intensity.mul(1.6));
-  failureMat = m;
+  m.colorNode = tslColor(new Color(ALERT_OUTLINE_COLOR[variant])).mul(intensity.mul(1.6));
+  alertMats[variant] = m;
   return m;
+}
+
+function getFailureOutlineMaterial() {
+  return getAlertOutlineMaterial("failure");
+}
+
+/** useFrame 에서 상태색으로 교체. hull 메시의 첫 자식이 outline 셸 */
+export function setAlertOutlineVariant(root: Mesh, variant: AlertOutlineVariant) {
+  const shell = root.children[0] as Mesh | undefined;
+  if (!shell) return;
+  const material = getAlertOutlineMaterial(variant);
+  if (shell.material !== material) shell.material = material;
 }
 
 /** [hover] 깊이용 투명 머티리얼도 전 인스턴스 공유 (인스턴스별 생성 → 개별 파이프라인/바인드그룹 방지) */
@@ -118,12 +139,17 @@ function warmOutline(node: Mesh, geometry: BufferGeometry, failure = false) {
     const parent = node.parent;
     if (!parent) return;
     const dummy = new Mesh(geometry, getHullMaterial());
-    dummy.add(new Mesh(getOutlineGeometry(geometry), failure ? getFailureOutlineMaterial() : getOutlineMaterial()));
+    const shells = failure
+      ? (["failure", "warning", "safe"] as const).map((variant) => new Mesh(getOutlineGeometry(geometry), getAlertOutlineMaterial(variant)))
+      : [new Mesh(getOutlineGeometry(geometry), getOutlineMaterial())];
+    for (const shell of shells) dummy.add(shell);
     dummy.scale.setScalar(1e-6);
     dummy.frustumCulled = false;
-    dummy.children[0].frustumCulled = false;
     dummy.raycast = () => {};
-    dummy.children[0].raycast = () => {};
+    for (const child of dummy.children) {
+      child.frustumCulled = false;
+      child.raycast = () => {};
+    }
     parent.add(dummy);
     let n = 0;
     const tick = () => {

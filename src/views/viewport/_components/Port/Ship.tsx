@@ -56,7 +56,9 @@ import {
   MeshBasicMaterial,
   BoxGeometry,
   Object3D,
+  Plane,
 } from "three";
+import { ClippingGroup } from "three/webgpu";
 import type { ThreeEvent } from "@react-three/fiber";
 import HoverOutlineMesh from "./HoverOutlineMesh";
 import { beginSceneWarmTask, ShipReflection } from "./WaterReflection";
@@ -232,6 +234,17 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         -(hullBox.min.z + hullBox.max.z) / 2,
       );
       for (const part of collected) part.localMatrix.premultiply(recenter);
+    }
+
+    for (const part of collected) {
+      if (part.waterway) continue;
+      const list = Array.isArray(part.material) ? part.material : [part.material];
+      for (const mat of list) {
+        if (mat.opacity < 1) continue;
+        mat.transparent = false;
+        mat.depthWrite = true;
+        mat.needsUpdate = true;
+      }
     }
 
     return collected;
@@ -649,6 +662,17 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     };
   }, [parts, lodGeoms, restoreStage]);
 
+  const hullClip = useMemo(() => {
+    const group = new ClippingGroup();
+    group.clippingPlanes = [new Plane(new Vector3(0, 1, 0), -oceanState.level)];
+    group.clipShadows = true;
+    return group;
+  }, []);
+  useFrame(() => {
+    const plane = hullClip.clippingPlanes[0];
+    if (plane) plane.constant = -oceanState.level;
+  });
+
   const count = instances?.length ?? 0;
   if (count === 0) return null;
 
@@ -695,7 +719,8 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         onClick={handleShipClick}
       />
       <ShipReflection parts={parts} posesRef={posesRef} />
-      {parts.map((part, index) => (
+      <primitive object={hullClip}>
+      {parts.map((part, index) => part.waterway ? null : (
         <group key={index}>
           {(lodGeoms?.[index]?.length ? lodGeoms[index]! : [part.geometry]).map((geo, lv) => (
           <instancedMesh
@@ -755,6 +780,25 @@ export default function Ship({ instances, posesRef }: ShipProps) {
           )}
         </group>
       ))}
+      </primitive>
+      {parts.map((part, index) => part.waterway ? (
+        <group key={`wake-${index}`}>
+          {(lodGeoms?.[index]?.length ? lodGeoms[index]! : [part.geometry]).map((geo, lv) => (
+            <instancedMesh
+              key={`w${lv}`}
+              ref={(node) => {
+                (meshRefs.current[index] ??= [])[lv] = node;
+              }}
+              args={[geo, part.material, count]}
+              castShadow={false}
+              receiveShadow
+              frustumCulled={false}
+              visible={!DEBUG_SHIP_OCCUPANCY_MATERIAL}
+              raycast={NO_RAYCAST}
+            />
+          ))}
+        </group>
+      ) : null)}
     </group>
   );
 }

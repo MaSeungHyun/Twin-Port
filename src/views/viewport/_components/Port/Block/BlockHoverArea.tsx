@@ -16,6 +16,8 @@ import { occupancyColor } from "./constants";
 /** BlockOccupancyView HEIGHT_SCALE와 맞춤 — occupancy 그래프 위로 카드 띄움 */
 const OCCUPANCY_BAR_HEIGHT_SCALE = 5;
 const HIT_HEIGHT_MIN = 0.08;
+/** 일반 뷰 히트는 바닥면만. 높은 볼륨은 옆에서 보면 다른 블록을 가린다 */
+const FLOOR_HIT_HEIGHT = 0.6;
 const CARD_LIFT = 0.07;
 const OCCUPANCY_CARD_EXTRA = 0.4;
 
@@ -80,7 +82,9 @@ export default function BlockHoverArea({
   };
 
   const grid = getBlockSlotGrid(block);
-  const hitHeight = Math.max(grid.tiers * CONTAINER_H * 3, HIT_HEIGHT_MIN);
+  const hitHeight = hitEnabled
+    ? FLOOR_HIT_HEIGHT
+    : Math.max(grid.tiers * CONTAINER_H * 3, HIT_HEIGHT_MIN);
   const occupancyLift =
     grid.tiers * CONTAINER_H * (OCCUPANCY_BAR_HEIGHT_SCALE - 3) +
     OCCUPANCY_CARD_EXTRA;

@@ -132,9 +132,19 @@ export function startFailureScenario(): () => void {
       });
 
       later(recoverAt, () => {
-        useFailureStore.getState().clearActive(kind, index);
+        useFailureStore.getState().setActive({
+          kind,
+          index,
+          state: "safe",
+          cause: "정상 가동 재개",
+          since: Date.now(),
+        });
         useFailureStore.getState().pushEvent({ level: "success", title: `${name} 복구`, message: "정상 가동 재개" });
         toaster.success(`${name} 복구`, { message: "정상 가동 재개", id: toastId, duration: cfg.recoveryToastMs, onClick });
+        later(cfg.recoveryToastMs, () => {
+          const current = useFailureStore.getState().active[key];
+          if (current?.state === "safe") useFailureStore.getState().clearActive(kind, index);
+        });
       });
     }
 

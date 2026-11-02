@@ -14,6 +14,9 @@ export function attachFadeOpacity(material: Material, opacity = material.opacity
   (material as Material & { opacityNode?: unknown }).opacityNode = node;
   material.userData.fadeOpacity = node;
   material.transparent = true;
+  // Depth 페이드는 양면을 한 패스로 처리한다. 앞/뒷면을 따로 그리면 draw call이
+  // 두 배가 되고, 비동기 예열 후 side가 복원되어 첫 전환에서 파이프라인을 다시 만든다.
+  material.forceSinglePass = true;
   material.opacity = opacity;
   material.depthWrite = true;
   material.needsUpdate = true;

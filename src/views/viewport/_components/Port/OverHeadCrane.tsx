@@ -21,14 +21,14 @@ import {
   Object3D,
   Vector3,
 } from "three";
-import HoverOutlineMesh from "./HoverOutlineMesh";
+import HoverOutlineMesh, { setAlertOutlineVariant } from "./HoverOutlineMesh";
 import {
   createBlockCenterCraneInstances,
   setOverheadCraneLivePosition,
   type OverHeadCraneInstance,
 } from "./overheadCraneInstances";
 import { useYardStore } from "@/stores/yard";
-import { getFailedIndices } from "@/stores/useFailureStore";
+import { getActiveByKind } from "@/stores/useFailureStore";
 
 /** [failure] 동시에 고장 표시 가능한 overhead crane 수 (부품당 outline 슬롯) */
 const FAILURE_SLOTS = 3;
@@ -111,19 +111,20 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
       outline.visible = true;
     });
 
-    // [failure] 고장 인스턴스 — 빨강 깜빡임 outline
-    const failed = getFailedIndices("overheadCrane");
+    // 경고(노랑)·고장(빨강)·복구(초록) outline
+    const alerted = getActiveByKind("overheadCrane");
     parts.forEach((_, partIndex) => {
       const instanced = meshRefs.current[partIndex];
       for (let s = 0; s < FAILURE_SLOTS; s += 1) {
         const node = failureRefs.current[partIndex * FAILURE_SLOTS + s];
         if (!node) continue;
-        const idx = failed[s];
-        if (idx == null || !instanced || idx >= instanced.count) {
+        const item = alerted[s];
+        if (!item || !instanced || item.index >= instanced.count) {
           node.visible = false;
           continue;
         }
-        instanced.getMatrixAt(idx, node.matrix);
+        setAlertOutlineVariant(node, item.state);
+        instanced.getMatrixAt(item.index, node.matrix);
         node.matrixWorldNeedsUpdate = true;
         node.visible = true;
       }

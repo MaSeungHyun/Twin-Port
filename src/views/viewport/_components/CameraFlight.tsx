@@ -12,6 +12,7 @@ import {
 } from "@/constants/camera";
 import {
   getCraneFocusTarget,
+  getCraneTrackingShot,
   getOverheadCraneFocusTarget,
   getShipFocusTarget,
 } from "@/domain/cameraFocus";
@@ -259,13 +260,22 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedOverheadCraneIndex != null ||
       alarmFollow != null;
 
-    const toTarget = resolveTrackingTarget(
-      selectedContainerId,
-      selectedShipKey,
-      selectedCraneIndex,
-      selectedOverheadCraneIndex,
-      alarmFollow,
-    );
+    const quayCraneIndex =
+      selectedContainerId == null && selectedShipKey == null
+        ? (selectedCraneIndex ??
+          (alarmFollow?.kind === "quayCrane" ? alarmFollow.index : null))
+        : null;
+    const craneShot =
+      quayCraneIndex != null ? getCraneTrackingShot(quayCraneIndex) : null;
+    const toTarget =
+      craneShot?.target ??
+      resolveTrackingTarget(
+        selectedContainerId,
+        selectedShipKey,
+        selectedCraneIndex,
+        selectedOverheadCraneIndex,
+        alarmFollow,
+      );
 
     tweenRef.current?.kill();
 
@@ -274,11 +284,13 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
         preTrackingCameraRef.current = camera.position.clone();
       }
 
-      const toPosition = focusCameraPosition(
-        toTarget,
-        camera.position,
-        resolveTrackingFocusDistance(selectedContainerId),
-      );
+      const toPosition =
+        craneShot?.position ??
+        focusCameraPosition(
+          toTarget,
+          camera.position,
+          resolveTrackingFocusDistance(selectedContainerId),
+        );
       const timeline = animateLookAtFlight({
         camera,
         controls,
@@ -346,13 +358,22 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     const controls = controlsRef.current;
     if (!controls) return;
 
-    const target = resolveTrackingTarget(
-      selectedContainerId,
-      selectedShipKey,
-      selectedCraneIndex,
-      selectedOverheadCraneIndex,
-      alarmFollow,
-    );
+    const quayCraneIndex =
+      selectedContainerId == null && selectedShipKey == null
+        ? (selectedCraneIndex ??
+          (alarmFollow?.kind === "quayCrane" ? alarmFollow.index : null))
+        : null;
+    const target =
+      (quayCraneIndex != null
+        ? getCraneTrackingShot(quayCraneIndex)?.target
+        : null) ??
+      resolveTrackingTarget(
+        selectedContainerId,
+        selectedShipKey,
+        selectedCraneIndex,
+        selectedOverheadCraneIndex,
+        alarmFollow,
+      );
     if (!target) return;
 
     if (controls.target.distanceToSquared(target) > 1e-6) {
