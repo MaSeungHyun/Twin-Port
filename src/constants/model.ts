@@ -48,52 +48,94 @@ export type ShipPlacement = {
   position: [number, number, number];
   /** 월드 yaw (도). 선수 +X */
   yawDeg: number;
+  /** 접안 크레인 그룹 (AreaCamButtons 3기 묶음 라벨) */
+  craneGroup: string;
+  /** 그룹 3기 GLB 인덱스 — 화살표 위치에서 가장 가까운 그룹 */
+  cranes: readonly number[];
 };
 
 /** Ground Y 90° → 0° 보정: x'=-z, z'=x, yaw-90° */
+/** 원본 BUSAN.glb(5c90967) Ship_Point.NNN 화살표 Empty 월드 위치·회전 (로컬 +Y = 선수) */
 export const SHIP_PLACEMENTS: readonly ShipPlacement[] = [
   {
-    label: "Ship",
+    label: "000",
     locators: [0],
-    // 기준 선석: ship.glb busan 원위치 (선체 중심 x,z / 선저 y)
-    position: [-5.06, SHIP_POSITION_Y, -158.68],
-    yawDeg: 0,
-  },
-  {
-    label: "001",
-    locators: [1],
-    position: [-218.256, SHIP_POSITION_Y, 83.152],
-    yawDeg: -19.736,
+    position: [-148.544, SHIP_POSITION_Y, 97.492],
+    yawDeg: -21.345,
+    craneGroup: "A1",
+    cranes: [1, 2, 3],
   },
   {
     label: "002",
-    locators: [2],
-    position: [-538.022, SHIP_POSITION_Y, -175.022],
-    yawDeg: 0,
-  },
-  {
-    label: "003",
-    locators: [3],
-    position: [-197.541, SHIP_POSITION_Y, -175.022],
-    yawDeg: 0,
+    locators: [1],
+    position: [-413.284, SHIP_POSITION_Y, -1.894],
+    yawDeg: -21.345,
+    craneGroup: "A3",
+    cranes: [10, 11, 12],
   },
   {
     label: "005",
+    locators: [2],
+    position: [-439.098, SHIP_POSITION_Y, -158.883],
+    yawDeg: 0,
+    craneGroup: "B2",
+    cranes: [25, 26, 27],
+  },
+  {
+    label: "007",
+    locators: [3],
+    position: [-151.562, SHIP_POSITION_Y, -158.883],
+    yawDeg: 0,
+    craneGroup: "B4",
+    cranes: [31, 32, 33],
+  },
+  {
+    label: "008",
+    locators: [4],
+    position: [-1.61, SHIP_POSITION_Y, -158.883],
+    yawDeg: 0,
+    craneGroup: "B5",
+    cranes: [34, 35, 36],
+  },
+  {
+    label: "010",
     locators: [5],
-    position: [224.227, SHIP_POSITION_Y, -45.823],
+    position: [214.32, SHIP_POSITION_Y, 4.734],
     yawDeg: -90,
+    craneGroup: "C2",
+    cranes: [46, 47, 48],
   },
   {
-    label: "006+007",
-    locators: [6, 7],
-    position: [497.643, SHIP_POSITION_Y, 245.408],
-    yawDeg: -28,
+    label: "011",
+    locators: [6],
+    position: [445.665, SHIP_POSITION_Y, 214.64],
+    yawDeg: -30,
+    craneGroup: "D1",
+    cranes: [55, 56, 57],
   },
   {
-    label: "008+009",
-    locators: [8, 9],
-    position: [958.983, SHIP_POSITION_Y, -136.329],
+    label: "013",
+    locators: [7],
+    position: [696.167, SHIP_POSITION_Y, 359.267],
+    yawDeg: -30,
+    craneGroup: "D3",
+    cranes: [61, 62, 63],
+  },
+  {
+    label: "014",
+    locators: [8],
+    position: [960.037, SHIP_POSITION_Y, 30.763],
     yawDeg: -90,
+    craneGroup: "E1",
+    cranes: [64, 65, 66],
+  },
+  {
+    label: "016",
+    locators: [9],
+    position: [960.037, SHIP_POSITION_Y, -191.459],
+    yawDeg: -90,
+    craneGroup: "E3",
+    cranes: [70, 71, 72],
   },
 ];
 

@@ -99,14 +99,25 @@ function buildModel(
   const even = Math.max(1, Math.floor(sorted.length / Math.max(1, shipCount)));
   const useWanted =
     berths.length > 0 && wanted.reduce((a, b) => a + b, 0) <= sorted.length;
+  // 선석 크레인 그룹(3기) 지정 — 씬에 모두 있으면 해당 그룹을, 아니면 순차 배정
+  const available = new Set(sorted);
+  const groupOf = (i: number) => {
+    if (shipCount !== SHIP_PLACEMENTS.length) return null;
+    const g = SHIP_PLACEMENTS[i]?.cranes ?? [];
+    return g.length > 0 && g.every((c) => available.has(c)) ? [...g] : null;
+  };
+  const reserved = new Set<number>();
+  for (let i = 0; i < shipCount; i++) groupOf(i)?.forEach((c) => reserved.add(c));
+  const free = sorted.filter((c) => !reserved.has(c));
   let cursor = 0;
   const craneShip = new Map<number, [number, number]>();
 
   const ships: ShipPlan[] = Array.from({ length: shipCount }, (_, i) => {
     const profile = baseShipProfile(i);
     const take = Math.min(PORT_SIM.maxCranesPerShip, useWanted ? wanted[i]! : even);
-    const cranes = sorted.slice(cursor, cursor + take);
-    cursor += take;
+    const group = groupOf(i);
+    const cranes = group ?? free.slice(cursor, cursor + take);
+    if (!group) cursor += take;
     cranes.forEach((c, r) => craneShip.set(c, [i, r]));
     const craneMph = Math.round(
       PORT_SIM.craneMphMin + seeded(i, 3) * (PORT_SIM.craneMphMax - PORT_SIM.craneMphMin),
