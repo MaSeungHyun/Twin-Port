@@ -25,6 +25,7 @@ import { type CraneTab } from "@/stores/contentView";
 import ContentDetailLayout, { DetailFields } from "../ContentDetailLayout";
 import { CraneStatusDot } from "../detail/OperationalStatusIndicator";
 import { CyberHeading } from "../cyber/CyberPanel";
+import CraneTelemetryPanel from "./CraneTelemetryPanel";
 
 type CraneListItem = {
   key: string;
@@ -110,6 +111,7 @@ function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
         }
       >
         <DetailFields rows={craneTwinDetailRows(twin)} />
+        <CraneTelemetryPanel kind="quayCrane" index={selected.index} />
       </ContentDetailLayout>
     );
   }
@@ -290,6 +292,7 @@ function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
         }
       >
         <DetailFields rows={overheadCraneTwinDetailRows(twin)} />
+        <CraneTelemetryPanel kind="overheadCrane" index={selected.index} />
       </ContentDetailLayout>
     );
   }

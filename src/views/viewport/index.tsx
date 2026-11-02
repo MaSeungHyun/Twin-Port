@@ -7,6 +7,7 @@ import PortHoverTooltip from "./_components/PortHoverTooltip";
 import Scene from "./_components/Scene";
 import IntroOverlay from "./_components/IntroOverlay";
 import MonitoringOverlay from "./_components/MonitoringOverlay";
+import ActiveErrorsPanel from "./_components/ActiveErrorsPanel";
 // TEMP: 디버그 UI 비활성화
 // import PerfOverlay from "./_components/PerfOverlay";
 
@@ -27,6 +28,7 @@ export default function Viewport() {
 
         <IntroOverlay />
         <ContentPanel />
+        <ActiveErrorsPanel />
         <MonitoringOverlay />
         {/* TEMP: 디버그 UI 비활성화 */}
         {/* <PerfOverlay /> */}

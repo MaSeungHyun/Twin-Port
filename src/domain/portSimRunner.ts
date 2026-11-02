@@ -1,4 +1,6 @@
 import { PORT_SIM } from "@/constants/portSim";
+import { advanceTelemetry, resetTelemetry } from "@/domain/craneTelemetry";
+import { checkOverheat, resetOverheat } from "@/domain/overheatMonitor";
 import { getPortSim } from "@/domain/portSim";
 import { useDowntimeLogStore } from "@/stores/useDowntimeLogStore";
 import type { DowntimeKind } from "@/stores/useDowntimeLogStore";
@@ -41,15 +43,21 @@ export function startPortSim(): () => void {
   const sync = () => syncDowntimeLog();
   const unsubFailure = useFailureStore.subscribe(sync);
   const unsubOps = useOpsStore.subscribe(sync);
+  resetTelemetry();
+  advanceTelemetry(getPortSim().simHours);
   sync();
   const id = window.setInterval(() => {
     usePortSimStore.getState().setElapsed((Date.now() - startedAt) / 1000);
+    advanceTelemetry(getPortSim().simHours);
+    checkOverheat();
     sync();
   }, PORT_SIM.tickMs);
   return () => {
     window.clearInterval(id);
     unsubFailure();
     unsubOps();
+    resetOverheat();
+    resetTelemetry();
     usePortSimStore.getState().reset();
   };
 }

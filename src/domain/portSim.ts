@@ -512,6 +512,11 @@ export function getPortSim(): PortSimSnapshot {
   return cached().snap;
 }
 
+/** 야드 장치 컨테이너 id 목록(텔레메트리 하중 표시용) */
+export function getSimContainerIds(): readonly string[] {
+  return modelCache?.model.containerIds ?? [];
+}
+
 export function getSimShip(index: number): SimShip | null {
   const ships = getPortSim().ships;
   if (ships.length === 0) return null;
