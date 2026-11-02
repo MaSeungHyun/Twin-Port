@@ -1,6 +1,9 @@
 import overheadCraneUrl from "@/assets/model/overhead_crane.glb";
-import { enableGlbShadows } from "@/domain/glb";
-import { getBlockFadeLevel, getFadeMaterials, isAreaDepthFadeActive } from "@/domain/areaDepthFade";
+import {
+  getBlockFadeLevel,
+  getFadeMaterials,
+  isAreaDepthFadeActive,
+} from "@/domain/areaDepthFade";
 import {
   hoveredIndexOf,
   instanceHoverId,
@@ -32,7 +35,10 @@ import { getActiveByKind } from "@/stores/useFailureStore";
 
 /** [failure] 동시에 고장 표시 가능한 overhead crane 수 (부품당 outline 슬롯) */
 const FAILURE_SLOTS = 3;
-import { getActiveOverheadCraneIndex, useViewportStore } from "@/stores/viewport";
+import {
+  getActiveOverheadCraneIndex,
+  useViewportStore,
+} from "@/stores/viewport";
 
 type CranePart = {
   geometry: BufferGeometry;
@@ -64,7 +70,6 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
 
   const parts = useMemo<CranePart[]>(() => {
     scene.updateMatrixWorld(true);
-    enableGlbShadows(scene);
     const collected: CranePart[] = [];
 
     scene.traverse((child) => {
@@ -81,10 +86,16 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
     const box = new Box3();
     for (const part of collected) {
       if (!part.geometry.boundingBox) part.geometry.computeBoundingBox();
-      box.union(part.geometry.boundingBox!.clone().applyMatrix4(part.localMatrix));
+      box.union(
+        part.geometry.boundingBox!.clone().applyMatrix4(part.localMatrix),
+      );
     }
     const center = box.getCenter(new Vector3());
-    const offset = new Matrix4().makeTranslation(-center.x, -box.min.y, -center.z);
+    const offset = new Matrix4().makeTranslation(
+      -center.x,
+      -box.min.y,
+      -center.z,
+    );
     for (const part of collected) part.localMatrix.premultiply(offset);
     modelSize.current = box.getSize(new Vector3());
 
@@ -198,7 +209,15 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
 
       applyHoverOutline();
     },
-    [applyHoverOutline, blocks, dummy, matrix, parts, resolvedInstances, zeroMatrix],
+    [
+      applyHoverOutline,
+      blocks,
+      dummy,
+      matrix,
+      parts,
+      resolvedInstances,
+      zeroMatrix,
+    ],
   );
 
   useLayoutEffect(() => {
@@ -220,8 +239,8 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
               meshRefs.current[index] = node;
             }}
             args={[part.geometry, part.material, resolvedInstances.length]}
-            castShadow
-            receiveShadow
+            castShadow={false}
+            receiveShadow={false}
             frustumCulled={false}
             onPointerOver={(event) =>
               portHoverOver(event, "overheadCrane", instanceHoverId(event))
@@ -236,9 +255,13 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
               ref={(node) => {
                 fadeRefs.current[level - 1]![index] = node;
               }}
-              args={[part.geometry, getFadeMaterials(part.material, level), resolvedInstances.length]}
-              castShadow
-              receiveShadow
+              args={[
+                part.geometry,
+                getFadeMaterials(part.material, level),
+                resolvedInstances.length,
+              ]}
+              castShadow={false}
+              receiveShadow={false}
               frustumCulled={false}
               raycast={() => null}
             />

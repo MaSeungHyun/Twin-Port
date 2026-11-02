@@ -54,6 +54,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { buildCraneLods, resetCraneLods, updateCraneLods, type CraneLodSet } from "@/domain/craneLod";
 import { CRANE_LOD_CHECK_EVERY, CRANE_LOD_LEVELS } from "@/constants/craneLod";
 import {
+  DoubleSide,
   Material,
   Mesh,
   MeshStandardMaterial,
@@ -271,7 +272,7 @@ export default function Ground({
     const cloned = scene.clone(true);
     cloned.updateMatrixWorld(true);
     enableGlbShadows(cloned);
-    // [shadow] 그림자 생성은 크레인만 (건물/지면/수목/Cube/위성지형은 받기만). LOD 는 같은 Mesh 의 geometry 교체라 유지됨
+    // [shadow] 그림자 생성은 크레인과 안벽(Plane.002). 나머지 지면은 받기만.
     cloned.traverse((o) => {
       if (!(o instanceof Mesh)) return;
       let node: Object3D | null = o;
@@ -280,7 +281,22 @@ export default function Ground({
         if (/crane|kran/i.test(node.name)) crane = true;
         node = node.parent;
       }
-      o.castShadow = crane;
+      const quayWall = [o.name, o.parent?.name ?? ""].some((n) => /^Plane\.?002$/.test(n));
+      // 안벽만 그림자를 낸다. 양면(M_Grid)이라 기본 shadowSide 로는 보이는 뒷면에 그림자가 안 앉는다.
+      o.castShadow = crane || quayWall;
+      if (!quayWall) return;
+      o.receiveShadow = true;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      const next = mats.map((m) => {
+        if (!(m instanceof MeshStandardMaterial)) return m;
+        const c = m.clone();
+        c.shadowSide = DoubleSide;
+        c.roughness = Math.min(c.roughness, 0.22);
+        c.envMapIntensity = Math.max(c.envMapIntensity, 1.35);
+        c.needsUpdate = true;
+        return c;
+      });
+      o.material = Array.isArray(o.material) ? next : next[0]!;
     });
     enableGroundAlpha(cloned);
     // [twin-port] 바다와 맞닿는 지면(Ground, 위성지형)은 깊이를 써서 투명 바다/거품을 가림

@@ -878,7 +878,17 @@ export function makeOceanMatGPU(g) {
     const near = hd.lessThan(u.uDetail);
     const m_ = S.ampMod(vXZ).toVar();
     const si = shoreInfo(vXZ).toVar();
-    const wd0 = SL.waterDepth(si.x).toVar();
+    const toLand = select(
+      dot(si.zw, si.zw).greaterThan(1e-4),
+      normalize(si.zw),
+      vec2(0.0, 1.0),
+    );
+    // 해안선 텍셀(약 2.5m)이 물 쪽으로 얕은 바닥색을 남긴다. 그 띠까지 바깥 바다 수심을 쓴다.
+    const contact = wallness(vXZ, si).mul(smoothstep(9.0, 3.5, si.y));
+    const seaWd = SL.waterDepth(
+      shoreInfo(vXZ.sub(toLand.mul(max(float(12.0).sub(si.y), float(8.0))))).x,
+    );
+    const wd0 = mix(SL.waterDepth(si.x), seaWd, contact).toVar();
     const att0 = float(0.12)
         .add(smoothstep(0.5, 18.0, wd0).mul(0.88))
         .toVar(),
@@ -997,7 +1007,7 @@ export function makeOceanMatGPU(g) {
     const path = vW.y.add(depth).div(max(Tv.y.negate(), 0.04)).toVar();
     const bed = vW.add(Tv.mul(path)).toVar();
     for (let it = 0; it < 2; it++) {
-      const nd = SL.waterDepth(shoreInfo(bed.xz).x);
+      const nd = mix(SL.waterDepth(shoreInfo(bed.xz).x), seaWd, contact);
       depth.assign(select(near, nd, depth));
       path.assign(
         select(
@@ -1073,7 +1083,7 @@ export function makeOceanMatGPU(g) {
       .mul(att1);
     const d = si.y;
     const wlF = wallness(vXZ, si).toVar();
-    const band = smoothstep(-1.5, 0.5, d).mul(smoothstep(5.0, 0.5, d)).mul(float(1).sub(wlF.mul(0.85)));
+    const band = smoothstep(-1.5, 0.5, d).mul(smoothstep(5.0, 0.5, d)).mul(float(1).sub(wlF));
     const shoreMask = u.uShoreFoam.mul(
       band.mul(0.75).mul(step(0.0, d)).add(sw.z.mul(0.9).add(sw.w.mul(0.55)).mul(float(1).sub(wlF))),
     );
@@ -1220,14 +1230,8 @@ export function makeOceanMatGPU(g) {
       .mul(smoothstep(-5.0, -1.0, shipD))
       .mul(u.uShoreFoam.mul(0.5).add(0.5))
       .mul(mix(0.55, 1.0, hullNear));
-    // 안벽 접촉은 얇고 잔잔한 선만. 위상 물결을 넣으면 직선 안벽이 파도 경계처럼 보인다
-    const wallFoam = u.uShoreFoam
-      .mul(smoothstep(1.4, 0.15, d))
-      .mul(step(0.0, d))
-      .mul(0.35)
-      .mul(wlF);
     const wakeFoam = wake.mul(OCEAN_WAKE_FOAM_STRENGTH).mul(step(0.0, shipD));
-    const mask = clamp(foamA.add(shoreMask).add(hullFoam).add(wallFoam.mul(0.75)).add(wakeFoam), 0.0, 1.0).toVar();
+    const mask = clamp(foamA.add(shoreMask).add(hullFoam).add(wakeFoam), 0.0, 1.0).toVar();
     const lp = float(0.55).toVar();
     If(near, () => {
       lp.assign(lace(vXZ, T));
@@ -1263,11 +1267,13 @@ export function makeOceanMatGPU(g) {
     const edgeSky = L.sky(normalize(vec3(V.x.negate(), 0.015, V.z.negate())), 0, 0).toVar();
     edgeSky.assign(mix(edgeSky, airFogU.col, airFogU.on.mul(float(1).sub(uw.under)).mul(float(1).sub(smoothstep(0.0, 0.12, 0.015)))));
     col.assign(mix(col, edgeSky.mul(oceanDimU), edgeF));
-    const alpha = smoothstep(0.0, 0.35, vW.y.sub(si.x)).toVar();
+    // 안벽 높이 텍셀이 물 칸까지 번지면 그 네모만 투명해져 검은 칸이 된다. 벽에서는 높이로 자르지 않는다.
+    const heightA = smoothstep(0.0, 0.35, vW.y.sub(si.x));
+    const alpha = mix(heightA, float(1.0), wlF).toVar();
     alpha.mulAssign(float(1).sub(smoothstep(0.6, 1.0, edgeF)));
     // [twin-port] 선체 내부에는 물을 그리지 않음
-    // [twin-port] 안벽: SDF 상 육지(d<0) 인 물 프래그먼트는 그리지 않음 (부드러운 경계)
-    alpha.mulAssign(mix(1.0, smoothstep(-0.6, 0.4, d), wlF));
+    // [twin-port] 안벽 면은 불투명 바다색으로 두고, 벽 뒤에서만 지운다. 앞에서 섞이면 콘크리트색이 비친다.
+    alpha.mulAssign(mix(1.0, smoothstep(-6.0, -3.5, d), wlF));
     // 수선 근처(잠긴 선저가 비치는 구간)는 바다색을 유지. 갑판 한가운데만 물을 비운다.
     alpha.mulAssign(mix(1.0, smoothstep(-8.0, -4.0, shipD), u.uShipHalf.z));
     If(uw.under.greaterThan(0.001), () => {

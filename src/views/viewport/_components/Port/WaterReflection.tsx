@@ -100,10 +100,6 @@ const REFLECTION_CRANE_RATIO = 0.15;
 /** [sparkle] 정점 일렁임 / 알파 줄무늬 세기 (0 = 시간에 따라 흔들리지 않는 안정 반사) */
 const REFLECTION_WOBBLE = 0;
 const REFLECTION_RIPPLE = 0;
-/** [reflection] 지면(안벽/에이프런) 반사 대상 = portShore 육지와 동일 (GLTFLoader 가 "." 제거) */
-const REFLECTION_LAND = /^(Ground|Plane\.?002)$/;
-/** 지면 반사: 수면 위 이 높이(m)보다 전부 높은 삼각형은 제외 (반사가 어차피 육지 마스크로 버려지는 내륙/고지대) */
-const REFLECTION_LAND_MAX_HEIGHT = 25;
 /** [grazing] 카메라가 반사면보다 이 높이(m) 이내면 반사면을 카메라 아래로 내림 (t 가 0 으로 잘려 정점이 카메라로 몰리던 문제) */
 const REFLECTION_CAMERA_CLEARANCE = 0.5;
 /** [grazing] 카메라가 수면 위 이 높이(m) 미만이면 반사 숨김 */
@@ -124,8 +120,6 @@ const REFLECTION_STRETCH_MARGIN = 20;
  */
 // [pt283u] 사실상 해제: 물리적 평면 반사(카메라→반전점 광선의 수면 교차)라 정상 거리이며, 수평 근처는 grazing 이 처리
 const REFLECTION_STRETCH_RATIO = 1000;
-/** [grazing] 지면 반사는 수직에 가까운 면(|normal.y| < 이 값)만 ? 윗면/큰 평면이 늘어나 박스처럼 보이던 문제 */
-const REFLECTION_LAND_MAX_NORMAL_Y = 0.5;
 const uCamFade = uniform(1);
 
 const uLevel = uniform(oceanState.level);
@@ -148,7 +142,7 @@ const REFLECTION_SHORE_FADE = 6;
 const uShoreRect = uniform(new Vector3(SHORE.rect[0], SHORE.rect[1], SHORE.rect[2]));
 const shoreNode = texture(shoreTex);
 
-const materials: Partial<Record<"depth" | "color", MeshBasicNodeMaterial>> = {};
+const materials = new Map<string, MeshBasicNodeMaterial>();
 
 /**
  * [reflection] 2패스 (x-ray 제거, stencil 미사용)
@@ -157,8 +151,15 @@ const materials: Partial<Record<"depth" | "color", MeshBasicNodeMaterial>> = {};
  * 반사는 모두 수면(평면) 위로 투영되므로 depth 가 거의 같음 → 원본 높이(vHeight)가 낮을수록
  * 시선 방향으로 카메라 쪽에 조금 당겨(최대 REFLECTION_ORDER_SPAN m) 앞뒤 순서를 depth 에 기록
  */
-function getReflectionMaterial(pass: "depth" | "color") {
-  const cached = materials[pass];
+function getReflectionMaterial(
+  pass: "depth" | "color",
+  shore: { margin: number; fade: number } = {
+    margin: REFLECTION_SHORE_MARGIN,
+    fade: REFLECTION_SHORE_FADE,
+  },
+) {
+  const key = `${pass}:${shore.margin}:${shore.fade}`;
+  const cached = materials.get(key);
   if (cached) return cached;
   const vHeight = varyingProperty("float", "vReflHeight");
   const vHit = varyingProperty("vec3", "vReflHit");
@@ -261,12 +262,12 @@ function getReflectionMaterial(pass: "depth" | "color") {
         );
       },
     );
-    If(sd.lessThan(REFLECTION_SHORE_MARGIN), () => {
+    If(sd.lessThan(shore.margin), () => {
       Discard();
     });
     const shoreFade = smoothstep(
-      float(REFLECTION_SHORE_MARGIN),
-      float(REFLECTION_SHORE_MARGIN + REFLECTION_SHORE_FADE),
+      float(shore.margin),
+      float(shore.margin + shore.fade),
       sd,
     );
     const fade = clamp(float(1).sub(vHeight.div(REFLECTION_FADE_HEIGHT)), 0, 1);
@@ -309,18 +310,21 @@ function getReflectionMaterial(pass: "depth" | "color") {
     );
     return uOpacity.mul(fade).mul(fres).mul(ripple).mul(shoreFade).mul(graze).mul(farFade);
   })();
-  materials[pass] = m;
+  materials.set(key, m);
   return m;
 }
 
 /** color 메시 + 자식 depth 프리패스 메시 (같은 geometry, 부모 행렬 공유) */
-function makeReflectionMesh(geometry: BufferGeometry) {
-  const mesh = new Mesh(geometry, getReflectionMaterial("color"));
+function makeReflectionMesh(
+  geometry: BufferGeometry,
+  shore?: { margin: number; fade: number },
+) {
+  const mesh = new Mesh(geometry, getReflectionMaterial("color", shore));
   mesh.frustumCulled = false;
   mesh.matrixAutoUpdate = false;
   mesh.renderOrder = REFLECTION_RENDER_ORDER + 1;
   mesh.raycast = () => {};
-  const depth = new Mesh(geometry, getReflectionMaterial("depth"));
+  const depth = new Mesh(geometry, getReflectionMaterial("depth", shore));
   depth.frustumCulled = false;
   depth.matrixAutoUpdate = false;
   depth.renderOrder = REFLECTION_RENDER_ORDER;
@@ -416,7 +420,8 @@ function appendTriangles(
       e2.subVectors(c, a);
       e1.cross(e2);
       const len = e1.length();
-      if (len === 0 || Math.abs(e1.y / len) >= maxNormalY) continue;
+      // 아랫면만 제외. 윗면(normal.y > 0)은 크레인과 같은 반사 메시에 넣는다.
+      if (len === 0 || e1.y / len <= -maxNormalY) continue;
     }
     out.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
   }
@@ -761,23 +766,7 @@ export function QuayCraneReflection({ model }: { model: Object3D }) {
         }
         if (cancelled) return;
       }
-      const craneTris = values.length / 9;
-      // [reflection] Ground / Plane.002 (안벽 가장자리) — 같은 draw 로 병합
-      const landMeshes: Mesh[] = [];
-      model.traverse((o) => {
-        const m = o as Mesh;
-        if (!m.isMesh || seen.has(m) || m.name.endsWith("-occupancy")) return;
-        if (!REFLECTION_LAND.test(m.name) && !REFLECTION_LAND.test(m.parent?.name ?? "")) return;
-        landMeshes.push(m);
-      });
-      await Promise.all(landMeshes.map((m) => lowOf(m.geometry)));
       if (cancelled) return;
-      for (const m of landMeshes) {
-        seen.add(m);
-        const geo = await lowOf(m.geometry);
-        appendTriangles(values, geo, m.matrixWorld, level, level + REFLECTION_LAND_MAX_HEIGHT, REFLECTION_LAND_MAX_NORMAL_Y);
-        await slice();
-      }
       if (values.length === 0) {
         finishWarm();
         return;
@@ -790,9 +779,7 @@ export function QuayCraneReflection({ model }: { model: Object3D }) {
       finishWarm();
       endSpan();
       if (import.meta.env.DEV) {
-        console.info(
-          `[reflection] quay cranes ${craneTris} tris, land ${values.length / 9 - craneTris} tris (${landMeshes.length} meshes)`,
-        );
+        console.info(`[reflection] quay cranes ${values.length / 9} tris`);
       }
     })();
     return () => {

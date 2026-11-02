@@ -116,7 +116,7 @@ export const SHIP_TWEENS: readonly ShipTweenConfig[] = [
   // 0 (000): 크레인(z≈-192) 반대인 +Z(바다)로 30m → 우현 18° → 동쪽 직진. -Z 는 안벽 쪽이라 첫 이동이 땅으로 들어갔음
   ship(0, "0 (000)", {
     sidestepZ: 30,
-    turnDeg: -18,
+    turnDeg: -68,
     departDistance: 640,
     departDuration: 35.6,
     delay: 12,
@@ -124,7 +124,6 @@ export const SHIP_TWEENS: readonly ShipTweenConfig[] = [
   // 1 (002): 화면 위로 45m → 회전 없이 동북동 직진 (우현으로 틀면 0번 정박 위치/육지와 겹침)
   ship(1, "1 (002)", {
     sidestepZ: -40,
-
     departDistance: 1380,
     departDuration: 76.7,
     delay: 34,
