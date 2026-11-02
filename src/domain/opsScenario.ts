@@ -2,8 +2,10 @@ import {
   OPS_CONVEYORS,
   OPS_CONVEYOR_KEYS,
   OPS_EQUIPMENT,
+  OPS_FAULTS,
   OPS_MOVES,
   OPS_SCENARIO,
+  type OpsFaultLevel,
   type OpsConveyorState,
   type OpsMoveStatus,
   type OpsShareKey,
@@ -45,6 +47,16 @@ export type OpsEquipmentLive = {
   share: Record<OpsShareKey, number>;
 };
 
+export type OpsFault = {
+  id: string;
+  t: number;
+  equipmentId: string;
+  name: string;
+  level: OpsFaultLevel;
+  message: string;
+  active: boolean;
+};
+
 export type OpsSnapshot = {
   title: string;
   elapsed: number;
@@ -61,6 +73,7 @@ export type OpsSnapshot = {
   conveyors: OpsConveyorLive[];
   equipment: OpsEquipmentLive[];
   moves: OpsMove[];
+  faults: OpsFault[];
 };
 
 export type OpsFaultOverride = {
@@ -72,6 +85,14 @@ export type OpsFaultOverride = {
 
 const SHARE_KEYS: OpsShareKey[] = ["run", "move", "wait", "fault"];
 const emptyShare = (): Record<OpsShareKey, number> => ({ run: 0, move: 0, wait: 0, fault: 0 });
+
+function equipmentLabel(id: string) {
+  return (
+    OPS_EQUIPMENT.find((item) => item.id === id)?.name ??
+    OPS_CONVEYORS.find((item) => item.id === id)?.name ??
+    id
+  );
+}
 
 function containerId(cycle: number, n: number) {
   return `TCLU${String(1001000 + cycle * 10 + n)}`;
@@ -186,13 +207,20 @@ export function sampleOpsScenario(elapsedS: number, faults: readonly OpsFaultOve
     const tracked = SHARE_KEYS.reduce((sum, key) => sum + share[key], 0);
     const active = share.run + share.move;
     const fault = faults.find((entry) => entry.name === item.name);
+    const scripted = OPS_FAULTS.find(
+      (event) =>
+        event.equipmentId === item.id &&
+        event.level !== "recovery" &&
+        event.at <= phase &&
+        phase < event.until,
+    );
     const count = cycle * item.movesPerCycle + countMoves(item.id, phase);
     return {
       id: item.id,
       name: item.name,
       kind: item.kind,
-      state: fault?.state ?? stateAt(item.segments, phase),
-      cause: fault?.cause,
+      state: fault?.state ?? (scripted?.level === "error" ? "fault" : stateAt(item.segments, phase)),
+      cause: fault?.cause ?? scripted?.message,
       count,
       perHour: count / hours,
       utilization: tracked > 0 ? (active / tracked) * 100 : 0,
@@ -220,5 +248,29 @@ export function sampleOpsScenario(elapsedS: number, faults: readonly OpsFaultOve
     conveyors,
     equipment,
     moves: moves.slice(0, OPS_SCENARIO.moveLimit),
+    faults: faultLog(cycle, phase),
   };
+}
+
+function faultLog(cycle: number, phase: number): OpsFault[] {
+  const cycleS = OPS_SCENARIO.cycleS;
+  const out: OpsFault[] = [];
+  const firstCycle = Math.max(0, cycle - 1);
+  for (let c = firstCycle; c <= cycle; c += 1) {
+    const until = c === cycle ? phase : cycleS;
+    for (const event of OPS_FAULTS) {
+      if (event.at > until) continue;
+      out.push({
+        id: `${c}-${event.at}-${event.equipmentId}-${event.level}`,
+        t: c * cycleS + event.at,
+        equipmentId: event.equipmentId,
+        name: equipmentLabel(event.equipmentId),
+        level: event.level,
+        message: event.message,
+        active: c === cycle && event.at <= phase && phase < event.until,
+      });
+    }
+  }
+  out.sort((a, b) => b.t - a.t);
+  return out.slice(0, OPS_SCENARIO.moveLimit);
 }

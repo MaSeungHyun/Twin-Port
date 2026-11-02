@@ -61,6 +61,7 @@ import {
 import { ClippingGroup } from "three/webgpu";
 import type { ThreeEvent } from "@react-three/fiber";
 import HoverOutlineMesh from "./HoverOutlineMesh";
+import ShipArrivalLabel from "./ShipArrivalLabel";
 import { beginSceneWarmTask, ShipReflection } from "./WaterReflection";
 import { useShipDebugStore } from "@/stores/shipDebug";
 
@@ -719,6 +720,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         onClick={handleShipClick}
       />
       <ShipReflection parts={parts} posesRef={posesRef} />
+      <ShipArrivalLabel posesRef={posesRef} />
       <primitive object={hullClip}>
       {parts.map((part, index) => part.waterway ? null : (
         <group key={index}>

@@ -1,11 +1,14 @@
 import {
+  OPS_FAULT_LABEL,
   OPS_SHARE_LABEL,
   OPS_STATE_LABEL,
+  type OpsFaultLevel,
   type OpsShareKey,
 } from "@/constants/opsScenario";
 import type {
   OpsConveyorLive,
   OpsEquipmentLive,
+  OpsFault,
   OpsMove,
 } from "@/domain/opsScenario";
 import { useOpsStore } from "@/stores/useOpsStore";
@@ -162,6 +165,28 @@ function MoveRow({ move }: { move: OpsMove }) {
   );
 }
 
+function faultClass(level: OpsFaultLevel) {
+  if (level === "error") return "text-danger";
+  if (level === "warning") return "text-warning";
+  return "text-primary";
+}
+
+function FaultRow({ fault }: { fault: OpsFault }) {
+  return (
+    <div className="grid grid-cols-[52px_minmax(0,0.9fr)_44px_minmax(0,1.2fr)] items-center gap-sm border-b border-white/5 py-xs text-lg">
+      <span className="tabular-nums text-text-secondary">{clock(fault.t)}</span>
+      <span className="truncate text-text-primary">{fault.name}</span>
+      <span className={faultClass(fault.level)}>{OPS_FAULT_LABEL[fault.level]}</span>
+      <span className="truncate text-text-secondary">
+        {fault.message}
+        {fault.active && fault.level !== "recovery" ? (
+          <span className="ml-xs text-text-primary">진행</span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 function EquipmentRow({ item }: { item: OpsEquipmentLive }) {
   const label = OPS_STATE_LABEL[item.state];
   return (
@@ -257,10 +282,11 @@ export default function OpsDashboard() {
         </Section>
       </div>
 
+      <div className="grid min-h-0 flex-[4] gap-md xl:grid-cols-2">
       <Section
         title="장비"
         aside="작업 · 이동 · 대기 · 고장"
-        className="max-h-full flex-[4]"
+        className="max-h-full"
       >
         <table className="w-full border-collapse text-left">
           <thead className="sticky top-0 z-1 bg-foreground text-md text-text-secondary">
@@ -284,6 +310,20 @@ export default function OpsDashboard() {
           </tbody>
         </table>
       </Section>
+      <Section title="기기별 오류" aside="이상 · 고장 · 복구" className="max-h-full">
+        <div className="sticky top-0 z-1 grid grid-cols-[52px_minmax(0,0.9fr)_44px_minmax(0,1.2fr)] gap-sm border-b border-white/10 bg-foreground pb-xs text-md text-text-secondary">
+          <span>시각</span>
+          <span>기기</span>
+          <span>단계</span>
+          <span>내용</span>
+        </div>
+        {data.faults.length === 0 ? (
+          <p className="py-md text-center text-lg text-text-secondary">아직 오류가 없습니다</p>
+        ) : (
+          data.faults.map((fault) => <FaultRow key={fault.id} fault={fault} />)
+        )}
+      </Section>
+      </div>
     </div>
   );
 }

@@ -160,6 +160,43 @@ export const OPS_MOVES: readonly OpsMoveScript[] = [
   { at: 78, n: 8, conveyorId: "cv-02", from: "CV-01 안벽 수취", to: "블록 B12", status: "완료", equipmentId: "ohc-12" },
 ];
 
+export type OpsFaultLevel = "warning" | "error" | "recovery";
+
+/** 기기별 오류. at~until 은 사이클 초. 한 기기 안에서 이상 → 고장 → 복구가 이어진다. */
+export type OpsFaultScript = {
+  at: number;
+  until: number;
+  equipmentId: string;
+  level: OpsFaultLevel;
+  message: string;
+};
+
+export const OPS_FAULTS: readonly OpsFaultScript[] = [
+  { at: 6, until: 14, equipmentId: "qc-00", level: "warning", message: "호이스트 모터 온도 상승" },
+  { at: 14, until: 20, equipmentId: "qc-00", level: "recovery", message: "온도 정상" },
+  { at: 16, until: 24, equipmentId: "qc-01", level: "warning", message: "주행 모터 전류 변동" },
+  { at: 24, until: 30, equipmentId: "qc-01", level: "recovery", message: "전류 안정" },
+  { at: 34, until: 40, equipmentId: "qc-02", level: "warning", message: "트롤리 전류 상승" },
+  { at: 40, until: 64, equipmentId: "qc-02", level: "error", message: "트롤리 주행 정지" },
+  { at: 64, until: 72, equipmentId: "qc-02", level: "recovery", message: "정상 가동 재개" },
+  { at: 10, until: 18, equipmentId: "ohc-01", level: "warning", message: "스프레더 센서 이상" },
+  { at: 18, until: 24, equipmentId: "ohc-01", level: "recovery", message: "센서 정상" },
+  { at: 22, until: 36, equipmentId: "ohc-05", level: "warning", message: "호이스트 브레이크 이상" },
+  { at: 36, until: 42, equipmentId: "ohc-05", level: "recovery", message: "브레이크 정상" },
+  { at: 36, until: 48, equipmentId: "ohc-12", level: "warning", message: "주행 레일 진동" },
+  { at: 48, until: 54, equipmentId: "ohc-12", level: "recovery", message: "진동 정상" },
+  { at: 40, until: 64, equipmentId: "cv-01", level: "error", message: "안벽 수취 정체" },
+  { at: 64, until: 72, equipmentId: "cv-01", level: "recovery", message: "수취 재개" },
+  { at: 22, until: 48, equipmentId: "cv-02", level: "error", message: "야드 분배 정체" },
+  { at: 48, until: 56, equipmentId: "cv-02", level: "recovery", message: "분배 재개" },
+];
+
+export const OPS_FAULT_LABEL: Record<OpsFaultLevel, string> = {
+  warning: "이상",
+  error: "고장",
+  recovery: "복구",
+};
+
 export const OPS_STATE_LABEL: Record<OpsShareKey, string> = {
   run: "작업",
   move: "이동",

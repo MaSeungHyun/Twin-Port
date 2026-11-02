@@ -22,6 +22,8 @@ import { useControls } from "@/debug/controls";
 import { useShipDebugStore } from "@/stores/shipDebug";
 import { buildContainerPrototypes } from "@/domain/containerPrototype";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
+import { getShipTwinProfile } from "@/domain/portTwinMock";
+import { useShipArrivalStore } from "@/stores/useShipArrivalStore";
 import { getOccupancyContainerMaterial } from "@/domain/occupancyLook/occupancyContainerMaterial";
 import { occupancyStage, subscribeOccupancyHeavy } from "@/domain/occupancyLook/occupancySync";
 import { useOccupancyStore } from "@/stores/occupancy";
@@ -512,6 +514,9 @@ export default function ShipCargo({
       if (!SHIP_TWEEN.yieldEnabled || !wouldCollide(m)) {
         m.gate = { tl, t: gateT };
         onDepart(m);
+        useShipArrivalStore
+          .getState()
+          .set(m.index, getShipTwinProfile(m.index).vesselName, "departing");
         return;
       }
       m.waiting = true;
@@ -525,6 +530,9 @@ export default function ShipCargo({
         m.waiting = false;
         m.gate = { tl, t: gateT };
         onDepart(m);
+        useShipArrivalStore
+          .getState()
+          .set(m.index, getShipTwinProfile(m.index).vesselName, "departing");
         tl.resume();
       };
       delayTweens.push(gsap.delayedCall(SHIP_TWEEN.yieldRecheck, recheck));
@@ -582,17 +590,31 @@ export default function ShipCargo({
       let t = SHIP_TWEEN.loadStart;
       // 적재: 애니메이션 없이 아래 단(tier 1)부터 한 층씩 통째로 표시
       const tiers = [...new Set(m.slots.map((s) => s.tier))].sort((x, y) => x - y);
+      const shipName = getShipTwinProfile(m.index).vesselName;
+      tl.call(
+        () => useShipArrivalStore.getState().set(m.index, shipName, "loading", 0),
+        undefined,
+        t,
+      );
       tiers.forEach((tier, k) => {
         tl.call(
           () => {
             for (const slot of m.slots) if (slot.tier === tier) writeSlot(slot, 1);
             flush();
+            useShipArrivalStore
+              .getState()
+              .setProgress(m.index, tiers.length > 0 ? (k + 1) / tiers.length : 1);
           },
           undefined,
           t + k * SHIP_CARGO_TIER_INTERVAL,
         );
       });
       const loadSpan = tiers.length * SHIP_CARGO_TIER_INTERVAL;
+      tl.call(
+        () => useShipArrivalStore.getState().clearIf(m.index, "loading"),
+        undefined,
+        t + loadSpan,
+      );
       if (!motionOn) {
         // 데모: 선박 고정, 적재 완료 후 유지 → onComplete에서 비우고 재적재
         t += loadSpan + SHIP_TWEEN.loadedHold;
@@ -662,6 +684,7 @@ export default function ShipCargo({
           m.gate = null;
           (m.ship as typeof m.ship & { straightAt?: number }).straightAt = undefined;
           hideShipCargo(m.index);
+          useShipArrivalStore.getState().clearIf(m.index, "departing");
         },
         undefined,
         t,
@@ -679,6 +702,9 @@ export default function ShipCargo({
           applyTravel(m.ship, m.travel);
           ensureRotation(m.ship, m.berthYaw);
           hideShipCargo(m.index);
+          useShipArrivalStore
+            .getState()
+            .set(m.index, getShipTwinProfile(m.index).vesselName, "arriving");
         },
         undefined,
         t,
@@ -700,6 +726,7 @@ export default function ShipCargo({
         () => {
           m.facing.yaw = m.berthYaw;
           ensureRotation(m.ship, m.berthYaw);
+          useShipArrivalStore.getState().clearIf(m.index, "arriving");
         },
         undefined,
         t,
@@ -721,6 +748,7 @@ export default function ShipCargo({
       for (const tween of delayTweens) tween.kill();
       for (const tl of timelines) tl.kill();
       timelines.clear();
+      useShipArrivalStore.getState().clearAll();
     };
     // 부두 구성이 같을 때는 occupancy 리렌더로 사이클을 다시 시작하지 않음
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fleetKey가 슬롯/부두 변경을 대표
