@@ -68,7 +68,7 @@ export type OpsSnapshot = {
     outbound: number;
     utilization: number;
     queued: number;
-    leadTimeS: number;
+    leadTimeMin: number;
   };
   conveyors: OpsConveyorLive[];
   equipment: OpsEquipmentLive[];
@@ -163,7 +163,7 @@ export function sampleOpsScenario(elapsedS: number, faults: readonly OpsFaultOve
   const elapsed = Math.max(0, elapsedS);
   const cycle = Math.floor(elapsed / cycleS);
   const phase = elapsed - cycle * cycleS;
-  const hours = Math.max(elapsed / 3600, 1 / 3600);
+  const hours = Math.max((elapsed * OPS_SCENARIO.timeScale) / 3600, 1 / 3600);
 
   const moves: OpsMove[] = [];
   const firstCycle = Math.max(0, cycle - 1);
@@ -231,6 +231,7 @@ export function sampleOpsScenario(elapsedS: number, faults: readonly OpsFaultOve
   const utilization = equipment.reduce((sum, item) => sum + item.utilization, 0) / equipment.length;
   const queued = conveyors.reduce((sum, item) => sum + item.queued, 0);
   const leadTimeS = phase >= 48 && phase < 66 ? 46 : phase >= 22 && phase < 48 ? 38 : 28;
+  const leadTimeMin = Math.round(((leadTimeS * OPS_SCENARIO.timeScale) / 60) * 10) / 10;
 
   return {
     title: OPS_SCENARIO.title,
@@ -243,7 +244,7 @@ export function sampleOpsScenario(elapsedS: number, faults: readonly OpsFaultOve
       outbound,
       utilization,
       queued,
-      leadTimeS,
+      leadTimeMin,
     },
     conveyors,
     equipment,

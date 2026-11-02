@@ -61,7 +61,7 @@ export default function ContainerSearch() {
           {results.length === 0 ? (
             <p className="px-md py-sm text-xs text-white/45">검색 결과 없음</p>
           ) : (
-            <ul className="max-h-72 overflow-y-auto py-1">
+            <ul className="max-h-72 scrollbar-themed overflow-y-auto py-1">
               {results.map((container) => {
                 const { block, slot } = container.location;
                 const address = formatSlotAddress(

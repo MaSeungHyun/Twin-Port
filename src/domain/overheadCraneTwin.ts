@@ -4,6 +4,7 @@ import {
   getCraneTwinProfile,
   type CraneTwinProfile,
 } from "@/domain/portTwinMock";
+import { getSimOverheadCrane } from "@/domain/portSim";
 import { useYardStore } from "@/stores/yard";
 
 const KEY_PREFIX = "ohc-";
@@ -30,15 +31,18 @@ export function overheadCraneTitle(index: number): string {
   return `오버헤드크레인${overheadCraneBlockCode(index).replace(/\D/g, "")}`;
 }
 
-/** mock — quay crane 프로필을 재사용하되 ID/배정 정보를 블록 기준으로 */
+/** 시뮬레이션(portSim) 값 — 블록 컨테이너 비율로 선석 처리량을 나눠 받는다 */
 export function getOverheadCraneTwinProfile(index: number): CraneTwinProfile {
   const base = getCraneTwinProfile(index + 2);
   const code = overheadCraneBlockCode(index);
+  const sim = getSimOverheadCrane(index);
   return {
     ...base,
     craneId: `OHC-${code}`,
-    containersMoved: Math.round(base.containersMoved * 0.6),
-    movesPerHour: Math.max(8, base.movesPerHour - 6),
+    status: sim?.status ?? "idle",
+    containersMoved: sim?.moves ?? 0,
+    movesPerHour: Math.round(sim?.mph ?? 0),
+    utilization: sim?.utilization ?? 0,
     assignedVessel: `Block ${code}`,
     berth: `Yard ${code}`,
   };

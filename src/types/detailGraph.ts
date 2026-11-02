@@ -19,7 +19,12 @@ export type CraneJobCounts = {
 };
 
 export type CraneDowntimeEvent = {
+  /** 시작 시각 표시 */
   at: string;
+  /** 종료 시각 표시, 진행 중이면 null */
+  endAt: string | null;
+  /** 정렬용 시작 epoch ms */
+  startMs: number;
   label: string;
   durationMin: number;
 };
@@ -57,6 +62,8 @@ export type ShipLoadedContainerLog = {
   id: string;
   /** 적재 시각 */
   loadedAt: string;
+  /** 양하(discharge) / 적재(load) */
+  move?: "load" | "discharge";
 };
 
 export type ShipDetailGraphData = {

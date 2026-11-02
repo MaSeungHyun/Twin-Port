@@ -1,3 +1,5 @@
+import { usePortSim } from "@/hooks/usePortSim";
+import { INFO_TIPS } from "@/constants/infoTips";
 import { CONTENT_THUMBNAILS } from "@/assets/image/thumbnail";
 import Icon from "@/components/Icon";
 import { SHIP_PLACEMENTS } from "@/constants/model";
@@ -22,6 +24,7 @@ type ShipListItem = {
 };
 
 export default function ShipContentPanel() {
+  const sim = usePortSim();
   const modelShips = useYardStore((s) => s.ships);
   const selectedShipKey = useViewportStore((s) => s.selectedShipKey);
   const selectShip = useViewportStore((s) => s.selectShip);
@@ -43,7 +46,7 @@ export default function ShipContentPanel() {
           key: `ship-${index}`,
           index,
           title: twin.vesselName,
-          subtitle: `${twin.flag} · ${twin.loa} · ${twin.berth}`,
+          subtitle: `${twin.berth} · ${twin.flag} · ${twin.loa}`,
         };
       });
     }
@@ -57,7 +60,7 @@ export default function ShipContentPanel() {
         subtitle: `${twin.flag} · ${twin.loa}`,
       };
     });
-  }, [modelShips]);
+  }, [modelShips, sim]);
 
   const selected = items.find((item) => item.key === detailShipKey) ?? null;
 
@@ -106,9 +109,13 @@ export default function ShipContentPanel() {
 
   return (
     <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden">
-      <CyberHeading title="Ships" subtitle={`${items.length} vessels`} />
+      <CyberHeading
+        title="Ships"
+        subtitle={`${items.length} vessels`}
+        info={INFO_TIPS.shipList}
+      />
 
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <ul className="min-h-0 flex-1 scrollbar-themed overflow-y-auto overscroll-contain">
         {items.map((item) => (
           <li key={item.key}>
             <button

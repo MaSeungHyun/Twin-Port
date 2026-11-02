@@ -44,7 +44,7 @@ export default function MonitoringGrid({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="h-full w-full overflow-auto p-md"
+        className="h-full w-full scrollbar-themed overflow-auto p-md"
       >
         {filteredOccupancies.length === 0 ? (
           <p className="py-xl text-center text-sm text-text-secondary">

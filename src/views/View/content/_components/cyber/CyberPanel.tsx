@@ -1,3 +1,4 @@
+import InfoTip from "@/components/InfoTip";
 import { cn } from "@/utils/style";
 import type { ReactNode } from "react";
 
@@ -62,8 +63,11 @@ export function CyberHeading({
   subtitle,
   className,
   trailing,
+  info,
 }: {
   title: string;
+  /** 타이틀 옆 인포 아이콘 툴팁 */
+  info?: string;
   subtitle?: ReactNode;
   className?: string;
   trailing?: ReactNode;
@@ -74,7 +78,10 @@ export function CyberHeading({
     >
       <div className="flex items-start justify-between gap-md">
         <div className="min-w-0">
-          <h2 className="cyber-heading text-2xl">{title}</h2>
+          <h2 className="cyber-heading flex items-center gap-sm text-2xl">
+            {title}
+            {info ? <InfoTip text={info} className="text-lg" /> : null}
+          </h2>
           {subtitle ? (
             <div className="mt-0.5 text-text-secondary">{subtitle}</div>
           ) : null}

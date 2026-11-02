@@ -1,3 +1,4 @@
+import { usePortSim } from "@/hooks/usePortSim";
 import { getPointerHover, registerPortOutlineApplier, type PortHover } from "@/domain/hoverOutline";
 import { quayGlbIndexOfHover } from "@/domain/hoverTooltip";
 import {
@@ -79,6 +80,7 @@ const TONE_CLASS: Record<TooltipInfo["status"]["tone"], string> = {
  * 위치는 pointermove 에서 DOM style 직접 갱신, React 렌더는 hover 대상·고장 상태가 바뀔 때만.
  */
 export default function PortHoverTooltip() {
+  usePortSim();
   const ref = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<PortHover>(null);
   const active = useFailureStore((s) => s.active);

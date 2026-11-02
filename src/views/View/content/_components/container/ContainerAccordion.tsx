@@ -102,7 +102,7 @@ export default function ContainerAccordion({
         results.length === 0 ? (
           <p className="px-xl py-md text-lg text-white/45">검색 결과 없음</p>
         ) : (
-          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-xs">
+          <ul className="min-h-0 flex-1 scrollbar-themed overflow-y-auto overscroll-contain pb-xs">
             {shown.map((container) => (
               <li
                 key={container.id}
@@ -125,7 +125,7 @@ export default function ContainerAccordion({
           </ul>
         )
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="min-h-0 flex-1 scrollbar-themed overflow-y-auto overscroll-contain">
           <Accordion type="multiple" className="w-full px-xl">
             {companyGroups.map(({ company, items, count }) => {
               const accent = companyAccent(company);

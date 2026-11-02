@@ -1,3 +1,4 @@
+import { INFO_TIPS } from "@/constants/infoTips";
 import SearchBar from "@/components/SearchBar";
 import Icon from "@/components/Icon";
 import { useViewportStore } from "@/stores/viewport";
@@ -68,7 +69,7 @@ export default function ContainerContent() {
 
   return (
     <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden gap-2">
-      {showListChrome ? <CyberHeading title="Containers" /> : null}
+      {showListChrome ? <CyberHeading title="Containers" info={INFO_TIPS.containerList} /> : null}
       {showSearchBar ? <PanelSearchBar /> : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <DeferredContainerList />

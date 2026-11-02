@@ -7,6 +7,8 @@
 export const OPS_SCENARIO = {
   title: "선석 양하",
   cycleS: 90,
+  /** 시나리오 1초 = 실제 운영 6초 — 처리량·리드타임 환산용 (안벽 크레인 약 20~27 moves/h) */
+  timeScale: 6,
   tickMs: 1000,
   startDelayMs: 3000,
   moveLimit: 24,

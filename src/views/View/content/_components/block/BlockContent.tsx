@@ -1,3 +1,4 @@
+import { INFO_TIPS } from "@/constants/infoTips";
 import { useState } from "react";
 import BlockAccordion, {
   type BlockSortBy,
@@ -14,6 +15,7 @@ export default function BlockContent() {
     <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden">
       <CyberHeading
         title="Blocks"
+        info={INFO_TIPS.blockList}
         trailing={
           <BlockSortDropdown
             sortBy={sortBy}
@@ -23,7 +25,7 @@ export default function BlockContent() {
           />
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-xs">
+      <div className="min-h-0 flex-1 scrollbar-themed overflow-y-auto overscroll-contain px-1 py-xs">
         <BlockAccordion sortBy={sortBy} sortOrder={sortOrder} />
       </div>
     </div>

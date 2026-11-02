@@ -413,3 +413,53 @@ body,
   height: 0;
   display: none; /* Chrome, Safari, Edge */
 }
+
+/* 스크롤 영역 전용 테마 스크롤바 — 어두운 트랙 + primary 톤 thumb (전역 숨김을 덮어쓴다) */
+.scrollbar-themed {
+  --scrollbar-track: color-mix(in srgb, var(--color-foreground) 80%, transparent);
+  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 80%, transparent);
+  scrollbar-gutter: stable;
+}
+
+/* Firefox — 표준 속성 */
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-themed {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  .scrollbar-themed:hover {
+    scrollbar-color: var(--scrollbar-thumb-hover) var(--scrollbar-track);
+  }
+}
+
+/* Chrome / Edge / Safari — 표준 속성이 있으면 pseudo 가 무시되므로 auto 로 되돌린다 */
+@supports selector(::-webkit-scrollbar) {
+  .scrollbar-themed {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  .scrollbar-themed::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-themed::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 9999px;
+  }
+  .scrollbar-themed::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+  .scrollbar-themed::-webkit-scrollbar-thumb:hover,
+  .scrollbar-themed::-webkit-scrollbar-thumb:active {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
+  }
+  .scrollbar-themed::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}

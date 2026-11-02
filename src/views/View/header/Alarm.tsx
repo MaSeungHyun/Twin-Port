@@ -1,3 +1,4 @@
+import { INFO_TIPS } from "@/constants/infoTips";
 
 import { DropdownMenu } from "@/components/DropdownMenu";
 import toastMockData from "@/data/toast_mock.json";
@@ -86,6 +87,7 @@ export default function Alarm() {
       >
         <CyberHeading
           title="알림"
+          info={INFO_TIPS.alarm}
           trailing={
             <LevelFilter
               ariaLabel="알림 종류 필터"
@@ -103,7 +105,7 @@ export default function Alarm() {
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="flex h-full flex-col gap-2 overflow-y-auto overscroll-contain px-xl py-sm"
+            className="flex h-full flex-col gap-2 scrollbar-themed overflow-y-auto overscroll-contain px-xl py-sm"
           >
             {toastMock.length === 0 ? (
               <p className="flex flex-1 items-center justify-center py-xl text-lg text-text-secondary">

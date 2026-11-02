@@ -1,5 +1,6 @@
 import Button from "@/components/Button";
 import Icon from "@/components/Icon";
+import { INFO_TIPS } from "@/constants/infoTips";
 import { useContentViewStore } from "@/stores/contentView";
 import { cn } from "@/utils/style";
 import type { ReactNode } from "react";
@@ -24,6 +25,8 @@ type ContentDetailLayoutProps = {
   compactHero?: boolean;
   /** block: 패널 너비 정사각형 / fixed: 작은 썸네일 */
   heroLayout?: "block" | "fixed";
+  /** 타이틀 인포 툴팁 — 생략 시 공통 상세 설명 */
+  info?: string;
   children: ReactNode;
 };
 
@@ -41,6 +44,7 @@ export default function ContentDetailLayout({
   scrollBody = true,
   compactHero = false,
   heroLayout = "block",
+  info = INFO_TIPS.detailItem,
   children,
 }: ContentDetailLayoutProps) {
   const closeDetailGraph = useContentViewStore((s) => s.closeDetailGraph);
@@ -95,6 +99,7 @@ export default function ContentDetailLayout({
           layout={heroLayout}
           compact={compactHero}
           inset
+          info={info}
         />
       </div>
 
@@ -103,7 +108,7 @@ export default function ContentDetailLayout({
           "relative z-1 min-h-0 w-full flex-1 px-xl",
           scrollBody &&
             cn(
-              "overflow-y-auto overscroll-contain",
+              "scrollbar-themed overflow-y-auto overscroll-contain",
               compactHero ? "pt-0 pb-sm" : "py-sm",
             ),
           !scrollBody &&

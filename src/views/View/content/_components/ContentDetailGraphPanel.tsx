@@ -1,3 +1,4 @@
+import { usePortSim } from "@/hooks/usePortSim";
 import {
   type DetailGraphSubject,
   useContentViewStore,
@@ -56,7 +57,9 @@ function graphHeader(subject: DetailGraphSubject) {
   return {
     title: twin.vesselName,
     subtitle: (
-      <p className="cyber-subheading">{shipStatusLabel(twin.status)}</p>
+      <p className="cyber-subheading">
+        {twin.berth} · {shipStatusLabel(twin.status)}
+      </p>
     ),
   };
 }
@@ -66,6 +69,7 @@ export default function ContentDetailGraphPanel({
   className,
 }: ContentDetailGraphPanelProps) {
   const closeDetailGraph = useContentViewStore((s) => s.closeDetailGraph);
+  const sim = usePortSim();
   const header = graphHeader(subject);
 
   return (
@@ -78,6 +82,7 @@ export default function ContentDetailGraphPanel({
       <CyberHeading
         title={header.title}
         subtitle={header.subtitle}
+        info={`${subject.kind === "ship" ? "선박" : "크레인"} 디테일 그래프 — 운영 시뮬레이션 ${sim.clock} 기준 값입니다. 목록·대시보드와 같은 데이터입니다.`}
         className="pr-xl"
       />
 
@@ -86,6 +91,7 @@ export default function ContentDetailGraphPanel({
           <CraneDetailGraphView
             index={subject.index}
             subjectKey={subject.key}
+            kind={subject.kind}
           />
         ) : (
           <ShipDetailGraphView

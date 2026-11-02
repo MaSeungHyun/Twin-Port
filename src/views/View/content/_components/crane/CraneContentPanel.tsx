@@ -1,3 +1,5 @@
+import { usePortSim } from "@/hooks/usePortSim";
+import { INFO_TIPS } from "@/constants/infoTips";
 import { CONTENT_THUMBNAILS } from "@/assets/image/thumbnail";
 import Icon from "@/components/Icon";
 import { getCraneListSource } from "@/domain/cameraFocus";
@@ -33,6 +35,7 @@ type CraneListItem = {
 };
 
 function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
+  const sim = usePortSim();
   const quayCranes = useYardStore((s) => s.quayCranes);
   const failures = useFailureStore((s) => s.active);
   const selectedCraneIndex = useViewportStore((s) => s.selectedCraneIndex);
@@ -62,7 +65,7 @@ function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
         subtitle: `${twin.craneId} · ${crane.mesh} · ${twin.containersMoved.toLocaleString()} moves`,
       };
     });
-  }, [quayCranes]);
+  }, [quayCranes, sim]);
 
   const selected = items.find((item) => item.key === detailCraneKey) ?? null;
 
@@ -116,10 +119,11 @@ function QuayCraneSection({ tabs }: { tabs: ReactNode }) {
       <CyberHeading
         title="Cranes"
         subtitle={`${items.length} quay cranes`}
+        info={INFO_TIPS.quayCraneList}
       />
       {tabs}
 
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <ul className="min-h-0 flex-1 scrollbar-themed overflow-y-auto overscroll-contain">
         {items.map((item) => {
           const twin = getCraneTwinProfile(item.index);
           const failed = isFailed(failures, "quayCrane", item.index);
@@ -215,6 +219,7 @@ type OverheadCraneListItem = {
 };
 
 function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
+  const sim = usePortSim();
   const blocks = useYardStore((s) => s.blocks);
   const failures = useFailureStore((s) => s.active);
   const selectedIndex = useViewportStore((s) => s.selectedOverheadCraneIndex);
@@ -244,7 +249,7 @@ function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
         subtitle: `${twin.craneId} · Block ${block.code} · ${twin.containersMoved.toLocaleString()} moves`,
       };
     });
-  }, [blocks]);
+  }, [blocks, sim]);
 
   const selected = items.find((item) => item.key === detailKey) ?? null;
 
@@ -262,7 +267,7 @@ function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
 
     return (
       <ContentDetailLayout
-        thumbnail={CONTENT_THUMBNAILS.crane}
+        thumbnail={CONTENT_THUMBNAILS.overheadCrane}
         title={selected.title}
         subtitle={`${twin.craneId} · ${twin.assignedVessel}`}
         titleClassName="cyber-detail-title"
@@ -294,10 +299,11 @@ function OverheadCraneSection({ tabs }: { tabs: ReactNode }) {
       <CyberHeading
         title="Cranes"
         subtitle={`${items.length} overhead cranes`}
+        info={INFO_TIPS.overheadCraneList}
       />
       {tabs}
 
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <ul className="min-h-0 flex-1 scrollbar-themed overflow-y-auto overscroll-contain">
         {items.map((item) => {
           const twin = getOverheadCraneTwinProfile(item.index);
           const failed = isFailed(failures, "overheadCrane", item.index);

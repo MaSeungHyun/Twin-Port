@@ -2,7 +2,14 @@ import { computeBlockOccupancies, occupancyLevel } from "@/domain/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import MonitoringGrid from "@/views/View/content/_components/block/MonitoringGrid";
-import OpsDashboard from "@/views/viewport/_components/monitoring/OpsDashboard";
+import {
+  BerthTab,
+  FaultTab,
+  OverviewTab,
+  QuayCraneTab,
+  ScenarioTab,
+  YardSummary,
+} from "@/views/viewport/_components/monitoring/OpsDashboard";
 import LevelFilter from "@/components/LevelFilter";
 import {
   DEFAULT_MONITORING_LEVEL_FILTER,
@@ -10,11 +17,24 @@ import {
   type MonitoringLevelFilterState,
 } from "@/components/LevelFilter/constants";
 import type { OccupancyLevel } from "@/domain/occupancy";
-import { cn } from "@/utils/style";
 import gsap from "gsap";
+import { Tabs } from "radix-ui";
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 
-type MonitorTab = "blocks" | "ops";
+const MONITOR_TABS = [
+  { id: "overview", label: "개요" },
+  { id: "berth", label: "선석·선박" },
+  { id: "quayCrane", label: "안벽 크레인" },
+  { id: "yard", label: "야드·블록" },
+  { id: "scenario", label: "컨베이어·양하" },
+  { id: "fault", label: "알람·고장" },
+] as const;
+
+type MonitorTab = (typeof MONITOR_TABS)[number]["id"];
+
+/** robot_IK 대시보드 탭 스타일 — 하단 primary 밑줄 */
+const TAB_TRIGGER =
+  "relative h-10 px-md text-lg text-white/60 outline-none transition-colors hover:text-white data-[state=active]:text-white data-[state=active]:after:absolute data-[state=active]:after:inset-x-0 data-[state=active]:after:-bottom-px data-[state=active]:after:h-0.5 data-[state=active]:after:bg-primary focus-visible:ring-1 focus-visible:ring-primary";
 
 /** 3D Canvas 위 DOM 그리드 — 뷰포트 영역(헤더·좌측 Content 제외) 안에서만 absolute로 그림. 마운트는 유지하고 표시만 토글 */
 export default function MonitoringOverlay() {
@@ -25,7 +45,7 @@ export default function MonitoringOverlay() {
   const [levelFilter, setLevelFilter] = useState<MonitoringLevelFilterState>(
     DEFAULT_MONITORING_LEVEL_FILTER,
   );
-  const [tab, setTab] = useState<MonitorTab>("ops");
+  const [tab, setTab] = useState<MonitorTab>("overview");
 
   const occupancies = useMemo(
     () => computeBlockOccupancies(containers, blocks),
@@ -59,36 +79,35 @@ export default function MonitoringOverlay() {
       hidden={!open}
       aria-hidden={!open}
     >
-      <div
-        role="tablist"
-        aria-label="모니터링"
-        className="flex shrink-0 gap-sm px-md pt-md"
+      <Tabs.Root
+        value={tab}
+        onValueChange={(next) => {
+          const item = MONITOR_TABS.find((t) => t.id === next);
+          if (item) setTab(item.id);
+        }}
+        className="flex min-h-0 flex-1 flex-col text-white"
       >
-        {(
-          [
-            ["ops", "운영"],
-            ["blocks", "블록"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={cn(
-              "rounded-md border px-md py-xs text-lg",
-              tab === id
-                ? "border-primary text-text-primary"
-                : "border-white/10 text-text-secondary hover:border-white/25",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {tab === "blocks" ? (
-        <>
+        <Tabs.List
+          aria-label="모니터링"
+          className="flex shrink-0 border-b border-white/10 px-md"
+        >
+          {MONITOR_TABS.map((item) => (
+            <Tabs.Trigger key={item.id} value={item.id} className={TAB_TRIGGER}>
+              {item.label}
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+        <Tabs.Content value="overview" className="flex min-h-0 flex-1 flex-col outline-none">
+          <OverviewTab />
+        </Tabs.Content>
+        <Tabs.Content value="berth" className="flex min-h-0 flex-1 flex-col outline-none">
+          <BerthTab />
+        </Tabs.Content>
+        <Tabs.Content value="quayCrane" className="flex min-h-0 flex-1 flex-col outline-none">
+          <QuayCraneTab />
+        </Tabs.Content>
+        <Tabs.Content value="yard" className="flex min-h-0 flex-1 flex-col scrollbar-themed overflow-y-auto overscroll-contain outline-none">
+          <YardSummary />
           <LevelFilter
             ariaLabel="블록 상태 필터"
             levels={MONITORING_LEVELS}
@@ -97,11 +116,17 @@ export default function MonitoringOverlay() {
             onChange={toggleLevelFilter}
             className="justify-center px-md pt-md"
           />
-          <MonitoringGrid occupancies={occupancies} levelFilter={levelFilter} />
-        </>
-      ) : (
-        <OpsDashboard />
-      )}
+          <div className="flex min-h-[520px] shrink-0 flex-col">
+            <MonitoringGrid occupancies={occupancies} levelFilter={levelFilter} />
+          </div>
+        </Tabs.Content>
+        <Tabs.Content value="scenario" className="flex min-h-0 flex-1 flex-col outline-none">
+          <ScenarioTab />
+        </Tabs.Content>
+        <Tabs.Content value="fault" className="flex min-h-0 flex-1 flex-col outline-none">
+          <FaultTab />
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   );
 }

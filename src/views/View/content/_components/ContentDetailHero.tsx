@@ -1,3 +1,4 @@
+import InfoTip from "@/components/InfoTip";
 import { cn } from "@/utils/style";
 import type { ReactNode } from "react";
 
@@ -20,6 +21,8 @@ type ContentDetailHeroProps = {
   compact?: boolean;
   /** true면 가로 패딩은 부모에 맡김 */
   inset?: boolean;
+  /** 타이틀 옆 인포 아이콘 툴팁 */
+  info?: string;
 };
 
 export default function ContentDetailHero({
@@ -32,6 +35,7 @@ export default function ContentDetailHero({
   className,
   compact = false,
   inset = false,
+  info,
 }: ContentDetailHeroProps) {
   return (
     <div className={cn("relative z-1 flex flex-col", className)}>
@@ -56,14 +60,17 @@ export default function ContentDetailHero({
           )}
         >
           {title ? (
-            <p
-              className={cn(
-                titleClassName ?? "cyber-heading text-lg",
-                "truncate",
-              )}
-            >
-              {title}
-            </p>
+            <div className="flex min-w-0 items-center gap-sm">
+              <p
+                className={cn(
+                  titleClassName ?? "cyber-heading text-lg",
+                  "truncate",
+                )}
+              >
+                {title}
+              </p>
+              {info ? <InfoTip text={info} className="text-lg" /> : null}
+            </div>
           ) : null}
           {subtitle ? (
             <p className="cyber-subheading mt-0.5 truncate">{subtitle}</p>

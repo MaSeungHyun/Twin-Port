@@ -1,52 +1,6 @@
-import type { ShipLoadedContainerLog } from "@/types/detailGraph";
-import { getShipTwinProfile } from "./portTwinMock";
+import { getShipDetailGraph } from "./portSim";
 
-function seeded(index: number, salt: number) {
-  return Math.abs(Math.sin(index * 12.989 + salt * 78.233)) % 1;
-}
-
-function pad(value: number, width: number) {
-  return String(value).padStart(width, "0");
-}
-
-function loadedContainersFor(
-  shipIndex: number,
-  count: number,
-): ShipLoadedContainerLog[] {
-  const baseHour = 6 + (shipIndex % 4);
-  const baseMin = 10 + shipIndex * 3;
-
-  return Array.from({ length: count }, (_, i) => {
-    const totalMin = baseMin + i * (7 + (shipIndex % 5));
-    const hour = baseHour + Math.floor(totalMin / 60);
-    const minute = totalMin % 60;
-    const containerNo = 1000 + shipIndex * 37 + i * 13 + Math.floor(seeded(shipIndex, i) * 9);
-
-    return {
-      id: `CONT-${pad(containerNo, 5)}`,
-      loadedAt: `08-31 ${pad(hour, 2)}:${pad(minute, 2)}`,
-    };
-  }).reverse();
-}
-
-export function getShipDetailGraphData(
-  index: number,
-  subjectKey: string,
-) {
-  const twin = getShipTwinProfile(index);
-  const logCount = 14 + (index % 5) * 2;
-  const loadRatio =
-    0.48 + (index % 6) * 0.07 + seeded(index, 11) * 0.12;
-  const teuLoaded = Math.min(
-    twin.teu,
-    Math.round(twin.teu * Math.min(loadRatio, 0.94)),
-  );
-
-  return {
-    subjectKey,
-    vesselName: twin.vesselName,
-    teuCapacity: twin.teu,
-    teuLoaded,
-    loadedContainers: loadedContainersFor(index, logCount),
-  };
+/** 선박 디테일 그래프 — 운영 시뮬레이션(portSim)에서 계산 */
+export function getShipDetailGraphData(index: number, subjectKey: string) {
+  return getShipDetailGraph(index, subjectKey);
 }

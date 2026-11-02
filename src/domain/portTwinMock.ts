@@ -1,193 +1,49 @@
-/** Port Twin UI — 선박·크레인 가상 운영 데이터 */
+/** Port Twin UI — 선박·크레인 운영 데이터. 고정 제원(portTwinBase) 위에 시뮬레이션(portSim) 상태를 덮어쓴다 */
+import {
+  baseCraneProfile,
+  baseShipProfile,
+  type CraneOperationalStatus,
+  type CraneOperationalTone,
+  type CraneTwinProfile,
+  type ShipOperationalStatus,
+  type ShipTwinProfile,
+} from "./portTwinBase";
+import { getSimCrane, getSimShip } from "./portSim";
 
-export type ShipOperationalStatus =
-  | "berthed"
-  | "loading"
-  | "discharging"
-  | "departing"
-  | "idle";
-
-export type CraneOperationalStatus = "active" | "idle" | "error";
-
-export type CraneOperationalTone = "success" | "error" | "stopped";
-
-export type ShipTwinProfile = {
-  vesselName: string;
-  imo: string;
-  flag: string;
-  operator: string;
-  loa: string;
-  beam: string;
-  draft: string;
-  teu: number;
-  status: ShipOperationalStatus;
-  berth: string;
-  eta: string;
-  etd: string;
-  cargo: string;
+export type {
+  CraneOperationalStatus,
+  CraneOperationalTone,
+  CraneTwinProfile,
+  ShipOperationalStatus,
+  ShipTwinProfile,
 };
-
-export type CraneTwinProfile = {
-  craneId: string;
-  status: CraneOperationalStatus;
-  containersMoved: number;
-  movesPerHour: number;
-  utilization: number;
-  assignedVessel: string;
-  berth: string;
-  shift: string;
-  lastMaintenance: string;
-  operator: string;
-};
-
-const SHIP_TWIN: ShipTwinProfile[] = [
-  {
-    vesselName: "MV PACIFIC STAR",
-    imo: "9876543",
-    flag: "Panama",
-    operator: "Ocean Alliance",
-    loa: "366 m",
-    beam: "51 m",
-    draft: "14.2 m",
-    teu: 14_052,
-    status: "loading",
-    berth: "Berth 1",
-    eta: "2026-08-29 06:30",
-    etd: "2026-08-31 18:00",
-    cargo: "Import containers",
-  },
-  {
-    vesselName: "HMM ALGECIRAS",
-    imo: "9863297",
-    flag: "South Korea",
-    operator: "HMM",
-    loa: "399 m",
-    beam: "61 m",
-    draft: "15.8 m",
-    teu: 23_964,
-    status: "discharging",
-    berth: "Berth 2",
-    eta: "2026-08-30 11:00",
-    etd: "2026-09-01 09:30",
-    cargo: "Transshipment",
-  },
-  {
-    vesselName: "COSCO SHIPPING UNIVERSE",
-    imo: "9785769",
-    flag: "Hong Kong",
-    operator: "COSCO",
-    loa: "400 m",
-    beam: "58.6 m",
-    draft: "16.0 m",
-    teu: 21_237,
-    status: "berthed",
-    berth: "Berth 3",
-    eta: "2026-08-31 04:15",
-    etd: "2026-09-02 14:00",
-    cargo: "Export containers",
-  },
-  {
-    vesselName: "MSC GULSUN",
-    imo: "9839430",
-    flag: "Liberia",
-    operator: "MSC",
-    loa: "399.9 m",
-    beam: "61 m",
-    draft: "16.5 m",
-    teu: 23_756,
-    status: "departing",
-    berth: "Berth 4",
-    eta: "2026-08-28 22:40",
-    etd: "2026-08-31 13:45",
-    cargo: "Mixed",
-  },
-];
-
-const CRANE_TWIN: CraneTwinProfile[] = [
-  {
-    craneId: "QC-01",
-    status: "active",
-    containersMoved: 142,
-    movesPerHour: 28,
-    utilization: 86,
-    assignedVessel: "MV PACIFIC STAR",
-    berth: "Berth 1",
-    shift: "Day A",
-    lastMaintenance: "2026-08-24",
-    operator: "PNIT Ops",
-  },
-  {
-    craneId: "QC-02",
-    status: "active",
-    containersMoved: 118,
-    movesPerHour: 24,
-    utilization: 79,
-    assignedVessel: "HMM ALGECIRAS",
-    berth: "Berth 2",
-    shift: "Day A",
-    lastMaintenance: "2026-08-22",
-    operator: "PNIT Ops",
-  },
-  {
-    craneId: "QC-03",
-    status: "error",
-    containersMoved: 64,
-    movesPerHour: 12,
-    utilization: 41,
-    assignedVessel: "—",
-    berth: "Berth 2",
-    shift: "Day A",
-    lastMaintenance: "2026-08-26",
-    operator: "PNIT Ops",
-  },
-  {
-    craneId: "QC-04",
-    status: "active",
-    containersMoved: 131,
-    movesPerHour: 26,
-    utilization: 82,
-    assignedVessel: "COSCO SHIPPING UNIVERSE",
-    berth: "Berth 3",
-    shift: "Day A",
-    lastMaintenance: "2026-08-20",
-    operator: "PNIT Ops",
-  },
-  {
-    craneId: "QC-05",
-    status: "idle",
-    containersMoved: 0,
-    movesPerHour: 0,
-    utilization: 0,
-    assignedVessel: "—",
-    berth: "Berth 3",
-    shift: "—",
-    lastMaintenance: "2026-08-31",
-    operator: "PNIT Ops",
-  },
-  {
-    craneId: "QC-06",
-    status: "active",
-    containersMoved: 97,
-    movesPerHour: 22,
-    utilization: 74,
-    assignedVessel: "MSC GULSUN",
-    berth: "Berth 4",
-    shift: "Day A",
-    lastMaintenance: "2026-08-18",
-    operator: "PNIT Ops",
-  },
-];
-
-function pick<T>(list: readonly T[], index: number): T {
-  return list[Math.abs(index) % list.length]!;
-}
 
 export function getShipTwinProfile(index: number): ShipTwinProfile {
-  return pick(SHIP_TWIN, index);
+  const sim = getSimShip(index);
+  if (!sim) return baseShipProfile(index);
+  return {
+    ...sim.profile,
+    status: sim.status,
+    berth: sim.berth,
+    eta: sim.eta,
+    etd: sim.etd,
+  };
 }
 
 export function getCraneTwinProfile(index: number): CraneTwinProfile {
-  return pick(CRANE_TWIN, index);
+  const base = baseCraneProfile(index);
+  const sim = getSimCrane(index);
+  if (!sim) return base;
+  return {
+    ...base,
+    craneId: `QC-${String(index).padStart(2, "0")}`,
+    status: sim.status,
+    containersMoved: sim.moves,
+    movesPerHour: sim.mph,
+    utilization: sim.utilization,
+    assignedVessel: sim.vessel,
+    berth: sim.berth,
+  };
 }
 
 export function shipStatusLabel(status: ShipOperationalStatus): string {
@@ -196,6 +52,7 @@ export function shipStatusLabel(status: ShipOperationalStatus): string {
     loading: "Loading",
     discharging: "Discharging",
     departing: "Departing",
+    arriving: "Arriving",
     idle: "Idle",
   };
   return labels[status];
