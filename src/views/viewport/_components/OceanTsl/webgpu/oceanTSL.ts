@@ -883,12 +883,16 @@ export function makeOceanMatGPU(g) {
       normalize(si.zw),
       vec2(0.0, 1.0),
     );
-    // 해안선 텍셀(약 2.5m)이 물 쪽으로 얕은 바닥색을 남긴다. 그 띠까지 바깥 바다 수심을 쓴다.
-    const contact = wallness(vXZ, si).mul(smoothstep(9.0, 3.5, si.y));
+    // 해안 텍셀이 육지 높이를 물 칸에 섞으면 그 깊이에서만 청록색 줄이 생긴다.
+    // 거리로 수심을 자르지 않고, 바깥보다 얕아진 칸만 바깥 수심으로 올린다.
+    const localWd = SL.waterDepth(si.x);
     const seaWd = SL.waterDepth(
-      shoreInfo(vXZ.sub(toLand.mul(max(float(12.0).sub(si.y), float(8.0))))).x,
+      shoreInfo(vXZ.sub(toLand.mul(float(10.0)))).x,
     );
-    const wd0 = mix(SL.waterDepth(si.x), seaWd, contact).toVar();
+    const contact = wallness(vXZ, si)
+      .mul(smoothstep(0.2, 1.6, seaWd.sub(localWd)))
+      .mul(smoothstep(16.0, 6.0, si.y));
+    const wd0 = mix(localWd, seaWd, contact).toVar();
     const att0 = float(0.12)
         .add(smoothstep(0.5, 18.0, wd0).mul(0.88))
         .toVar(),
