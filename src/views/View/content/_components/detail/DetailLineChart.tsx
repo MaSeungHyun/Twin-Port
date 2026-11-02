@@ -1,3 +1,4 @@
+import { COLORS } from "@/constants/colors";
 import { cn } from "@/utils/style";
 import { useMemo } from "react";
 import {
@@ -11,8 +12,7 @@ import {
 } from "recharts";
 import type { DetailGraphPoint } from "@/types/detailGraph";
 
-const CYBER = "#00E8FF";
-const GRID = "rgba(0, 232, 255, 0.08)";
+const GRID = "rgba(8, 182, 206, 0.08)";
 
 type ChartRow = {
   x: number;
@@ -61,7 +61,7 @@ export default function DetailLineChart({
   unit,
   height = 88,
   className,
-  color = CYBER,
+  color = COLORS.primary,
 }: DetailLineChartProps) {
   const data = useMemo(() => densifyPoints(points), [points]);
   const axisTicks = useMemo(
@@ -96,7 +96,7 @@ export default function DetailLineChart({
           <Tooltip
             contentStyle={{
               background: "rgba(6, 13, 19, 0.92)",
-              border: "1px solid rgba(0, 232, 255, 0.25)",
+              border: "1px solid rgba(8, 182, 206, 0.25)",
               borderRadius: 4,
               fontSize: 11,
             }}

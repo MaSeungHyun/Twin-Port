@@ -22,7 +22,6 @@ export default function ShipDetailGraphView({
             <PieChart
               value={loadPct}
               size={36}
-              color="#00E8FF"
               trackColor="rgba(255,255,255,0.1)"
             />
             <p className="cyber-graph-kpi">

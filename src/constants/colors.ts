@@ -3,7 +3,7 @@
  * Tailwind 클래스는 primary, success, warning, danger, text-primary, text-secondary 사용
  */
 export const COLORS = {
-  primary: "#3575DC",
+  primary: "#08B6CE",
   danger: "#EF2444",
   warning: "#FFB020",
   success: "#2ECC71",
