@@ -22,13 +22,22 @@ import {
   getOverheadCraneLivePosition,
   type OverHeadCraneInstance,
 } from "@/views/viewport/_components/Port/overheadCraneInstances";
-import { Box3, Matrix4, Mesh, type Object3D, Vector3 } from "three";
+import {
+  Box3,
+  InstancedMesh,
+  Matrix4,
+  Mesh,
+  type Object3D,
+  Raycaster,
+  Vector3,
+} from "three";
 
 let quayCraneModel: Object3D | null = null;
 
 /** Ground GLB — tracking 시 live bbox center 조회 */
 export function bindQuayCraneModel(model: Object3D | null) {
   quayCraneModel = model;
+  quayCalloutOffset.clear();
 }
 
 export function resolveShipIndex(key: string): number | null {
@@ -292,12 +301,79 @@ export function getOverheadCraneFocusTarget(index: number): Vector3 | null {
 }
 
 /** 상태 라벨 원점 — 크레인 몸통. 거더 끝은 멀리서 점만 공중에 떠 어느 크레인인지 안 보인다 */
-const OVERHEAD_CALLOUT_HEIGHT_RATIO = 0.38;
+/** 상단 거더 윗면(인스턴스 fit 높이 = 바닥 y 기준 크레인 전체 높이) */
+const OVERHEAD_CALLOUT_HEIGHT_RATIO = 1;
 
-export function getOverheadCraneCalloutAnchor(index: number): Vector3 | null {
+export function getOverheadCraneCalloutAnchor(
+  index: number,
+  out: Vector3 = new Vector3(),
+): Vector3 | null {
   const instance = overheadCraneInstances()[index];
   if (!instance) return null;
-  const [x, y, z] = getOverheadCraneLivePosition(index) ?? instance.position;
+  const live = getOverheadCraneLivePosition(index);
+  const [x, y, z] = live ?? instance.position;
   const height = instance.fit?.[1] ?? 12;
-  return new Vector3(x, y + height * OVERHEAD_CALLOUT_HEIGHT_RATIO, z);
+  return out.set(x, y + height * OVERHEAD_CALLOUT_HEIGHT_RATIO, z);
+}
+
+/** 콜아웃 원을 안벽 크레인 실제 표면에 붙이기 위한 bbox 중심 대비 오프셋(1회 레이캐스트 후 캐시) */
+const quayCalloutOffset = new Map<number, Vector3>();
+const calloutRay = new Raycaster();
+const calloutBox = new Box3();
+const calloutPart = new Box3();
+const calloutMatrix = new Matrix4();
+const calloutOrigin = new Vector3();
+const calloutDown = new Vector3(0, -1, 0);
+
+function quayCraneWorldBox(glbIndex: number): Box3 | null {
+  const root = craneRoot(glbIndex);
+  if (!root) return null;
+  root.updateWorldMatrix(true, true);
+  calloutBox.makeEmpty();
+  root.traverse((child) => {
+    if (!(child instanceof Mesh) || child.name.endsWith("-occupancy")) return;
+    const geometry = child.geometry;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    if (!geometry.boundingBox) return;
+    if (child instanceof InstancedMesh) {
+      for (let i = 0; i < child.count; i += 1) {
+        child.getMatrixAt(i, calloutMatrix);
+        calloutMatrix.premultiply(child.matrixWorld);
+        calloutPart.copy(geometry.boundingBox).applyMatrix4(calloutMatrix);
+        calloutBox.union(calloutPart);
+      }
+      return;
+    }
+    calloutPart.copy(geometry.boundingBox).applyMatrix4(child.matrixWorld);
+    calloutBox.union(calloutPart);
+  });
+  return calloutBox.isEmpty() ? null : calloutBox;
+}
+
+/** 안벽 크레인 콜아웃 앵커: 현재 world bbox 중심 위에서 아래로 쏜 첫 크레인 표면(윗면). 빗나가면 bbox 윗면 중심 */
+export function getQuayCraneCalloutAnchor(
+  glbIndex: number,
+  out: Vector3 = new Vector3(),
+): Vector3 | null {
+  const box = quayCraneWorldBox(glbIndex);
+  if (!box) {
+    const center = getCraneFocusTarget(glbIndex);
+    return center ? out.copy(center) : null;
+  }
+  box.getCenter(out);
+  let offset = quayCalloutOffset.get(glbIndex);
+  if (!offset) {
+    const root = craneRoot(glbIndex)!;
+    calloutOrigin.set(out.x, box.max.y + 5, out.z);
+    calloutRay.set(calloutOrigin, calloutDown);
+    calloutRay.far = box.max.y - box.min.y + 10;
+    const hit = calloutRay
+      .intersectObject(root, true)
+      .find((h) => !h.object.name.endsWith("-occupancy"));
+    offset = hit
+      ? new Vector3().subVectors(hit.point, out)
+      : new Vector3(0, box.max.y - out.y, 0);
+    quayCalloutOffset.set(glbIndex, offset);
+  }
+  return out.add(offset);
 }
