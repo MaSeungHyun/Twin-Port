@@ -62,6 +62,7 @@ import { ClippingGroup } from "three/webgpu";
 import type { ThreeEvent } from "@react-three/fiber";
 import HoverOutlineMesh from "./HoverOutlineMesh";
 import ShipArrivalLabel from "./ShipArrivalLabel";
+import { DoubleSide, Mesh as RayMesh, Raycaster, Vector3 as RayVec3 } from "three";
 import { beginSceneWarmTask, ShipReflection } from "./WaterReflection";
 import { useShipDebugStore } from "@/stores/shipDebug";
 
@@ -266,6 +267,30 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     box.getCenter(c);
     box.getSize(sz);
     return new Matrix4().makeTranslation(c.x, c.y, c.z).multiply(new Matrix4().makeScale(sz.x, sz.y, sz.z));
+  }, [parts]);
+  // 라벨 원이 붙을 선체 표면 높이(로컬, scale 1). 선체 중심 XZ 에서 위→아래 1회 레이캐스트 (로드 시 1회)
+  const labelAnchorY = useMemo(() => {
+    const box = new Box3();
+    const pb = new Box3();
+    for (const part of parts) {
+      if (part.waterway || !part.geometry.boundingBox) continue;
+      pb.copy(part.geometry.boundingBox).applyMatrix4(part.localMatrix);
+      box.union(pb);
+    }
+    if (box.isEmpty()) return 0;
+    const ray = new Raycaster(new RayVec3(0, box.max.y + 10, 0), new RayVec3(0, -1, 0));
+    const mat = new MeshBasicMaterial({ side: DoubleSide });
+    let top = -Infinity;
+    for (const part of parts) {
+      if (part.waterway) continue;
+      const m = new RayMesh(part.geometry, mat);
+      m.matrixAutoUpdate = false;
+      m.matrixWorld.copy(part.localMatrix);
+      const hit = ray.intersectObject(m, false)[0];
+      if (hit && hit.point.y > top) top = hit.point.y;
+    }
+    mat.dispose();
+    return Number.isFinite(top) ? top : box.max.y;
   }, [parts]);
   const hitRef = useRef<InstancedMesh | null>(null);
   const hitMatrix = useMemo(() => new Matrix4(), []);
@@ -720,7 +745,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         onClick={handleShipClick}
       />
       <ShipReflection parts={parts} posesRef={posesRef} />
-      <ShipArrivalLabel posesRef={posesRef} />
+      <ShipArrivalLabel posesRef={posesRef} anchorY={labelAnchorY} />
       <primitive object={hullClip}>
       {parts.map((part, index) => part.waterway ? null : (
         <group key={index}>
