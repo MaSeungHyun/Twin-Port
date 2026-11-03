@@ -42,7 +42,7 @@ export default function ContentDetailHero({
       <div
         className={cn(
           cyberImageStageClass,
-          layout === "block" ? "aspect-square w-full" : CONTENT_THUMBNAIL_SIZE,
+          layout === "block" ? "mx-auto aspect-square w-3/5" : CONTENT_THUMBNAIL_SIZE,
         )}
       >
         <img
