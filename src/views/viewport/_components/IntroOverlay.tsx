@@ -13,7 +13,6 @@ const WARM_TIMEOUT_MS = 40000;
  * Appears once per page load after loading finishes; click / Enter / Space → 400 ms fade + camera flight to slot 2.
  * Does NOT toggle header Monitoring Mode (that one disables orbit controls and hides panels).
  */
-const FADE_MS = 400;
 const SHOW_DELAY_MS = 700; // ViewLoader dismiss (~280 ms) + slot-1 placement (~30 frames)
 
 export default function IntroOverlay() {

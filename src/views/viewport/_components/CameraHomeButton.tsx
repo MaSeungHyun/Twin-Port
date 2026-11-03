@@ -1,4 +1,3 @@
-import Icon from "@/components/Icon";
 import IconButton from "@/components/IconButton";
 import { CAMERA_HOME_EVENT } from "@/constants/cameraIntro";
 

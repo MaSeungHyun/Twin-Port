@@ -1,6 +1,5 @@
 import {
   DEPTH_BREADCRUMB_SEPARATOR,
-  DEPTH_BREADCRUMB_TRAILING,
 } from "@/constants/areaCam";
 import { useCameraDepthStore } from "@/stores/cameraDepth";
 

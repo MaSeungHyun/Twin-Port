@@ -18,7 +18,6 @@ import {
   Matrix4,
   Mesh,
   Vector3,
-  type BufferAttribute as BufferAttributeT,
   type Camera,
   type Material,
   type Object3D,
@@ -76,7 +75,7 @@ function downsample(local: Float32Array, uv: Float32Array | null) {
   return { local: Float32Array.from(out), uv: uv ? Float32Array.from(uo) : null };
 }
 
-function attrOK(attr: BufferAttributeT | null): attr is BufferAttribute {
+function attrOK(attr: unknown): attr is BufferAttribute {
   return !!attr && !(attr as { isInterleavedBufferAttribute?: boolean }).isInterleavedBufferAttribute;
 }
 
