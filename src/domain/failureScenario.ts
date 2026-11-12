@@ -8,11 +8,9 @@ import {
   FAILURE_WARNING_CAUSES,
   type FailureKind,
 } from "@/constants/failureScenario";
-import { PORT_SIM } from "@/constants/portSim";
 import { afterNextFrame } from "@/domain/yieldToMain";
 import { overheadCraneKey, overheadCraneTitle } from "@/domain/overheadCraneTwin";
 import { useContentViewStore } from "@/stores/contentView";
-import { usePortSimStore } from "@/stores/usePortSimStore";
 import { failureKey, useFailureStore } from "@/stores/useFailureStore";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
@@ -57,20 +55,14 @@ export function trackEquipment(kind: FailureKind, index: number) {
 /** 알람 토스트 윗줄 분류 */
 export const ALARM_TOAST_CATEGORY = "CRANE";
 
-/** 실제 시각(ms) → 운영 시뮬레이션 시계(배속). 크레인 상세 정지 이력(portSim failureHistory)과 같은 변환 */
-function simMs(ms: number) {
-  const origin = usePortSimStore.getState().startedAt;
-  return origin == null ? ms : origin + (ms - origin) * PORT_SIM.speed;
-}
-
-/** 알람 토스트 시각 — 시뮬레이션 시계 기준이라 다운타임 분과 맞는다 */
+/** 알람 토스트 시각 — 우측 상단 시계·알람 목록과 같은 실제 시각 */
 export function alarmToastAt(now = Date.now()) {
-  return simMs(now);
+  return now;
 }
 
-/** 고장 시작(since) ~ now 다운타임(시뮬레이션 분, 최소 1분) */
+/** 고장 시작(since) ~ now 다운타임 (실제 경과 분, 최소 1분) */
 export function alarmDowntimeMinutes(since: number, now = Date.now()) {
-  return Math.max(1, Math.round((simMs(now) - simMs(since)) / 60000));
+  return Math.max(1, Math.round((now - since) / 60000));
 }
 
 // [autofocus] 고장 알람 → 카메라 자동 이동 (debounce + 최소 간격, 최신 고장 우선)

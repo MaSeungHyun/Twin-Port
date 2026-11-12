@@ -1,7 +1,7 @@
 import { OrbitControls } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { setCameraDragging } from "@/domain/hoverOutline";
-import { ORBIT_MAX_DISTANCE } from "@/constants/camera";
+import { ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR_ANGLE, ORBIT_MIN_POLAR_ANGLE } from "@/constants/camera";
 import { CAMERA_ZOOM_EVENT } from "@/constants/cameraIntro";
 import { useViewportStore } from "@/stores/viewport";
 import { useEffect, type RefObject } from "react";
@@ -122,7 +122,9 @@ export default function Controls({ controlsRef }: ControlsProps) {
       enablePan={interactive}
       enableZoom={interactive}
       enableRotate={interactive}
-      // maxPolarAngle={Math.PI * 0.475}
+      // 회전 세로 범위: 탑뷰 ~ 지평선 바로 위. 지평면 아래로는 내려가지 않는다 (방위각은 제한 없음)
+      minPolarAngle={ORBIT_MIN_POLAR_ANGLE}
+      maxPolarAngle={ORBIT_MAX_POLAR_ANGLE}
       enableDamping={false}
       maxDistance={ORBIT_MAX_DISTANCE}
     />

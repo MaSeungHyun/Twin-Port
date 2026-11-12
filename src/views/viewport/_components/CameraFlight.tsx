@@ -9,6 +9,7 @@ import {
   INITIAL_CAMERA_POSITION,
   INITIAL_CAMERA_TARGET,
   TRACKING_FOCUS_DISTANCE,
+  clampOrbitPolar,
 } from "@/constants/camera";
 import {
   getCraneFocusTarget,
@@ -59,10 +60,11 @@ function animateLookAtFlight(options: {
   const {
     camera,
     controls,
-    toPosition,
     toTarget,
     duration = CAMERA_FLIGHT_DURATION,
   } = options;
+  // 도착 위치가 지평면 아래(오빗 세로 범위 밖)면 미리 범위 안으로 → 도착 후 OrbitControls 가 튕겨 올리지 않게
+  const toPosition = clampOrbitPolar(options.toPosition.clone(), toTarget);
 
   const fromTarget = controls.target.clone();
   const targetProxy = { x: fromTarget.x, y: fromTarget.y, z: fromTarget.z };

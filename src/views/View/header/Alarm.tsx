@@ -86,6 +86,8 @@ export default function Alarm() {
   return (
     <button
       type="button"
+      data-header-dialog-trigger
+      aria-haspopup="dialog"
       aria-label="알림"
       aria-pressed={live && alarmOpen}
       onClick={() => { if (live) toggleAlarm(); }}
@@ -104,7 +106,7 @@ export default function Alarm() {
   );
 }
 
-export function AlarmPanel() {
+export function AlarmPanel({ onClose }: { onClose?: () => void }) {
   const rows = useAlarmRows();
   const [filter, setFilter] = useState<AlarmFilter>("all");
   const [ackAt, setAckAt] = useState<number | null>(null);
@@ -116,13 +118,20 @@ export function AlarmPanel() {
     <aside className="flex h-full max-h-[calc(100dvh-112px-var(--toast-lift,0px))] w-full flex-col overflow-hidden text-white">
       <header className="flex shrink-0 items-center justify-between gap-2 px-6 pt-6 pb-3">
         <h2 className="text-[16px] font-medium text-[#F2F5F8]">알람</h2>
-        <button
-          type="button"
-          onClick={() => setAckAt(Date.now())}
-          className="text-[12px] text-[#9AA8B6] hover:text-white"
-        >
-          모두 확인
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setAckAt(Date.now())}
+            className="text-[12px] text-[#9AA8B6] hover:text-white"
+          >
+            모두 확인
+          </button>
+          {onClose ? (
+            <button type="button" aria-label="알람 닫기" onClick={onClose} className="grid size-6 place-items-center text-dt-text-2 hover:text-dt-text">
+              <Icon icon="X" className="size-4" />
+            </button>
+          ) : null}
+        </div>
       </header>
       <div className="flex shrink-0 gap-3 px-6 pb-3">
         {FILTERS.map((item) => (

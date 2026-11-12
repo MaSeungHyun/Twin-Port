@@ -63,9 +63,9 @@ export default function PortCallTab({ title = "선박·선석 운영" }: PortCal
         </div>
       </div>
 
-      <p className="border-l-2 border-dt-warn bg-dt-warn/10 px-4 py-2 text-[14px] font-normal text-dt-text-2">
+      {/* <p className="border-l-2 border-dt-warn bg-dt-warn/10 px-4 py-2 text-[14px] font-normal text-dt-text-2">
         모의 운영 데이터입니다. 지연 조건은 1선석에 적용됩니다. 시간 이동·시나리오 변경은 운영 데이터에 반영되며 3D 이동 애니메이션은 별도로 재생됩니다.
-      </p>
+      </p> */}
 
       <div className="grid grid-cols-2 gap-sm xl:grid-cols-4">
         {[

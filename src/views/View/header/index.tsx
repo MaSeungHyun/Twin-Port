@@ -5,8 +5,9 @@ import { useHudUiStore } from "@/stores/hud";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
-import Alarm from "./Alarm";
-import GraphicsSettingsPanel from "./RenderSettings";
+import Alarm, { AlarmPanel } from "./Alarm";
+import GraphicsSettingsDialog from "./GraphicsSettingsDialog";
+import HeaderDialog from "./HeaderDialog";
 import ViewOption from "./ViewOption";
 
 const NAV: { id: "control" | ContentView; label: string }[] = [
@@ -49,6 +50,8 @@ export default function Header() {
   const graphicsOpen = useHudUiStore((s) => s.graphicsOpen);
   const toggleGraphics = useHudUiStore((s) => s.toggleGraphics);
   const setGraphicsOpen = useHudUiStore((s) => s.setGraphicsOpen);
+  const alarmOpen = useHudUiStore((s) => s.alarmOpen);
+  const setAlarmOpen = useHudUiStore((s) => s.setAlarmOpen);
   const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   const toggleOccupancyMode = useOccupancyStore((s) => s.toggleOccupancyMode);
   const started = useViewportStore((s) => s.monitoringStarted);
@@ -146,8 +149,10 @@ export default function Header() {
 
         <Alarm />
         <button
+          data-header-dialog-trigger
           type="button"
           aria-label="그래픽 설정"
+          aria-haspopup="dialog"
           aria-pressed={graphicsOpen}
           onClick={toggleGraphics}
           className={cn(
@@ -163,11 +168,12 @@ export default function Header() {
           <p className="mt-0.5 text-[10px] font-medium tracking-wide text-dt-text-3">{date}</p>
         </div>
       </div>
-      {/* 로딩·관제 시작 전에는 HUD 가 없어 헤더(z-200, 로딩 화면 z-100 위)에 직접 띄운다. 관제 중에는 HudOverlay 오른쪽 틀이 같은 패널을 띄운다 */}
-      {!live && graphicsOpen ? (
-        <div className="hud-glass absolute top-[72px] right-6 w-[360px] rounded-[14px]">
-          <GraphicsSettingsPanel onClose={() => setGraphicsOpen(false)} />
-        </div>
+      {/* 헤더 다이얼로그(알람·그래픽 설정)는 오른쪽 패널 자리에 겹쳐 뜨고, 둘 중 하나만 열린다(stores/hud headerDialog) */}
+      {graphicsOpen ? <GraphicsSettingsDialog onClose={() => setGraphicsOpen(false)} /> : null}
+      {live && alarmOpen ? (
+        <HeaderDialog label="알람" onClose={() => setAlarmOpen(false)}>
+          <AlarmPanel onClose={() => setAlarmOpen(false)} />
+        </HeaderDialog>
       ) : null}
     </header>
   );

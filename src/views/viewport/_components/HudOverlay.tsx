@@ -1,12 +1,9 @@
 import { occupancyLevel } from "@/domain/occupancy";
 import { useContentViewStore } from "@/stores/contentView";
-import { useHudUiStore } from "@/stores/hud";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { usePortSim } from "@/hooks/usePortSim";
 import { CAMERA_HOME_EVENT, CAMERA_ZOOM_EVENT } from "@/constants/cameraIntro";
 import { useViewportStore } from "@/stores/viewport";
-import { AlarmPanel } from "@/views/View/header/Alarm";
-import GraphicsSettingsPanel from "@/views/View/header/RenderSettings";
 import OccupancyPanels from "@/views/viewport/_components/OccupancyPanels";
 import Icon from "@/components/Icon";
 import { FrameSlot } from "@/components/ui/PanelFrames";
@@ -164,9 +161,6 @@ export default function HudOverlay() {
   const started = useViewportStore((s) => s.monitoringStarted);
   const monitorMode = useViewportStore((s) => s.monitorMode);
   const activeView = useContentViewStore((s) => s.activeView);
-  const graphicsOpen = useHudUiStore((s) => s.graphicsOpen);
-  const setGraphicsOpen = useHudUiStore((s) => s.setGraphicsOpen);
-  const alarmOpen = useHudUiStore((s) => s.alarmOpen);
   const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   const sim = usePortSim();
 
@@ -306,14 +300,6 @@ export default function HudOverlay() {
       </FrameSlot>
 
       {showOccupancy ? <OccupancyPanels /> : null}
-
-      <FrameSlot side="right" id="settings" active={graphicsOpen && started} size={{ width: 360, height: "auto", lift: true }} rank={3}>
-        <GraphicsSettingsPanel onClose={() => setGraphicsOpen(false)} />
-      </FrameSlot>
-
-      <FrameSlot side="right" id="alarm" active={alarmOpen && started} size={{ width: 440, height: 642, lift: true }} rank={4}>
-        <AlarmPanel />
-      </FrameSlot>
 
       {started ? (
         <div className={cn("pointer-events-none absolute right-0 bottom-6 z-20 flex justify-center", hasLeftPanel ? "left-[calc(24px+360px)]" : "left-0")}>

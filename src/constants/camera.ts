@@ -58,6 +58,28 @@ export const CAMERA_FLIGHT_DURATION = 1;
 export const ORBIT_MAX_DISTANCE = 15000;
 
 /**
+ * 오빗 회전 세로 범위. 0 = 바로 위(탑뷰), PI/2 = 지평선.
+ * 지평면 아래로 내려가지 않게 지평선 바로 위(약 1.15°)에서 멈춘다 → 한쪽 지평선~머리 위~반대쪽 지평선 180°
+ */
+export const ORBIT_MIN_POLAR_ANGLE = 0;
+export const ORBIT_MAX_POLAR_ANGLE = Math.PI / 2 - 0.02;
+
+const _horizonOffset = new Vector3();
+/** 카메라 위치가 대상 기준 오빗 세로 범위를 벗어나면 같은 거리·방위각으로 범위 안에 넣는다 (지평면 아래 비행 목표 보정) */
+export function clampOrbitPolar(position: Vector3, target: Vector3): Vector3 {
+  const offset = _horizonOffset.copy(position).sub(target);
+  const dist = offset.length();
+  if (dist < 1e-6) return position;
+  const phi = Math.acos(MathUtils.clamp(offset.y / dist, -1, 1));
+  const clamped = MathUtils.clamp(phi, Math.max(ORBIT_MIN_POLAR_ANGLE, 1e-6), ORBIT_MAX_POLAR_ANGLE);
+  if (clamped === phi) return position;
+  const horizontal = Math.hypot(offset.x, offset.z);
+  const theta = horizontal > 1e-9 ? Math.atan2(offset.x, offset.z) : 0;
+  const r = dist * Math.sin(clamped);
+  return position.set(target.x + r * Math.sin(theta), target.y + dist * Math.cos(clamped), target.z + r * Math.cos(theta));
+}
+
+/**
  * 컨테이너 검색 포커스 — 카메라가 목표에서 얼마나 떨어져 볼지
  * - DISTANCE: 수평 거리 (클수록 멀리)
  * - HEIGHT: 목표 대비 카메라 높이

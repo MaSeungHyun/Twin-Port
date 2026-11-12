@@ -19,10 +19,23 @@ import { useDetailSelection } from "../useDetailSelection";
 type ListTab = "list" | "berth";
 type ShipFilter = "all" | "working" | "planned" | "delayed";
 
+/** 시뮬레이션 시각 "11-05 11:45" → ms (올해 기준) */
 function parseClock(text: string) {
   const match = text.match(/(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
   if (!match) return null;
-  return ((Number(match[1]) * 31 + Number(match[2])) * 24 + Number(match[3])) * 60 + Number(match[4]);
+  return new Date(new Date().getFullYear(), Number(match[1]) - 1, Number(match[2]), Number(match[3]), Number(match[4])).getTime();
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+/** 시뮬레이션 시각 문자열을 실제 시각으로 옮겨 HH:MM. shiftMs = 실제 지금 - 시뮬레이션 지금 */
+function realHm(text: string, shiftMs: number) {
+  const ms = parseClock(text);
+  if (ms == null) return hm(text);
+  const d = new Date(ms + shiftMs);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 function hm(text: string) {
@@ -31,18 +44,23 @@ function hm(text: string) {
 }
 
 function formatMinute(minute: number) {
-  const day = ((Math.round(minute) % 1440) + 1440) % 1440;
+  // 내림: 우측 상단 시계(초 단위)와 같은 분을 보인다
+  const day = ((Math.floor(minute + 1e-6) % 1440) + 1440) % 1440;
   return `${String(Math.floor(day / 60)).padStart(2, "0")}:${String(day % 60).padStart(2, "0")}`;
 }
 
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-/** "11-05 11:45" → "2026.11.05 THU" (시뮬레이션 시계 날짜, 연도는 올해) */
-function dateLabel(clock: string) {
-  const match = clock.match(/(\d{2})-(\d{2})/);
-  if (!match) return "";
-  const date = new Date(new Date().getFullYear(), Number(match[1]) - 1, Number(match[2]));
-  return `${date.getFullYear()}.${match[1]}.${match[2]} ${WEEKDAYS[date.getDay()]}`;
+/** 실제 시각 → "2026.11.05 THU" (우측 상단 시계와 같은 날짜) */
+function dateLabel(ms: number) {
+  const date = new Date(ms);
+  return `${date.getFullYear()}.${pad2(date.getMonth() + 1)}.${pad2(date.getDate())} ${WEEKDAYS[date.getDay()]}`;
+}
+
+/** 실제 시각 → "11-05 11:45" */
+function clockLabel(ms: number) {
+  const date = new Date(ms);
+  return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 /** 선석 일정 기본 표시 범위 06:00–22:00 (라벨 2시간). 휠로 이동, Ctrl+휠로 2–24시간 사이 확대/축소 */
@@ -63,6 +81,15 @@ const GANTT_DEFAULT_VIEW: GanttView = { start: GANTT_START_H * 60, span: (GANTT_
 function clampView(view: GanttView): GanttView {
   const span = Math.min(GANTT_MAX_SPAN, Math.max(GANTT_MIN_SPAN, view.span));
   return { span, start: Math.min(1440 - span, Math.max(0, view.start)) };
+}
+
+/** 기본 06–22. 지금(실제 시각)이 그 밖이면 지금을 가운데 둔 16시간 */
+function initialGanttView(): GanttView {
+  const d = new Date();
+  const minute = d.getHours() * 60 + d.getMinutes();
+  const { start, span } = GANTT_DEFAULT_VIEW;
+  if (minute >= start && minute <= start + span) return GANTT_DEFAULT_VIEW;
+  return clampView({ start: minute - span / 2, span });
 }
 
 /** 일정 막대 색: 작업 중 / 예정 / 지연 구간 */
@@ -95,9 +122,15 @@ export default function ScheduleContent() {
   const [trackWidth, setTrackWidth] = useState(0);
   const scrubbingRef = useRef(false);
   const trackRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<GanttView>(GANTT_DEFAULT_VIEW);
-  const viewNow = useRef<GanttView>(GANTT_DEFAULT_VIEW);
-  const viewTarget = useRef<GanttView>(GANTT_DEFAULT_VIEW);
+  const [view, setView] = useState<GanttView>(initialGanttView);
+  const viewNow = useRef<GanttView>(view);
+  const viewTarget = useRef<GanttView>(view);
+  // 우측 상단 시계와 같은 실제 시각. 1초마다 갱신
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
   const viewFrame = useRef(0);
   const sectionRef = useRef<HTMLElement>(null);
   const selection = useDetailSelection<number>(null, () => {
@@ -126,14 +159,20 @@ export default function ScheduleContent() {
     ? null
     : sim.ships.find((ship) => ship.index === selection.key) ?? null;
 
-  // 표시 범위 = 현재 시뮬레이션 날짜 안의 view (기본 06:00–22:00). 범위 밖 막대는 가장자리에서 잘린다
-  const window = useMemo(() => {
-    const now = parseClock(sim.clock);
-    const base = now ?? sim.ships.map((ship) => parseClock(ship.eta)).find((value): value is number => value != null) ?? null;
-    if (base == null) return null;
-    const day = Math.floor(base / 1440) * 1440;
-    return { min: day + view.start, max: day + view.start + view.span, now };
-  }, [sim.ships, sim.clock, view]);
+  // 실제 시각 기준. 분 값은 오늘(실제 날짜) 00:00 부터의 분. 범위 밖 막대는 가장자리에서 잘린다
+  // 시뮬레이션은 배속(PORT_SIM.speed)으로 돌므로, 일정은 "시뮬레이션 지금과의 간격"을 유지한 채 실제 지금으로 옮겨 그린다
+  const dayStartMs = useMemo(() => {
+    const d = new Date(nowMs);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }, [nowMs]);
+  const simNowMs = parseClock(sim.clock);
+  const shiftMs = simNowMs == null ? 0 : nowMs - simNowMs;
+  const toMinute = (ms: number) => (ms + shiftMs - dayStartMs) / 60000;
+  const window = useMemo(
+    () => ({ min: view.start, max: view.start + view.span, now: (nowMs - dayStartMs) / 60000 }),
+    [view, nowMs, dayStartMs],
+  );
 
   const berths = [...new Set(sim.ships.map((ship) => ship.berth))];
   // 현재 시각이 표시 범위 밖이면 현재선은 숨긴다 (탐색선도 같다)
@@ -241,7 +280,7 @@ export default function ScheduleContent() {
         <header className="px-6 pt-[21px] pb-2">
           <div className="flex items-baseline justify-between">
             <h2 className="text-[16px] leading-6 font-medium text-dt-text">스케줄</h2>
-            <span className="text-[12px] text-dt-text-3">{sim.clock}</span>
+            <span className="text-[12px] text-dt-text-3">{clockLabel(nowMs)}</span>
           </div>
           <SegmentedControl<ListTab>
             className="mt-3"
@@ -274,12 +313,12 @@ export default function ScheduleContent() {
                 <div key={berth} className="mb-2">
                   <p className="px-2 py-1 text-[11px] text-white/40">{berth}</p>
                   {ships.filter((ship) => ship.berth === berth).map((ship) => (
-                    <ShipRow key={ship.callId} ship={ship} active={selected?.index === ship.index} onClick={() => selection.select(ship.index)} />
+                    <ShipRow key={ship.callId} shift={shiftMs} ship={ship} active={selected?.index === ship.index} onClick={() => selection.select(ship.index)} />
                   ))}
                 </div>
               ))
             : ships.map((ship) => (
-                <ShipRow key={ship.callId} ship={ship} active={selected?.index === ship.index} onClick={() => selection.select(ship.index)} />
+                <ShipRow key={ship.callId} shift={shiftMs} ship={ship} active={selected?.index === ship.index} onClick={() => selection.select(ship.index)} />
               ))}
           {ships.length === 0 ? <p className="px-2 py-6 text-center text-[12px] text-white/40">해당하는 선박이 없습니다</p> : null}
         </div>
@@ -306,7 +345,7 @@ export default function ScheduleContent() {
               <li key={event.label} className="grid grid-cols-[10px_1fr_auto] items-center gap-2 text-[12px]">
                 <span className={cn("size-2 rounded-full", event.complete ? "bg-dt-point" : "bg-white/25")} />
                 <span className={event.complete ? "text-white" : "text-white/45"}>{event.label}</span>
-                <span className="text-right text-[12px] leading-[17px] font-medium tabular-nums text-dt-text">{hm(event.at)}</span>
+                <span className="text-right text-[12px] leading-[17px] font-medium tabular-nums text-dt-text">{realHm(event.at, shiftMs)}</span>
               </li>
             ))}
           </ol>
@@ -349,7 +388,7 @@ export default function ScheduleContent() {
           <div className="flex min-w-0 items-baseline gap-3">
             <h2 className="shrink-0 text-[14px] leading-5 font-medium text-dt-text">선석 배정 일정</h2>
             <span className="truncate text-[11px] tabular-nums text-white/40">
-              {dateLabel(sim.clock)}
+              {dateLabel(nowMs)}
               {window ? ` · ${formatMinute(window.min)} - ${Math.round(window.max) % 1440 === 0 ? "24:00" : formatMinute(window.max)}` : ""}
             </span>
           </div>
@@ -392,9 +431,11 @@ export default function ScheduleContent() {
                   <span className="truncate text-[12px] leading-[17px] font-medium text-dt-text-2">{berth}</span>
                   <div className="relative h-full">
                     {sim.ships.filter((ship) => ship.berth === berth).map((ship) => {
-                      const start = parseClock(ship.eta);
-                      const end = parseClock(ship.etd);
-                      if (start == null || end == null || end <= start || !window) return null;
+                      const etaMs = parseClock(ship.eta);
+                      const etdMs = parseClock(ship.etd);
+                      if (etaMs == null || etdMs == null || etdMs <= etaMs || !window) return null;
+                      const start = toMinute(etaMs);
+                      const end = toMinute(etdMs);
                       // 06–22 범위로 잘라서 그린다
                       const from = Math.max(start, window.min);
                       const to = Math.min(end, window.max);
@@ -516,7 +557,7 @@ export default function ScheduleContent() {
   );
 }
 
-function ShipRow({ ship, active, onClick }: { ship: SimShip; active: boolean; onClick: () => void }) {
+function ShipRow({ ship, shift, active, onClick }: { ship: SimShip; shift: number; active: boolean; onClick: () => void }) {
   const tone = badge(ship);
   return (
     <button
@@ -533,7 +574,7 @@ function ShipRow({ ship, active, onClick }: { ship: SimShip; active: boolean; on
       </span>
       <span className="text-right">
         <span className={cn("block text-[12px]", tone.tone === "danger" ? "text-dt-danger-bright" : tone.tone === "info" ? "text-dt-info-bright" : "text-dt-text-2")}>{tone.label}</span>
-        <span className="mt-0.5 block text-[12px] leading-[17px] tabular-nums text-dt-text-3">{hm(ship.eta)}</span>
+        <span className="mt-0.5 block text-[12px] leading-[17px] tabular-nums text-dt-text-3">{realHm(ship.eta, shift)}</span>
       </span>
     </button>
   );

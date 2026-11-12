@@ -21,7 +21,7 @@ type ToastCardProps = {
   meta: string;
   border: string;
   surface: string;
-  iconStyle: string;
+  accent: string;
   icon: keyof typeof icons;
   level: string;
   onClick?: () => void;
@@ -31,14 +31,14 @@ type ToastCardProps = {
 
 /**
  * type별 스타일 — 여기서만 수정.
- * border: 1.5px 테두리 색, surface: 남색 카드 위에 같은 색 옅은 틴트, iconStyle: 윗줄(아이콘·등급·시각·분류) 색
+ * border: 1.5px 테두리 색, surface: 남색 카드 위에 같은 색 옅은 틴트, accent: 윗줄 아이콘과 글자(등급·시각·분류)가 함께 쓰는 색
  */
 export const TOASTER_TYPE_STYLE: Record<
   ToasterType,
   {
     border: string;
     surface: string;
-    iconStyle: string;
+    accent: string;
     icon: keyof typeof icons;
     level: string;
   }
@@ -46,28 +46,28 @@ export const TOASTER_TYPE_STYLE: Record<
   success: {
     border: "border-[#14D99B]",
     surface: "[background:linear-gradient(#14D99B14,#14D99B14),#0A1219F2]",
-    iconStyle: "stroke-[#3DE0AE]! text-[#3DE0AE]",
+    accent: "text-[#3DE0AE]",
     icon: "CircleCheck",
     level: "복구",
   },
   info: {
     border: "border-[#3D8BFF]",
     surface: "[background:linear-gradient(#3D8BFF14,#3D8BFF14),#0A1219F2]",
-    iconStyle: "stroke-[#7EB6FF]! text-[#7EB6FF]",
+    accent: "text-[#7EB6FF]",
     icon: "Info",
     level: "안내",
   },
   warning: {
     border: "border-[#FFB020]",
     surface: "[background:linear-gradient(#FFB02014,#FFB02014),#0A1219F2]",
-    iconStyle: "stroke-[#FFC24D]! text-[#FFC24D]",
+    accent: "text-[#FFC24D]",
     icon: "CircleAlert",
     level: "주의",
   },
   error: {
     border: "border-[#F0484A]",
     surface: "[background:linear-gradient(#F0484A1A,#F0484A1A),#0A1219F2]",
-    iconStyle: "stroke-[#FF6B6E]! text-[#FF6B6E]",
+    accent: "text-[#FF6B6E]",
     icon: "TriangleAlert",
     level: "긴급",
   },
@@ -79,7 +79,7 @@ function ToastCard({
   meta,
   border,
   surface,
-  iconStyle,
+  accent,
   icon,
   level,
   onClick,
@@ -100,8 +100,9 @@ function ToastCard({
         tabIndex={onClick ? 0 : undefined}
         onClick={onClick}
       >
-        <p className={cn("flex items-center gap-1.5 text-[12px] leading-4 font-medium tabular-nums", iconStyle)}>
-          <Icon icon={icon} className="size-3.5 shrink-0" />
+        <p className={cn("flex items-center gap-1.5 text-[12px] leading-4 font-medium tabular-nums", accent)}>
+          {/* Icon 기본값 text-white 를 accent 로 덮어 글자와 같은 색으로 */}
+          <Icon icon={icon} className={cn("size-3.5 shrink-0", accent)} />
           <span className="truncate">{meta ? `${level} · ${meta}` : level}</span>
         </p>
         <p className="mt-1 truncate text-[14px] leading-5 font-bold text-white">{title}</p>
