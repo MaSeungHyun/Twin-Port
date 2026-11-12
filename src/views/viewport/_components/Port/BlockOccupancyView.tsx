@@ -14,10 +14,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   BoxGeometry,
   EdgesGeometry,
-  type LineBasicMaterial,
+  LineBasicMaterial,
+  type LineSegments,
   type Mesh,
-  type MeshBasicMaterial,
-  type MeshStandardMaterial,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
 } from "three";
 import gsap from "gsap";
 
@@ -34,24 +35,53 @@ const LINE_HOVER_OPACITY = 0.9;
 const FILL_OPACITY = 0.8;
 const FILL_HOVER_OPACITY = 1;
 
+type BarMaterials = {
+  shellRest: MeshStandardMaterial;
+  shellHot: MeshStandardMaterial;
+  lineRest: LineBasicMaterial;
+  lineHot: LineBasicMaterial;
+  fillRest: Record<string, MeshBasicMaterial>;
+  fillHot: Record<string, MeshBasicMaterial>;
+};
+
+function makeBarMaterials(): BarMaterials {
+  const shell = (opacity: number) =>
+    new MeshStandardMaterial({ color: "#3b82f6", transparent: true, opacity, depthWrite: false });
+  const line = (opacity: number) =>
+    new LineBasicMaterial({ color: "#60a5fa", transparent: true, opacity });
+  const fill = (color: string, opacity: number) =>
+    new MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false });
+  const colors = ["#14d99b", "#ffb020", "#f0484a"];
+  const fills = (opacity: number) => Object.fromEntries(colors.map((color) => [color, fill(color, opacity)]));
+  return {
+    shellRest: shell(SHELL_OPACITY),
+    shellHot: shell(SHELL_HOVER_OPACITY),
+    lineRest: line(LINE_OPACITY),
+    lineHot: line(LINE_HOVER_OPACITY),
+    fillRest: fills(FILL_OPACITY),
+    fillHot: fills(FILL_HOVER_OPACITY),
+  };
+}
+
 function BlockOccupancyBar({
   occupancy,
   index,
   visible,
   tracked,
+  materials,
 }: {
   occupancy: BlockOccupancy;
   index: number;
   visible: boolean;
   tracked: boolean;
+  materials: BarMaterials;
 }) {
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
   const setHoveredBlockCode = useOccupancyStore((s) => s.setHoveredBlockCode);
   const hoveredRef = useRef(false);
-  const shellMatRef = useRef<MeshStandardMaterial>(null);
-  const lineMatRef = useRef<LineBasicMaterial>(null);
-  const fillMatRef = useRef<MeshBasicMaterial>(null);
+  const shellRef = useRef<Mesh>(null);
+  const lineRef = useRef<LineSegments>(null);
   const block = useMemo(
     () => blocks.find((b) => b.code === occupancy.blockCode),
     [occupancy.blockCode, blocks],
@@ -81,20 +111,23 @@ function BlockOccupancyBar({
   const fillRef = useRef<Mesh>(null);
   const trackedRef = useRef(tracked);
 
+  const colorKey = occupancyColor(occupancy.ratio).toLowerCase();
+
   const applyHover = () => {
     const active = hoveredRef.current || trackedRef.current;
-    const shell = shellMatRef.current;
-    const line = lineMatRef.current;
-    const fill = fillMatRef.current;
-    if (shell) shell.opacity = active ? SHELL_HOVER_OPACITY : SHELL_OPACITY;
-    if (line) line.opacity = active ? LINE_HOVER_OPACITY : LINE_OPACITY;
-    if (fill) fill.opacity = active ? FILL_HOVER_OPACITY : FILL_OPACITY;
+    const shell = shellRef.current;
+    if (shell) shell.material = active ? materials.shellHot : materials.shellRest;
+    const line = lineRef.current;
+    if (line) line.material = active ? materials.lineHot : materials.lineRest;
+    const fill = fillRef.current;
+    const fills = active ? materials.fillHot : materials.fillRest;
+    if (fill) fill.material = fills[colorKey] ?? materials.fillRest[colorKey] ?? materials.fillRest["#14d99b"]!;
   };
 
   useLayoutEffect(() => {
     trackedRef.current = tracked;
     applyHover();
-  }, [tracked]);
+  }, [tracked, colorKey, materials]);
 
   useEffect(() => {
     const mesh = fillRef.current;
@@ -133,7 +166,6 @@ function BlockOccupancyBar({
   if (!block) return null;
 
   const center = getBlockFootprintCenter(block);
-  const color = occupancyColor(occupancy.ratio);
   const baseY = deckY + block.origin[1];
 
   const handleOver = (event: ThreeEvent<PointerEvent>) => {
@@ -162,43 +194,28 @@ function BlockOccupancyBar({
       onPointerOver={handleOver}
       onPointerOut={handleOut}
     >
-      <mesh position={[0, dims.fullHeight / 2, 0]} geometry={shellGeometry}>
-        <meshStandardMaterial
-          ref={shellMatRef}
-          color="#3b82f6"
-          transparent
-          opacity={tracked ? SHELL_HOVER_OPACITY : SHELL_OPACITY}
-          depthWrite={false}
-        />
-      </mesh>
+      <mesh
+        ref={shellRef}
+        position={[0, dims.fullHeight / 2, 0]}
+        geometry={shellGeometry}
+        material={tracked ? materials.shellHot : materials.shellRest}
+      />
       <lineSegments
+        ref={lineRef}
         position={[0, dims.fullHeight / 2, 0]}
         geometry={shellEdges}
+        material={tracked ? materials.lineHot : materials.lineRest}
         raycast={() => null}
-      >
-        <lineBasicMaterial
-          ref={lineMatRef}
-          color="#60a5fa"
-          transparent
-          opacity={tracked ? LINE_HOVER_OPACITY : LINE_OPACITY}
-        />
-      </lineSegments>
+      />
 
       <mesh
         ref={fillRef}
         position={[0, 0, 0]}
         scale={[1, 0.0001, 1]}
+        material={(tracked ? materials.fillHot : materials.fillRest)[colorKey] ?? materials.fillRest["#14d99b"]}
         raycast={() => null}
       >
         <boxGeometry args={[dims.width, dims.fillHeight, dims.depth]} />
-        <meshBasicMaterial
-          ref={fillMatRef}
-          color={color}
-          transparent
-          opacity={tracked ? FILL_HOVER_OPACITY : FILL_OPACITY}
-          depthWrite={false}
-          toneMapped={false}
-        />
       </mesh>
     </group>
   );
@@ -216,6 +233,19 @@ export default function BlockOccupancyView({
     () => computeBlockOccupancies(containers, blocks),
     [blocks, containers],
   );
+  const materials = useMemo(() => makeBarMaterials(), []);
+  useEffect(() => {
+    return () => {
+      for (const material of [
+        materials.shellRest,
+        materials.shellHot,
+        materials.lineRest,
+        materials.lineHot,
+        ...Object.values(materials.fillRest),
+        ...Object.values(materials.fillHot),
+      ]) material.dispose();
+    };
+  }, [materials]);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
   const trackedBlockCode = useMemo(() => {
     if (!selectedContainerId) return null;
@@ -234,6 +264,7 @@ export default function BlockOccupancyView({
           index={index}
           visible={visible}
           tracked={occupancy.blockCode === trackedBlockCode}
+          materials={materials}
         />
       ))}
     </group>

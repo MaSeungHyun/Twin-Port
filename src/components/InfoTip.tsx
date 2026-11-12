@@ -26,7 +26,7 @@ export default function InfoTip({ text, className, side = "top" }: InfoTipProps)
           >
             <Icon
               icon="Info"
-              className="size-[1em] stroke-text-secondary transition-colors group-hover:stroke-primary group-focus-visible:stroke-primary"
+              className="size-[1em] stroke-dt-text-2 transition-colors group-hover:stroke-dt-point group-focus-visible:stroke-dt-point"
             />
           </button>
         </TooltipPrimitive.Trigger>
@@ -35,10 +35,10 @@ export default function InfoTip({ text, className, side = "top" }: InfoTipProps)
             side={side}
             sideOffset={6}
             collisionPadding={8}
-            className="z-1000 max-w-72 rounded-md border border-primary/40 bg-foreground/95 px-md py-sm text-md leading-snug font-normal normal-case tracking-normal text-text-primary shadow-lg backdrop-blur-sm"
+            className="z-[1000] max-w-72 rounded-lg bg-dt-bg/92 px-3 py-2 text-[12px] leading-snug font-normal text-dt-text shadow-[inset_0_0_0_2px_#ffffff1a]"
           >
             {text}
-            <TooltipPrimitive.Arrow className="fill-primary/40" />
+            <TooltipPrimitive.Arrow className="fill-dt-bg" />
           </TooltipPrimitive.Content>
         </TooltipPrimitive.Portal>
       </TooltipPrimitive.Root>

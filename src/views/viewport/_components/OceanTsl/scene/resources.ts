@@ -39,6 +39,17 @@ export const OCEAN_RADIUS = 9126;
 const OCEAN_RING_REFERENCE_RADIUS = 26000;
 const OCEAN_SECTORS = 12;
 
+const oceanGrids = new Map<number, ReturnType<typeof radialGrid>>();
+/** 바다 마운트 커밋에서 빼려고 로딩 중 미리 만들어 둔다. 같은 rings 면 같은 지오메트리를 쓴다. */
+export function oceanGrid(rings: number) {
+  let grid = oceanGrids.get(rings);
+  if (!grid) {
+    grid = radialGrid(rings);
+    oceanGrids.set(rings, grid);
+  }
+  return grid;
+}
+
 export function radialGrid(rings: number, rMin = 0.3, rMax = OCEAN_RADIUS) {
   const tuned = Math.max(48, Math.round(rings * Math.log(rMax / rMin) / Math.log(OCEAN_RING_REFERENCE_RADIUS / rMin)));
   const g = Math.log(rMax / rMin) / tuned,

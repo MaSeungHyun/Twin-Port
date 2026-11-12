@@ -35,25 +35,30 @@ export default function BlockFootprints({
   const showDangerousBlockCards = useViewportStore(
     (s) => s.showDangerousBlockCards,
   );
+  const hudHidden = useViewportStore((s) => s.hudHidden);
+  const started = useViewportStore((s) => s.monitoringStarted);
+  const introOpen = useViewportStore((s) => s.introOpen);
 
   return (
     <group position={[...yardOffset]} visible={visible}>
       <BlockMarks occupancyByCode={occupancyByCode} />
-      {blocks.map((block) => {
-        const occupancy = occupancyByCode[block.code];
-        if (!occupancy) return null;
-        return (
-          <BlockHoverArea
-            key={block.code}
-            block={block}
-            occupancy={occupancy}
-            statusVisible={
-              showDangerousBlockCards && occupancy.ratio >= DANGEROUS_RATIO
-            }
-            hitEnabled={!occupancyLook}
-          />
-        );
-      })}
+      {!hudHidden && started && !introOpen
+        ? blocks.map((block) => {
+            const occupancy = occupancyByCode[block.code];
+            if (!occupancy) return null;
+            return (
+              <BlockHoverArea
+                key={block.code}
+                block={block}
+                occupancy={occupancy}
+                statusVisible={
+                  showDangerousBlockCards && occupancy.ratio >= DANGEROUS_RATIO
+                }
+                hitEnabled={!occupancyLook}
+              />
+            );
+          })
+        : null}
     </group>
   );
 }

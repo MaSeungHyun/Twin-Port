@@ -1,16 +1,16 @@
-import PieChart from "@/components/PieChart";
+import HoverTooltip from "@/components/ui/HoverTooltip";
 import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { CONTAINER_H } from "@/constants/container";
 import {
   getBlockFootprintCenter,
   getBlockFootprintSize,
 } from "@/domain/blockFootprint";
-import type { BlockOccupancy } from "@/domain/occupancy";
+import { occupancyLevel, type BlockOccupancy } from "@/domain/occupancy";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useYardStore } from "@/stores/yard";
 import { Html } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { occupancyColor } from "./constants";
 
 /** BlockOccupancyView HEIGHT_SCALE와 맞춤 — occupancy 그래프 위로 카드 띄움 */
@@ -20,6 +20,56 @@ const HIT_HEIGHT_MIN = 0.08;
 const FLOOR_HIT_HEIGHT = 0.6;
 const CARD_LIFT = 0.07;
 const OCCUPANCY_CARD_EXTRA = 0.4;
+const POINTER_GAP = 16;
+
+function placeTooltip(el: HTMLElement, x: number, y: number) {
+  const width = el.offsetWidth;
+  const height = el.offsetHeight;
+  let left = x + POINTER_GAP;
+  let top = y + POINTER_GAP;
+  if (left + width > window.innerWidth) left = x - POINTER_GAP - width;
+  if (top + height > window.innerHeight) top = y - POINTER_GAP - height;
+  el.style.transform = `translate(${Math.max(0, Math.round(left))}px, ${Math.max(0, Math.round(top))}px)`;
+}
+
+const BLOCK_STATUS = {
+  safe: { label: "여유", tone: "ok" },
+  warning: { label: "주의", tone: "warning" },
+  danger: { label: "위험", tone: "danger" },
+} as const;
+
+type CursorTip = { block: BlockDefinition; occupancy: BlockOccupancy };
+let cursorTip: CursorTip | null = null;
+const cursorListeners = new Set<() => void>();
+const cursorPointer = { x: 0, y: 0 };
+let placeCursorTip: ((x: number, y: number) => void) | null = null;
+
+function setCursorTip(next: CursorTip | null) {
+  const changed = cursorTip?.block.code !== next?.block.code;
+  cursorTip = next;
+  if (changed) cursorListeners.forEach((listener) => listener());
+}
+
+function moveCursorTip(x: number, y: number) {
+  cursorPointer.x = x;
+  cursorPointer.y = y;
+  placeCursorTip?.(x, y);
+}
+
+function BlockTooltip({ block, occupancy }: { block: BlockDefinition; occupancy: BlockOccupancy }) {
+  const status = BLOCK_STATUS[occupancyLevel(occupancy.ratio)];
+  return (
+    <HoverTooltip
+      title={block.code}
+      status={status}
+      rows={[
+        { label: "적재율", value: `${occupancy.percent}%` },
+        { label: "장치", value: `${occupancy.occupied.toLocaleString()} / ${occupancy.capacity.toLocaleString()}` },
+      ]}
+      progress={{ value: occupancy.percent, tone: status.tone }}
+    />
+  );
+}
 
 export default function BlockHoverArea({
   block,
@@ -42,9 +92,9 @@ export default function BlockHoverArea({
   const applyVisual = useCallback(() => {
     const fromStore =
       useOccupancyStore.getState().hoveredBlockCode === block.code;
-    const show = statusVisible || hoveredRef.current || fromStore;
     if (cardRef.current) {
-      cardRef.current.style.visibility = show ? "visible" : "hidden";
+      cardRef.current.style.visibility =
+        !hoveredRef.current && (statusVisible || fromStore) ? "visible" : "hidden";
     }
   }, [block.code, statusVisible]);
 
@@ -72,11 +122,19 @@ export default function BlockHoverArea({
     event.stopPropagation();
     hoveredRef.current = true;
     document.body.style.cursor = "pointer";
+    setCursorTip({ block, occupancy });
+    moveCursorTip(event.nativeEvent.clientX, event.nativeEvent.clientY);
     applyVisual();
+  };
+
+  const handleMove = (event: ThreeEvent<PointerEvent>) => {
+    if (!hoveredRef.current) return;
+    moveCursorTip(event.nativeEvent.clientX, event.nativeEvent.clientY);
   };
 
   const handleOut = () => {
     hoveredRef.current = false;
+    if (cursorTip?.block.code === block.code) setCursorTip(null);
     document.body.style.cursor = "auto";
     applyVisual();
   };
@@ -93,6 +151,7 @@ export default function BlockHoverArea({
     <group
       position={[center[0], deckY + block.origin[1] + hitHeight / 2, center[2]]}
       onPointerOver={hitEnabled ? handleOver : undefined}
+      onPointerMove={hitEnabled ? handleMove : undefined}
       onPointerOut={hitEnabled ? handleOut : undefined}
     >
       <mesh
@@ -110,57 +169,56 @@ export default function BlockHoverArea({
         />
       </mesh>
 
-      <Html
-        position={[
-          0,
-          hitHeight / 2 + CARD_LIFT + (hitEnabled ? 0 : occupancyLift),
-          0,
-        ]}
-        center
-        zIndexRange={[20, 1]}
-        style={{
-          userSelect: "none",
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          ref={cardRef}
-          className="flex h-[60px] w-[162px] items-center justify-between gap-md rounded-lg border-2 py-[23px] pl-sm pr-[15.26px] shadow-lg bg-[#00000080]"
-          style={{ visibility: "hidden", borderColor: color }}
+      {statusVisible ? (
+        <Html
+          position={[
+            0,
+            hitHeight / 2 + CARD_LIFT + (hitEnabled ? 0 : occupancyLift),
+            0,
+          ]}
+          center
+          zIndexRange={[20, 1]}
+          style={{
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
         >
-          <div className="flex items-center gap-xs">
-            <span
-              className="size-lg shrink-0 rounded-full aspect-square"
-              style={{ backgroundColor: color }}
-            />
-            <span className="text-xl font-light tracking-wide text-text-primary">
-              {block.code}
-            </span>
+          <div ref={cardRef} style={{ visibility: "hidden" }}>
+            <BlockTooltip block={block} occupancy={occupancy} />
           </div>
-          <div className="relative shrink-0">
-            <PieChart
-              value={occupancy.percent}
-              color={color}
-              size={46}
-              trackColor="rgba(255,255,255,0.1)"
-            />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span
-                className="text-md font-bold leading-none tracking-normal"
-                style={{ color }}
-              >
-                {occupancy.percent.toString().split(".")[0]}
-                <span
-                  className="text-sm font-semibold text-text-secondary"
-                  style={{ color }}
-                >
-                  %
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </Html>
+        </Html>
+      ) : null}
     </group>
+  );
+}
+
+/** 블록 호버 툴팁. 커서 오른쪽 아래 16px, 화면 끝에서는 반대쪽 */
+export function BlockCursorTooltip() {
+  const tip = useSyncExternalStore(
+    (listener) => {
+      cursorListeners.add(listener);
+      return () => cursorListeners.delete(listener);
+    },
+    () => cursorTip,
+  );
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    placeCursorTip = (x, y) => {
+      const el = ref.current;
+      if (el) placeTooltip(el, x, y);
+    };
+    const el = ref.current;
+    if (el) placeTooltip(el, cursorPointer.x, cursorPointer.y);
+    return () => {
+      placeCursorTip = null;
+    };
+  });
+
+  if (!tip) return null;
+  return (
+    <div ref={ref} className="pointer-events-none fixed top-0 left-0 z-[155]">
+      <BlockTooltip block={tip.block} occupancy={tip.occupancy} />
+    </div>
   );
 }

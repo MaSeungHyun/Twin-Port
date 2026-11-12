@@ -1,8 +1,12 @@
 import { useProgress } from "@react-three/drei";
 import { useEffect, useRef, useState } from "react";
 import { CAMERA_INTRO_START_EVENT } from "@/constants/cameraIntro";
+import { toaster } from "@/components/Toaster";
+import { useContentViewStore } from "@/stores/contentView";
+import { useHudUiStore } from "@/stores/hud";
 import { useViewportStore } from "@/stores/viewport";
 import Button from "@/components/Button";
+import { loadMark } from "@/debug/loadTiming";
 import { useSceneWarmReady } from "./Port/WaterReflection";
 
 /** [warm] 예열이 끝나지 않아도 이 시간(ms) 후엔 버튼 표시 (안전장치) */
@@ -26,15 +30,35 @@ export default function IntroOverlay() {
   // [warm] 반사/숨김 오브젝트 셰이더 예열 완료 전엔 '관제 시작' 미표시 (시작 비행 중 컴파일 끊김 방지)
   const warmReady = useSceneWarmReady();
   const [warmTimedOut, setWarmTimedOut] = useState(false);
+  const setIntroOpen = useViewportStore((s) => s.setIntroOpen);
   useEffect(() => {
     const t = window.setTimeout(() => setWarmTimedOut(true), WARM_TIMEOUT_MS);
     return () => window.clearTimeout(t);
   }, []);
 
   useEffect(() => {
-    if (phase !== "wait" || active || loaded === 0) return;
+    if (phase === "done") {
+      setIntroOpen(false);
+      return;
+    }
+    setIntroOpen(true);
+    const hud = useHudUiStore.getState();
+    hud.setAlarmOpen(false);
+    // 그래픽 설정은 로딩 중에도 헤더에서 열 수 있으므로 닫지 않는다
+    const view = useContentViewStore.getState().activeView;
+    if (view) useContentViewStore.getState().setActiveView(view);
+    toaster.dismiss();
+  }, [phase, setIntroOpen]);
+
+  useEffect(() => {
+    if (phase !== "wait" || loaded === 0) return;
+    if (active && !warmTimedOut) return;
     if (!warmReady && !warmTimedOut) return;
-    const t = window.setTimeout(() => setPhase("show"), SHOW_DELAY_MS);
+    loadMark("관제 시작 버튼 대기", `표시까지 ${SHOW_DELAY_MS}ms`);
+    const t = window.setTimeout(() => {
+      loadMark("관제 시작 버튼 표시");
+      setPhase("show");
+    }, SHOW_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [phase, active, loaded, warmReady, warmTimedOut]);
 
@@ -46,6 +70,9 @@ export default function IntroOverlay() {
     if (phase !== "show") return;
     // [pt121u] hide instantly (same frame) and unmount; camera flight starts as before
     setPhase("done");
+    setIntroOpen(false);
+    const view = useContentViewStore.getState().activeView;
+    if (view) useContentViewStore.getState().setActiveView(view);
     useViewportStore.getState().startMonitoring(); // [monitorgate]
     window.dispatchEvent(new CustomEvent(CAMERA_INTRO_START_EVENT));
   };
@@ -74,7 +101,7 @@ export default function IntroOverlay() {
 
   return (
     <div
-      className="bg-black/50 absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+      className="absolute inset-0 z-30 flex items-center justify-center bg-[#0A1219]/45 pointer-events-none"
       style={{
         opacity: phase === "fading" ? 0 : 1,
         pointerEvents: phase === "fading" ? "none" : "auto",
@@ -85,8 +112,8 @@ export default function IntroOverlay() {
           ref={btn}
           type="button"
           className={
-            "bg-primary/80 text-white px-12 py-4 text-4xl rounded-lg " +
-            (ready ? "hover:text-white/50" : "opacity-60 cursor-wait")
+            "h-[70px] w-[194px] rounded-lg bg-dt-point/16 text-[30px] leading-[44px] font-medium text-dt-point-bright shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--color-dt-point)_50%,transparent)] hover:bg-dt-point/24 hover:shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--color-dt-point)_70%,transparent)] " +
+            (ready ? "" : "cursor-wait opacity-60")
           }
           disabled={!ready}
           aria-busy={!ready}

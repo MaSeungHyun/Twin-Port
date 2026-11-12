@@ -1,5 +1,5 @@
 import { HOVER_OUTLINE_COLOR, HOVER_OUTLINE_THICKNESS } from "@/constants/hoverOutline";
-import { BackSide, BufferAttribute, BufferGeometry, Color, Mesh, MeshBasicMaterial } from "three";
+import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, Color, Mesh, MeshBasicMaterial } from "three";
 
 /**
  * [outline] Inverted hull pushes vertices along normals. Hard-edged meshes (quay cranes: split/flat normals,
@@ -15,20 +15,35 @@ export function getOutlineGeometry(src: BufferGeometry): BufferGeometry {
   const nrm = src.getAttribute("normal");
   if (!pos || !nrm) { smoothCache.set(src, src); return src; }
   const n = pos.count;
-  const acc = new Map<string, [number, number, number]>();
-  const keys: string[] = new Array(n);
+  // 0.001 격자로 같은 위치인 정점을 묶는다. 문자열 키는 크레인 정점 수에서 마운트 프레임을 100ms 넘게 막는다.
+  const cap = 1 << Math.ceil(Math.log2(n * 2 + 1));
+  const table = new Int32Array(cap).fill(-1);
+  const qs = new Int32Array(n * 3);
+  const slotOf = new Int32Array(n);
+  const sums = new Float64Array(n * 3);
+  let groups = 0;
   for (let i = 0; i < n; i++) {
-    const k = `${pos.getX(i).toFixed(3)},${pos.getY(i).toFixed(3)},${pos.getZ(i).toFixed(3)}`;
-    keys[i] = k;
-    let a = acc.get(k);
-    if (!a) { a = [0, 0, 0]; acc.set(k, a); }
-    a[0] += nrm.getX(i); a[1] += nrm.getY(i); a[2] += nrm.getZ(i);
+    const qx = Math.round(pos.getX(i) * 1000), qy = Math.round(pos.getY(i) * 1000), qz = Math.round(pos.getZ(i) * 1000);
+    let h = (Math.imul(qx, 73856093) ^ Math.imul(qy, 19349663) ^ Math.imul(qz, 83492791)) & (cap - 1);
+    let g = table[h]!;
+    while (g !== -1 && (qs[g * 3] !== qx || qs[g * 3 + 1] !== qy || qs[g * 3 + 2] !== qz)) {
+      h = (h + 1) & (cap - 1);
+      g = table[h]!;
+    }
+    if (g === -1) {
+      g = groups++;
+      table[h] = g;
+      qs[g * 3] = qx; qs[g * 3 + 1] = qy; qs[g * 3 + 2] = qz;
+    }
+    slotOf[i] = g;
+    sums[g * 3] += nrm.getX(i); sums[g * 3 + 1] += nrm.getY(i); sums[g * 3 + 2] += nrm.getZ(i);
   }
   const out = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
-    const a = acc.get(keys[i]!)!;
-    const l = Math.hypot(a[0], a[1], a[2]);
-    if (l > 1e-6) { out[i * 3] = a[0] / l; out[i * 3 + 1] = a[1] / l; out[i * 3 + 2] = a[2] / l; }
+    const g = slotOf[i]!;
+    const ax = sums[g * 3]!, ay = sums[g * 3 + 1]!, az = sums[g * 3 + 2]!;
+    const l = Math.hypot(ax, ay, az);
+    if (l > 1e-6) { out[i * 3] = ax / l; out[i * 3 + 1] = ay / l; out[i * 3 + 2] = az / l; }
     else { out[i * 3] = nrm.getX(i); out[i * 3 + 1] = nrm.getY(i); out[i * 3 + 2] = nrm.getZ(i); }
   }
   const g = new BufferGeometry();
@@ -124,6 +139,23 @@ function getHullMaterial() {
   if (!hullMat) hullMat = new MeshBasicMaterial({ colorWrite: false, depthWrite: false });
   return hullMat;
 }
+
+/**
+ * 외곽선 모드에서 선택(없으면 호버) 대상의 표면을 "원래 색 유지" 마스크로 덮는다.
+ * 색은 0을 더해 3D 화면은 그대로이고, 외곽선 렌더 타깃의 마스크 채널만 1이 된다.
+ */
+let keepFillMat: MeshBasicNodeMaterial | null = null;
+function getKeepFillMaterial() {
+  if (keepFillMat) return keepFillMat;
+  const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false });
+  m.colorNode = vec4(0, 0, 0, 0);
+  m.polygonOffset = true;
+  m.polygonOffsetFactor = -1;
+  m.polygonOffsetUnits = -1;
+  keepFillMat = m;
+  return m;
+}
+const OUTLINE_KEEP = { outlineKeep: true };
 /**
  * [hover] WebGPU 는 오브젝트/머티리얼 조합이 처음 그려질 때 노드 빌드 + 렌더 파이프라인 컴파일을 한다.
  * 첫 hover 때 이 비용(측정 ~100ms)이 터져 프레임 드랍 → 마운트 직후 같은 geometry/머티리얼로 만든
@@ -141,7 +173,7 @@ function warmOutline(node: Mesh, geometry: BufferGeometry, failure = false) {
     const dummy = new Mesh(geometry, getHullMaterial());
     const shells = failure
       ? (["failure", "warning", "safe"] as const).map((variant) => new Mesh(getOutlineGeometry(geometry), getAlertOutlineMaterial(variant)))
-      : [new Mesh(getOutlineGeometry(geometry), getOutlineMaterial())];
+      : [new Mesh(getOutlineGeometry(geometry), getOutlineMaterial()), new Mesh(geometry, getKeepFillMaterial())];
     for (const shell of shells) dummy.add(shell);
     dummy.scale.setScalar(1e-6);
     dummy.frustumCulled = false;
@@ -188,7 +220,10 @@ export default function HoverOutlineMesh({
       raycast={() => null}
     >
       <primitive object={getHullMaterial()} attach="material" />
-      <mesh geometry={getOutlineGeometry(geometry)} material={failure ? getFailureOutlineMaterial() : getOutlineMaterial()} frustumCulled={false} raycast={() => null} />
+      <mesh geometry={getOutlineGeometry(geometry)} material={failure ? getFailureOutlineMaterial() : getOutlineMaterial()} frustumCulled={false} raycast={() => null} userData={OUTLINE_KEEP} />
+      {failure ? null : (
+        <mesh geometry={geometry} material={getKeepFillMaterial()} frustumCulled={false} raycast={() => null} userData={OUTLINE_KEEP} />
+      )}
     </mesh>
   );
 }

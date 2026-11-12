@@ -48,12 +48,14 @@ export function getCraneTwinProfile(index: number): CraneTwinProfile {
 
 export function shipStatusLabel(status: ShipOperationalStatus): string {
   const labels: Record<ShipOperationalStatus, string> = {
-    berthed: "Berthed",
-    loading: "Loading",
-    discharging: "Discharging",
-    departing: "Departing",
-    arriving: "Arriving",
-    idle: "Idle",
+    berthed: "접안·작업 대기",
+    loading: "적재 중",
+    discharging: "양하 중",
+    departing: "출항 중",
+    arriving: "입항 중",
+    preparing: "출항 준비",
+    departed: "출항 완료",
+    idle: "대기",
   };
   return labels[status];
 }

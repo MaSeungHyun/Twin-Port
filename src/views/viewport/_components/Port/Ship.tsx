@@ -36,11 +36,13 @@ import { useOccupancyStore } from "@/stores/occupancy";
 import { getActiveShipKey, useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
 import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
+import { commitInstanceMatrices } from "@/domain/instanceUpload";
 import { useFrame } from "@react-three/fiber";
 import { applyBuoyancy, makeBuoyState, updateBuoyancy, type BuoyState } from "../OceanTsl/buoyancy";
 import { Box3 as BuoyBox3, Vector3 } from "three";
 import { buildShipProfile, oceanState, SHIP_BINS } from "../OceanTsl/oceanApi";
 const PROF_LEVELS = 32;
+const PROF_SLICE_MS = 8;
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { SHIP_LOD_CHECK_EVERY, SHIP_LOD_ENABLED } from "@/constants/shipLod";
 import { buildShipLodGeometries, shipLodLevel } from "@/domain/shipLod";
@@ -96,12 +98,6 @@ function isWaterwayObject(object: Object3D) {
   }
   const mesh = object as Mesh;
   return mesh.isMesh && /waterway/i.test(mesh.geometry?.name ?? "");
-}
-
-function clonePartMaterial(source: Material | Material[]) {
-  return Array.isArray(source)
-    ? source.map((mat) => mat.clone())
-    : source.clone();
 }
 
 function setWaterwayOccupancyEmissive(
@@ -192,6 +188,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
   const buoy = useRef<BuoyState[]>([]);
   const buoyAxis = useRef<"x" | "z" | null>(null);
   const profTable = useRef<null | { ys: number[]; profs: ReturnType<typeof buildShipProfile>[]; axis: 0 | 1; last: number; logged: boolean }>(null);
+  const profBuild = useRef<null | { tris: Float32Array[]; y0: number; top: number; axis: 0 | 1; ys: number[]; profs: ReturnType<typeof buildShipProfile>[] }>(null);
   const waterwayOn = useRef<number[]>([]);
   const waterwayHold = useRef<number[]>([]);
   const waterwaySpeed = useRef<number[]>([]);
@@ -206,13 +203,25 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     enableGlbShadows(scene);
     const collected: ShipPart[] = [];
 
+    const waterwayShared = new Map<Material, Material>();
+    const shareWaterway = (source: Material | Material[]) => {
+      const cloneOne = (mat: Material) => {
+        const cached = waterwayShared.get(mat);
+        if (cached) return cached;
+        const cloned = mat.clone();
+        waterwayShared.set(mat, cloned);
+        return cloned;
+      };
+      return Array.isArray(source) ? source.map(cloneOne) : cloneOne(source);
+    };
     scene.traverse((child) => {
       const mesh = child as Mesh;
       if (!mesh.isMesh) return;
       const waterway = isWaterwayObject(mesh);
       collected.push({
         geometry: mesh.geometry,
-        material: waterway ? clonePartMaterial(mesh.material) : mesh.material,
+        // 흘수선 발광은 선박 전체가 같이 켜진다. 같은 원본은 복제 하나.
+        material: waterway ? shareWaterway(mesh.material) : mesh.material,
         localMatrix: mesh.matrixWorld.clone(),
         waterway,
       });
@@ -479,7 +488,7 @@ export default function Ship({ instances, posesRef }: ShipProps) {
     // [twin-port] 수선면 윤곽: 로드 시 여러 흘수(32단)에서 선체를 잘라 표로 만들고,
     // 매 프레임 현재 선박 높이(기즈모 y + 부력 heave)/스케일로 로컬 수면 높이를 구해 두 단면 사이를 보간.
     // (이전 버그: 첫 프레임 1회만 생성 → 트윈 중 위치로 null → 사각형 폴백이 고착)
-    if (!profTable.current && parts.length) {
+    if (!profTable.current && !profBuild.current && parts.length) {
       const v = new Vector3(), tris: Float32Array[] = [];
       let y0 = Infinity, y1 = -Infinity;
       for (const p of parts) {
@@ -490,10 +499,23 @@ export default function Ship({ instances, posesRef }: ShipProps) {
         tris.push(out);
       }
       const axis = buoyAxis.current === "x" ? 0 : 1;
-      const ys: number[] = [], profs: ReturnType<typeof buildShipProfile>[] = [];
-      const top = y0 + Math.min(y1 - y0, 25);
-      for (let k = 0; k < PROF_LEVELS; k++) { const y = y0 + 0.05 + ((top - y0 - 0.1) * k) / (PROF_LEVELS - 1); ys.push(y); profs.push(buildShipProfile(tris, y, axis)); }
-      profTable.current = { ys, profs, axis, last: NaN, logged: false };
+      profBuild.current = { tris, y0, top: y0 + Math.min(y1 - y0, 25), axis, ys: [], profs: [] };
+    }
+    // 32단을 한 프레임에 자르면 로딩 중 100ms 넘게 막힌다. 프레임마다 예산만큼 자르고, 다 모이면 표를 쓴다.
+    const build = profBuild.current;
+    if (build) {
+      const t0 = performance.now();
+      const { tris, y0, top, axis, ys, profs } = build;
+      while (ys.length < PROF_LEVELS && performance.now() - t0 < PROF_SLICE_MS) {
+        const k = ys.length;
+        const y = y0 + 0.05 + ((top - y0 - 0.1) * k) / (PROF_LEVELS - 1);
+        ys.push(y);
+        profs.push(buildShipProfile(tris, y, axis));
+      }
+      if (ys.length === PROF_LEVELS) {
+        profTable.current = { ys, profs, axis, last: NaN, logged: false };
+        profBuild.current = null;
+      }
     }
     // 윤곽 기준 배: 보이는 첫 배 (0번이 출항 후 숨겨진 동안에도 다른 배의 컷아웃/거품 유지)
     const vis = Math.max(0, list.findIndex((it) => instanceScale(it) > SHIP_TWEEN.hiddenScale * 2));
@@ -571,28 +593,19 @@ export default function Ship({ instances, posesRef }: ShipProps) {
       });
 
       if (hit) {
-        hit.count = list.length;
-        hit.instanceMatrix.needsUpdate = true;
+        commitInstanceMatrices(hit, list.length);
         hit.boundingSphere = null; // 위치 변경 반영 (인스턴스 수 적음 → 저렴)
       }
 
       for (let lv = 0; lv < nLv; lv++) {
         const c = slots[lv] ?? 0;
+        // [perf] 그리는 앞부분만 업로드, count 0 인 LOD 단계는 건너뜀
         const a = instancedLv[lv];
-        if (a) {
-          a.count = c;
-          a.instanceMatrix.needsUpdate = true;
-        }
+        if (a) commitInstanceMatrices(a, c);
         const b = occupancyLv[lv];
-        if (b) {
-          b.count = c;
-          b.instanceMatrix.needsUpdate = true;
-        }
+        if (b) commitInstanceMatrices(b, c);
       }
-      if (shadow) {
-        shadow.count = list.length;
-        shadow.instanceMatrix.needsUpdate = true;
-      }
+      if (shadow) commitInstanceMatrices(shadow, list.length);
     });
 
     applyHoverOutline(list);

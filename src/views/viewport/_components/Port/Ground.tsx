@@ -69,6 +69,7 @@ import { quayGlbIndexOfHover, rememberQuayHoverIndex } from "@/domain/hoverToolt
 import { getActiveByKind } from "@/stores/useFailureStore";
 import { bakePortShoreOnce } from "../OceanTsl/portShore";
 import { instanceQuayCranes, quayDrawPointer, quayGlbIndexNear, quayHoverId, updateQuayCraneFade, updateQuayCraneLods } from "@/domain/quayCraneInstance";
+import { mergeFadeIdenticalStatic } from "@/domain/mergeStaticGeometry";
 import { instanceRepeatedGround, buildGroundLods, resetGroundLods, updateGroundLods, type GroundLodSet } from "@/domain/repeatMesh";
 import { GROUND_LOD_CHECK_EVERY, GROUND_LOD_LEVELS } from "@/constants/groundLod";
 
@@ -85,6 +86,9 @@ function quayHoverFromEvent(event: ThreeEvent<PointerEvent>) {
 
 /** opacity만으로는 안 보임 — Three.js는 transparent=true 여야 알파가 블렌딩됨 */
 function enableGroundAlpha(root: Object3D) {
+  // 같은 원본에 같은 보정(투명/컷아웃/폴리곤 오프셋)이면 복제본 하나를 모든 메시에 쓴다.
+  // 보정은 재질 이름과 속성만 보므로 메시마다 결과가 다르지 않다.
+  const shared = new Map<Material, Material>();
   root.traverse((child) => {
     if (!(child instanceof Mesh)) return;
 
@@ -93,6 +97,8 @@ function enableGroundAlpha(root: Object3D) {
 
     const next = list.map((mat) => {
       if (!(mat instanceof Material)) return mat;
+      const cached = shared.get(mat);
+      if (cached) return cached;
 
       const hasOpacity =
         "opacity" in mat && typeof mat.opacity === "number" && mat.opacity < 1;
@@ -124,6 +130,7 @@ function enableGroundAlpha(root: Object3D) {
         cloned.polygonOffsetUnits = -4;
       }
       cloned.needsUpdate = true;
+      shared.set(mat, cloned);
       return cloned;
     });
 
@@ -248,6 +255,10 @@ type GroundProps = {
   rotation?: Vector3Tuple;
 };
 
+/** [perf] 형제 GLB(선박·크레인)가 Suspense 로 멈추면 첫 렌더가 버려지고 useMemo 가 다시 돌아 clone·merge 가 두 번 실행됐다.
+ * 커밋 전까지는 같은 scene 의 결과를 재사용하고, 커밋 뒤엔 지운다(다음 마운트는 새로 만든다). */
+const pendingGroundModel = new WeakMap<Object3D, Object3D>();
+
 export default function Ground({
   position = GROUND_POSITION,
   rotation = GROUND_ROTATION,
@@ -268,6 +279,8 @@ export default function Ground({
   const occupancyWarmed = useRef(false);
 
   const model = useMemo(() => {
+    const pending = pendingGroundModel.get(scene);
+    if (pending) return pending;
     const endClone = loadSpan("ground clone+material setup");
     const cloned = scene.clone(true);
     cloned.updateMatrixWorld(true);
@@ -310,15 +323,32 @@ export default function Ground({
       }
     });
     // [satfade] 위성지형 머티리얼은 Plane/Plane.002 와 공유(M_Grid) → 전용 복제 후 transparent 1회 설정 (이후 opacity 만 트윈, 재컴파일 없음)
+    // 위성 메시는 전부 같은 투명도로 같이 사라진다. 안벽(M_Grid)과는 분리하고, 위성끼리는 하나.
+    let satShared: Material | Material[] | null = null;
     cloned.traverse((o) => {
       if (!(o instanceof Mesh) || !isSatMesh(o)) return;
-      const mk = (m: Material) => { const c = m.clone(); c.transparent = true; c.opacity = 1; c.needsUpdate = true; return c; };
-      o.material = Array.isArray(o.material) ? o.material.map(mk) : mk(o.material as Material);
+      if (!satShared) {
+        const mk = (m: Material) => {
+          const c = m.clone();
+          c.transparent = true;
+          c.opacity = 1;
+          c.userData.satFade = true;
+          c.needsUpdate = true;
+          return c;
+        };
+        satShared = Array.isArray(o.material) ? o.material.map(mk) : mk(o.material as Material);
+      }
+      o.material = satShared;
     });
     applyGroundPointerFilter(cloned);
     instanceRepeatedGround(cloned);
+    mergeFadeIdenticalStatic(cloned);
     endClone();
+    pendingGroundModel.set(scene, cloned);
     return cloned;
+  }, [scene]);
+  useEffect(() => {
+    pendingGroundModel.delete(scene);
   }, [scene]);
 
   // [satfade] occupancy 전환 진행도(t)에 맞춰 위성지형 페이드 아웃/인

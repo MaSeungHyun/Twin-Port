@@ -297,10 +297,10 @@ export function Ocean({ geos }: { geos: THREE.BufferGeometry[] }) {
   return (
     <>
       <Bubbles under={uwFogU.under} />
-      <mesh ref={bgRef} geometry={uwBgGeo} material={uwBgMat} frustumCulled={false} renderOrder={-10} />
-      <group ref={seaRef} position-y={oceanState.level}>
+      <mesh ref={bgRef} geometry={uwBgGeo} material={uwBgMat} frustumCulled={false} renderOrder={-10} userData={{ noWireframe: true }} />
+      <group ref={seaRef} position-y={oceanState.level} userData={{ noWireframe: true }}>
         {geos.map((geo, i) => (
-          <mesh key={i} geometry={geo} material={ocean} receiveShadow />
+          <mesh key={i} geometry={geo} material={ocean} receiveShadow userData={{ noWireframe: true }} />
         ))}
       </group>
     </>

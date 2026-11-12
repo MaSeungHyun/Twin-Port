@@ -36,7 +36,7 @@ import {
 import { composeCargoSlotLocal, shipWorldScale } from "@/domain/shipCargo";
 import type { ShipInstance } from "@/views/viewport/_components/Port/Ship";
 import { useGLTF } from "@react-three/drei";
-import { extendKtx2 } from "@/domain/gltfLoaders";
+import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useObjectStore } from "@/stores/object";
 import {
@@ -788,11 +788,9 @@ export default function ShipCargo({
                   }
                   tryMarkReady();
                 }}
-                args={[
-                  prototypes[c.key].geometry,
-                  showOccupancyCargo ? occupancyContainerMaterial : prototypes[c.key].material,
-                  count,
-                ]}
+                // 재질을 args 에 넣으면 전환마다 메시가 새로 생겨 셰이더 노드를 다시 빌드한다.
+                args={[prototypes[c.key].geometry, prototypes[c.key].material, count]}
+                material={showOccupancyCargo ? occupancyContainerMaterial : prototypes[c.key].material}
                 frustumCulled={false}
                 // [shadow] 적재 컨테이너는 그림자 패스에서 빼 둔다. 선체 그림자는 유지.
                 castShadow={false}
@@ -822,4 +820,4 @@ export default function ShipCargo({
   );
 }
 
-useGLTF.preload(containersUrl, false, true, extendKtx2);
+whenKtx2Ready(() => useGLTF.preload(containersUrl, false, true, extendKtx2)); // [perf] KTX2: detectSupport 이후

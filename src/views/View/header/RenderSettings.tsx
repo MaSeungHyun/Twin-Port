@@ -1,7 +1,7 @@
 import { useState } from "react";
-import IconButton from "@/components/IconButton";
 import Checkbox from "@/components/Checkbox";
-import { DropdownMenu } from "@/components/DropdownMenu";
+import Icon from "@/components/Icon";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 import { hasWebGPU, switchRenderer, useRendererStore } from "@/stores/renderer";
 import {
   useViewportSettingsStore,
@@ -11,44 +11,8 @@ import {
 } from "@/stores/useViewportSettingsStore";
 import { cn } from "@/utils/style";
 
-function Segment<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string; disabled?: boolean }[];
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-xs">
-      <span className="text-base text-white/70">{label}</span>
-      <div className="flex gap-xs">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            disabled={o.disabled}
-            aria-pressed={value === o.value}
-            onClick={() => onChange(o.value)}
-            className={cn(
-              "flex-1 rounded-xs border border-white/20 px-sm py-xs text-base transition-colors",
-              "hover:border-primary disabled:cursor-not-allowed disabled:opacity-40",
-              value === o.value && "border-primary/60 bg-primary/40",
-            )}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** 그래픽 설정 (품질 프리셋, 그림자, 렌더러, 성능 오버레이) */
-export default function RenderSettings() {
+/** 3D 위 우측 그래픽 설정 팝오버. 위치는 HudOverlay가 1536,88에 둔다 */
+export default function GraphicsSettingsPanel({ onClose }: { onClose: () => void }) {
   const quality = useViewportSettingsStore((s) => s.quality);
   const setQuality = useViewportSettingsStore((s) => s.setQuality);
   const shadow = useViewportSettingsStore((s) => s.shadowQuality);
@@ -60,80 +24,85 @@ export default function RenderSettings() {
   const reason = useRendererStore((s) => s.fallbackReason);
   const ok = hasWebGPU();
   const [nextPref, setNextPref] = useState<RendererPref>(pref);
+  const detected = active === "webgpu" ? "WebGPU" : active === "webgl2" ? "WebGL2" : "…";
+  const dirty = nextPref !== pref;
 
   return (
-    <DropdownMenu>
-      <DropdownMenu.Trigger asChild>
-        <IconButton
-          icon="Settings"
-          label="Graphics settings"
-          className="aspect-square w-full"
+    <aside className="flex max-h-[calc(100dvh-112px-var(--toast-lift,0px))] w-full flex-col overflow-hidden p-6 text-dt-text">
+      <header className="flex shrink-0 items-center justify-between">
+        <h2 className="text-[16px] font-medium">그래픽 설정</h2>
+        <button
+          type="button"
+          aria-label="그래픽 설정 닫기"
+          onClick={onClose}
+          className="grid size-6 place-items-center text-dt-text-2 hover:text-dt-text"
+        >
+          <Icon icon="X" className="size-4" />
+        </button>
+      </header>
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
+      <div className="h-px bg-white/8" />
+
+      <div className="mt-4 flex flex-col gap-4">
+        <SegmentedControl<QualityPreset>
+          label="품질"
+          value={quality}
+          onChange={setQuality}
+          options={[
+            { value: "performance", label: "성능" },
+            { value: "balanced", label: "균형" },
+            { value: "high", label: "고품질" },
+          ]}
         />
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content
-        side="right"
-        align="end"
-        className="min-w-64 p-sm text-lg"
-        sideOffset={20}
-      >
-        <div className="flex flex-col gap-md px-xs py-xs text-lg text-white">
-          <Segment<QualityPreset>
-            label="품질"
-            value={quality}
-            onChange={setQuality}
-            options={[
-              { value: "performance", label: "성능" },
-              { value: "balanced", label: "균형" },
-              { value: "high", label: "고품질" },
-            ]}
-          />
-          <Segment<ShadowQuality>
-            label="그림자"
-            value={shadow}
-            onChange={setShadow}
-            options={[
-              { value: "off", label: "끄기" },
-              { value: "low", label: "낮음" },
-              { value: "high", label: "높음" },
-            ]}
-          />
-          <Segment<RendererPref>
-            label="렌더러 (적용 시 새로고침)"
-            value={nextPref}
-            onChange={setNextPref}
-            options={[
-              { value: "webgpu", label: "WebGPU", disabled: !ok },
-              { value: "webgl", label: "WebGL2" },
-            ]}
-          />
-          <div className="flex items-center justify-between gap-sm text-base text-white/70">
-            <span title={reason ?? undefined}>
-              현재:{" "}
-              {active === "webgpu"
-                ? "WebGPU"
-                : active === "webgl2"
-                  ? "WebGL2"
-                  : "…"}
-              {reason ? " (폴백)" : ""}
-            </span>
-            <button
-              type="button"
-              disabled={nextPref === pref}
-              onClick={() => switchRenderer(nextPref)}
-              className="rounded-xs border border-white/20 px-sm py-xs text-white hover:border-primary disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              적용
-            </button>
-          </div>
-          {reason && <span className="text-sm text-white/50">{reason}</span>}
+        <SegmentedControl<ShadowQuality>
+          label="그림자"
+          value={shadow}
+          onChange={setShadow}
+          options={[
+            { value: "off", label: "끄기" },
+            { value: "low", label: "낮음" },
+            { value: "high", label: "높음" },
+          ]}
+        />
+        <SegmentedControl<RendererPref>
+          label="렌더러"
+          hint="적용 시 새로고침"
+          value={nextPref}
+          onChange={setNextPref}
+          options={[
+            { value: "webgpu", label: "WebGPU", disabled: !ok },
+            { value: "webgl", label: "WebGL2" },
+          ]}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[12px] font-normal text-dt-text-2" title={reason ?? undefined}>
+            현재 {detected}
+            {reason ? " · 폴백" : ""}
+          </span>
+          <button
+            type="button"
+            disabled={!dirty}
+            onClick={() => switchRenderer(nextPref)}
+            className={cn(
+              "h-8 w-16 rounded-lg text-[12px] font-medium",
+              dirty ? "bg-dt-point text-dt-bg" : "bg-white/4 text-dt-text-3",
+            )}
+          >
+            적용
+          </button>
+        </div>
+        <div className="h-px bg-white/8" />
+        <div className="flex items-center justify-between gap-2">
           <Checkbox
             id="render-settings-perf"
-            label="성능 오버레이 (Shift+P)"
+            label="성능 오버레이"
             checked={perf}
             onCheckedChange={(checked) => setPerf(checked === true)}
           />
+          <span className="rounded bg-white/8 px-1.5 py-0.5 text-[10px] font-medium tracking-[1px] text-dt-text-3">Shift+P</span>
         </div>
-      </DropdownMenu.Content>
-    </DropdownMenu>
+      </div>
+      </div>
+    </aside>
   );
 }

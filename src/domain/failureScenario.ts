@@ -8,6 +8,7 @@ import {
   FAILURE_WARNING_CAUSES,
   type FailureKind,
 } from "@/constants/failureScenario";
+import { afterNextFrame } from "@/domain/yieldToMain";
 import { overheadCraneKey, overheadCraneTitle } from "@/domain/overheadCraneTwin";
 import { useContentViewStore } from "@/stores/contentView";
 import { failureKey, useFailureStore } from "@/stores/useFailureStore";
@@ -28,12 +29,14 @@ export function equipmentName(kind: FailureKind, index: number) {
  * 선택 outline 없음, Track 버튼 비활성, 카메라는 Tracking 과 같은 비행 + 따라가기.
  */
 export function focusEquipment(kind: FailureKind, index: number, auto = false) {
-  const content = useContentViewStore.getState();
-  content.closeDetailGraph();
-  if (kind === "quayCrane") content.openCraneDetail(`crane-${index}`);
-  else content.openOverheadCraneDetail(overheadCraneKey(index));
-  // 버튼 Tracking 중이었다면 여기서 해제되고 alarm follow 로 전환
+  // 카메라 목적지는 먼저 잡고, 상세 패널 마운트는 다음 프레임으로 미룬다.
   useViewportStore.getState().startAlarmFollow(kind, index, auto);
+  void afterNextFrame().then(() => {
+    const content = useContentViewStore.getState();
+    content.closeDetailGraph();
+    if (kind === "quayCrane") content.openCraneDetail(`crane-${index}`);
+    else content.openOverheadCraneDetail(overheadCraneKey(index));
+  });
 }
 
 // [autofocus] 고장 알람 → 카메라 자동 이동 (debounce + 최소 간격, 최신 고장 우선)

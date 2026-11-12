@@ -1,13 +1,15 @@
+import { cn } from "@/utils/style";
 import type { ShipMark, ShipPhase } from "@/stores/useShipArrivalStore";
 import { useShipArrivalStore } from "@/stores/useShipArrivalStore";
+import { useViewportStore } from "@/stores/viewport";
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useRef, type RefObject } from "react";
-import { Group } from "three";
+import { useRef, useState, type RefObject } from "react";
+import { Group, Vector3 } from "three";
 import type { ShipInstance } from "./Ship";
 
-/** 원(size-3.5 = 14px) 반지름 — 원 중심이 정확히 선체 표면에 오도록 (StatusCallout 과 동일) */
-const DOT_RADIUS_PX = 7;
+/** 앵커(16px 원) 반지름 — 점 중심이 선체 표면에 오도록 */
+const ANCHOR_RADIUS_PX = 8;
 
 function scaleY(pose: ShipInstance) {
   const s = pose.scale ?? 1;
@@ -20,11 +22,6 @@ const PHASE_LABEL: Record<ShipPhase, string> = {
   arriving: "입항",
 };
 
-const PHASE_COLOR: Record<ShipPhase, string> = {
-  loading: "#2ECC71",
-  departing: "#4DA8FF",
-  arriving: "#4DA8FF",
-};
 
 function ShipMarkLabel({
   mark,
@@ -36,67 +33,75 @@ function ShipMarkLabel({
   anchorY: number;
 }) {
   const group = useRef<Group>(null);
-  const color = PHASE_COLOR[mark.phase];
   const percent = Math.round(Math.min(1, Math.max(0, mark.progress)) * 100);
+  const [onScreen, setOnScreen] = useState(true);
+  const onRef = useRef(true);
+  const last = useRef(new Vector3(Number.NaN, Number.NaN, Number.NaN));
+  const camStamp = useRef(0);
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     const pose = posesRef.current?.[mark.index];
     const node = group.current;
     if (!pose || !node) return;
-    // 선체 중심 상단 표면(로컬 anchorY × scale) — 트윈으로 움직여도 매 프레임 따라감
-    node.position.set(pose.position[0], pose.position[1] + anchorY * scaleY(pose), pose.position[2]);
+    const y = pose.position[1] + anchorY * scaleY(pose);
+    const stamp = camera.matrixWorld.elements[12]! + camera.matrixWorld.elements[13]! + camera.matrixWorld.elements[14]!;
+    if (
+      last.current.x === pose.position[0]
+      && last.current.y === y
+      && last.current.z === pose.position[2]
+      && stamp === camStamp.current
+    ) return;
+    last.current.set(pose.position[0], y, pose.position[2]);
+    camStamp.current = stamp;
+    node.position.copy(last.current);
+    const projected = last.current.clone().project(camera);
+    const visible = projected.z < 1 && Math.abs(projected.x) < 1.2 && Math.abs(projected.y) < 1.2;
+    if (visible !== onRef.current) {
+      onRef.current = visible;
+      setOnScreen(visible);
+    }
   });
 
   return (
     <group ref={group}>
       {/* center 미사용: 하단 원 중심을 앵커에 맞춤 */}
-      <Html zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
+      {onScreen ? <Html zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
         <div
           className="flex flex-col items-center"
-          style={{ translate: `-50% calc(-100% + ${DOT_RADIUS_PX}px)` }}
+          style={{ translate: `-50% calc(-100% + ${ANCHOR_RADIUS_PX}px)` }}
         >
           <div
-            className="flex flex-col items-center rounded-2xl border-2 bg-black/80 px-3 py-1.5 whitespace-nowrap"
-            style={{
-              borderColor: color,
-              boxShadow: `0 0 16px ${color}88`,
-            }}
+            className={cn(
+              "rounded-lg bg-dt-bg/80 px-3 whitespace-nowrap shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--color-dt-info)_80%,transparent)]",
+              mark.phase === "loading" ? "h-11" : "h-7",
+            )}
           >
-            <span className="text-[15px] font-semibold tracking-wide text-white">
-              {mark.name}
-              <span className="mx-1.5 text-white/45">·</span>
-              {PHASE_LABEL[mark.phase]}
-            </span>
+            <div className="flex h-7 items-center gap-1">
+              <span className="text-[12px] font-bold text-dt-text">{mark.name}</span>
+              <span className="text-[12px] text-dt-text-3">·</span>
+              <span className="text-[12px] font-medium text-dt-info-bright">{PHASE_LABEL[mark.phase]}</span>
+            </div>
             {mark.phase === "loading" ? (
-              <span className="mt-1 flex items-center gap-1.5">
-                <span className="h-1.5 w-24 overflow-hidden rounded-full bg-white/15">
-                  <span
-                    className="block h-full rounded-full"
-                    style={{ width: `${percent}%`, background: color }}
-                  />
+              <div className="flex items-center gap-2">
+                <span className="h-1 w-[104px] overflow-hidden rounded-sm bg-white/14">
+                  <span className="block h-full bg-dt-info" style={{ width: `${percent}%` }} />
                 </span>
-                <span className="text-[11px] tabular-nums text-white/80">{percent}%</span>
-              </span>
+                <span className="text-[10px] font-medium text-dt-info-bright tabular-nums">{percent}%</span>
+              </div>
             ) : null}
           </div>
-          <div
-            className="h-12 w-px"
-            style={{ background: `linear-gradient(to bottom, ${color}, transparent)` }}
-          />
-          <div
-            className="size-3.5 rounded-full"
-            style={{
-              background: color,
-              boxShadow: `0 0 0 6px ${color}33, 0 0 18px ${color}`,
-            }}
-          />
+          <div className="h-5 w-px bg-dt-info/60" />
+          <span className="relative grid size-4 place-items-center">
+            <span className="absolute inset-0 rounded-full bg-dt-info/24" />
+            <span className="size-2 rounded-full bg-dt-info" />
+          </span>
         </div>
-      </Html>
+      </Html> : null}
     </group>
   );
 }
 
-/** 적재·출항·입항 중인 선박 위의 라벨. 적재는 단이 쌓일수록 진행 막대가 찬다. */
+/** 입·출항·적재 이벤트 신호. 상세(Berth/Cargo)는 호버 툴팁 — 라벨 떠 있는 동안은 툴팁 생략 */
 export default function ShipArrivalLabel({
   posesRef,
   anchorY = 0,
@@ -105,7 +110,10 @@ export default function ShipArrivalLabel({
   anchorY?: number;
 }) {
   const marks = useShipArrivalStore((state) => state.marks);
-  if (!posesRef || marks.length === 0) return null;
+  const hudHidden = useViewportStore((s) => s.hudHidden);
+  const started = useViewportStore((s) => s.monitoringStarted);
+  const introOpen = useViewportStore((s) => s.introOpen);
+  if (hudHidden || !started || introOpen || !posesRef || marks.length === 0) return null;
   return (
     <>
       {marks.map((mark) => (

@@ -1,31 +1,43 @@
-import BlockContent from "./_components/block/BlockContent";
-import ContainerContent from "./_components/container/ContainerContent";
-import ContentDetailGraphPanel from "./_components/ContentDetailGraphPanel";
-import CraneContentPanel from "./_components/crane/CraneContentPanel";
-import ShipContentPanel from "./_components/ship/ShipContentPanel";
-import CyberPanel from "./_components/cyber/CyberPanel";
-import { useContentViewStore } from "@/stores/contentView";
+import { useEffect } from "react";
+import { useContentViewStore, type ContentView } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
 import { cn } from "@/utils/style";
-import { useEffect } from "react";
+import BlockHud from "./_components/block/BlockHud";
+import ContainerHud from "./_components/container/ContainerHud";
+import CraneHud from "./_components/crane/CraneHud";
+import ContentDetailGraphPanel from "./_components/ContentDetailGraphPanel";
+import CyberPanel from "./_components/cyber/CyberPanel";
+import ScheduleContent from "./_components/ship/ScheduleContent";
+import ShipHud from "./_components/ship/ShipHud";
+import BerthContent from "./_components/terminal/BerthContent";
+
+const LIST_VIEWS = new Set<ContentView>(["schedule", "ship", "crane", "container", "terminal", "block"]);
+
+function isList(view: ContentView | null): view is ContentView {
+  return view != null && LIST_VIEWS.has(view);
+}
+
+function ListView({ view }: { view: ContentView }) {
+  if (view === "schedule") return <ScheduleContent />;
+  if (view === "ship") return <ShipHud />;
+  if (view === "crane") return <CraneHud />;
+  if (view === "container") return <ContainerHud />;
+  return <BlockHud />;
+}
 
 export default function ContentPanel() {
   const activeView = useContentViewStore((s) => s.activeView);
   const detailGraphOpen = useContentViewStore((s) => s.detailGraphOpen);
   const detailGraphSubject = useContentViewStore((s) => s.detailGraphSubject);
+  const dismissContentPanelLayer = useContentViewStore((s) => s.dismissContentPanelLayer);
   const monitorMode = useViewportStore((s) => s.monitorMode);
-  const dismissContentPanelLayer = useContentViewStore(
-    (s) => s.dismissContentPanelLayer,
-  );
 
   useEffect(() => {
     if (monitorMode || !activeView) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      if (dismissContentPanelLayer()) {
-        event.preventDefault();
-      }
+      if (dismissContentPanelLayer()) event.preventDefault();
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -33,6 +45,14 @@ export default function ContentPanel() {
   }, [activeView, monitorMode, dismissContentPanelLayer]);
 
   if (monitorMode || !activeView) return null;
+
+  if (isList(activeView)) {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-40">
+        <ListView view={activeView} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -44,19 +64,11 @@ export default function ContentPanel() {
       )}
     >
       <CyberPanel className="flex min-h-0 w-96 shrink-0 flex-col backdrop-blur-md">
-        {activeView === "block" ? <BlockContent /> : null}
-        {activeView === "container" ? (
-          <ContainerContent />
-        ) : null}
-        {activeView === "ship" ? <ShipContentPanel /> : null}
-        {activeView === "crane" ? <CraneContentPanel /> : null}
+        {activeView === "berth" ? <BerthContent /> : null}
       </CyberPanel>
 
       {detailGraphOpen && detailGraphSubject ? (
-        <ContentDetailGraphPanel
-          subject={detailGraphSubject}
-          className="min-w-0 flex-1"
-        />
+        <ContentDetailGraphPanel subject={detailGraphSubject} className="min-w-0 flex-1" />
       ) : null}
     </div>
   );

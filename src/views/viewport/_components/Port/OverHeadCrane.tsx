@@ -12,6 +12,7 @@ import {
 } from "@/domain/hoverOutline";
 import { useGLTF } from "@react-three/drei";
 import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
+import { commitInstanceMatrices } from "@/domain/instanceUpload";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import {
@@ -198,12 +199,11 @@ export default function OverHeadCrane({ instances }: OverHeadCraneProps) {
           }
         });
 
-        instanced.count = resolvedInstances.length;
-        instanced.instanceMatrix.needsUpdate = true;
+        // [perf] 페이드 메시는 페이드 중일 때만 업로드 (평소 count 0)
+        commitInstanceMatrices(instanced, resolvedInstances.length);
         for (const f of [fadeA, fadeG]) {
           if (!f) continue;
-          f.count = fading ? resolvedInstances.length : 0;
-          f.instanceMatrix.needsUpdate = true;
+          commitInstanceMatrices(f, fading ? resolvedInstances.length : 0);
         }
       });
 

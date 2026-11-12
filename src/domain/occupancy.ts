@@ -1,4 +1,3 @@
-import { COLORS } from "@/constants/colors";
 import { BLOCKS, getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import type { Container } from "@/types/container";
 
@@ -65,11 +64,11 @@ export function occupancyLevel(ratio: number): OccupancyLevel {
   return "danger";
 }
 
-/** 점유율 구간별 표시 색 (바닥 마크·패널 공통) */
+/** 점유율 구간별 3D 색. 범례와 같은 --color-dt-ok / warn / danger */
 export function occupancyColor(ratio: number): string {
-  if (ratio < WARNING_RATIO) return COLORS.success;
-  if (ratio < DANGEROUS_RATIO) return COLORS.warning;
-  return COLORS.danger;
+  if (ratio < WARNING_RATIO) return "#14D99B";
+  if (ratio < DANGEROUS_RATIO) return "#FFB020";
+  return "#F0484A";
 }
 
 export function computeYardStatus(

@@ -4,7 +4,10 @@ import {
   getBlockFootprintSize,
   getBlockLabelSize,
 } from "@/domain/blockFootprint";
-import type { BlockOccupancy } from "@/domain/occupancy";
+import { occupancyLevel, type BlockOccupancy, type OccupancyLevel } from "@/domain/occupancy";
+import { useOccupancyStore } from "@/stores/occupancy";
+import { cn } from "@/utils/style";
+import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import type { Group, Material, Mesh } from "three";
@@ -89,6 +92,59 @@ function applyAlwaysOnTop(material: Material | Material[] | undefined) {
   }
 }
 
+const BADGE_STYLE: Record<OccupancyLevel, { border: string; text: string }> = {
+  safe: { border: "rgba(20,217,155,0.8)", text: "#6FE8C0" },
+  warning: { border: "rgba(255,176,32,0.8)", text: "#FFC966" },
+  danger: { border: "rgba(240,72,74,0.8)", text: "#FF8A8B" },
+};
+
+/** 점유율 모드 라벨. 높이 24의 2배 캔버스, 바탕 80% + 상태색 80% 테두리 */
+function getOccupancyBadge(code: string, percent: number, level: OccupancyLevel) {
+  const key = `occ:${code}|${percent}|${level}`;
+  const cached = labelCache.get(key);
+  if (cached) return cached;
+  const height = 48;
+  const style = BADGE_STYLE[level];
+  const family = `"Noto Sans KR", "Malgun Gothic", sans-serif`;
+  const nameFont = `700 24px ${family}`;
+  const pctFont = `500 24px ${family}`;
+  const cv = document.createElement("canvas");
+  const ctx = cv.getContext("2d")!;
+  ctx.font = nameFont;
+  const nameW = ctx.measureText(code).width;
+  ctx.font = pctFont;
+  const pctW = ctx.measureText(`${percent}%`).width;
+  const width = Math.ceil(nameW + pctW + 56);
+  cv.width = width;
+  cv.height = height;
+  const draw = cv.getContext("2d")!;
+  draw.clearRect(0, 0, width, height);
+  const radius = 12;
+  draw.beginPath();
+  draw.roundRect(2, 2, width - 4, height - 4, radius);
+  draw.fillStyle = "rgba(10,18,25,0.8)";
+  draw.fill();
+  draw.lineWidth = 4;
+  draw.strokeStyle = style.border;
+  draw.stroke();
+  draw.textBaseline = "middle";
+  draw.font = nameFont;
+  draw.fillStyle = "#F2F5F8";
+  draw.textAlign = "left";
+  draw.fillText(code, 16, height / 2);
+  draw.font = pctFont;
+  draw.fillStyle = style.text;
+  draw.textAlign = "right";
+  draw.fillText(`${percent}%`, width - 16, height / 2);
+  const tex = new CanvasTexture(cv);
+  tex.colorSpace = SRGBColorSpace;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.anisotropy = 8;
+  const entry = { tex, aspect: width / height };
+  labelCache.set(key, entry);
+  return entry;
+}
+
 function labelScaleForDistance(distance: number) {
   return Math.min(
     BLOCK_LABEL_MAX_SCALE,
@@ -96,13 +152,52 @@ function labelScaleForDistance(distance: number) {
   );
 }
 
-/** 바닥과 평행한 Block 코드 라벨 — 블록 크기 + 카메라 거리에 비례 */
-export default function BlockFloorLabel({
+const OCCUPANCY_BADGE = {
+  warning: {
+    box: "shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--color-dt-warn)_80%,transparent)]",
+    text: "text-dt-warn-bright",
+  },
+  danger: {
+    box: "shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--color-dt-danger)_80%,transparent)]",
+    text: "text-dt-danger-bright",
+  },
+} as const;
+
+/** 점유율 모드의 위험·주의 블록. 카메라 거리와 상관없이 보이는 HTML 배지 */
+function OccupancyBadge({
   block,
+  percent,
+  level,
+}: {
+  block: BlockDefinition;
+  percent: number;
+  level: "warning" | "danger";
+}) {
+  const deckY = useYardStore((s) => s.deckY);
+  const center = getBlockFootprintCenter(block);
+  const tone = OCCUPANCY_BADGE[level];
+  return (
+    <group position={[center[0], deckY + block.origin[1] + 0.4, center[2]]}>
+      <Html center zIndexRange={[32, 0]} style={{ pointerEvents: "none" }}>
+        <div className={cn("flex h-7 items-center gap-1 rounded-lg bg-dt-bg/80 px-3 whitespace-nowrap", tone.box)}>
+          <span className="text-[12px] font-bold text-dt-text">{block.code}</span>
+          <span className="text-[12px] text-dt-text-3">·</span>
+          <span className={cn("text-[12px] font-medium", tone.text)}>{percent}%</span>
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+/** 바닥과 평행한 Block 코드 라벨 — 블록 크기 + 카메라 거리에 비례 */
+function GroundLabel({
+  block,
+  occupancy,
 }: {
   block: BlockDefinition;
   occupancy: BlockOccupancy;
 }) {
+  const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
   const deckY = useYardStore((s) => s.deckY);
   const center = getBlockFootprintCenter(block);
   const { width, depth } = getBlockFootprintSize(block);
@@ -110,7 +205,12 @@ export default function BlockFloorLabel({
   const alongBay = depth >= width;
   const groupRef = useRef<Group>(null);
   const textRef = useRef<Mesh>(null);
-  const label = useMemo(() => getLabelTexture(block.code), [block.code]);
+  const label = useMemo(
+    () => occupancyMode
+      ? getOccupancyBadge(block.code, Math.round(occupancy.percent), occupancyLevel(occupancy.ratio))
+      : getLabelTexture(block.code),
+    [occupancyMode, block.code, occupancy.percent, occupancy.ratio],
+  );
   // 캔버스 높이 = 1.25em + 패딩 0.4em → 평면 높이를 fontSize 기준으로 환산
   // 2줄이라 번호 글자 크기를 기존 대비 0.8배로 → 전체 라벨이 블록 안에 들어가게
   const planeH = fontSize * 0.8 * (LABEL_TEXT_EM + LABEL_PAD_EM * 2);
@@ -146,4 +246,26 @@ export default function BlockFloorLabel({
       </mesh>
     </group>
   );
+}
+
+/** 점유율 모드의 위험·주의는 화면 배지, 나머지는 바닥 라벨 */
+export default function BlockFloorLabel({
+  block,
+  occupancy,
+}: {
+  block: BlockDefinition;
+  occupancy: BlockOccupancy;
+}) {
+  const occupancyMode = useOccupancyStore((s) => s.occupancyMode);
+  const level = occupancyLevel(occupancy.ratio);
+  if (occupancyMode && level !== "safe") {
+    return (
+      <OccupancyBadge
+        block={block}
+        percent={Math.round(occupancy.percent)}
+        level={level}
+      />
+    );
+  }
+  return <GroundLabel block={block} occupancy={occupancy} />;
 }

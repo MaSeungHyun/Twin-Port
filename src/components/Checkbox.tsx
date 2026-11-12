@@ -22,10 +22,11 @@ export default function Checkbox({
         id={id}
         data-slot="checkbox"
         className={cn(
-          "peer flex size-xl shrink-0 items-center justify-center rounded-xs border border-white/30 bg-transparent",
+          "peer flex size-4 shrink-0 items-center justify-center rounded bg-transparent shadow-[inset_0_0_0_2px_rgba(255,255,255,0.28)]",
           "outline-none transition-colors",
-          "hover:border-primary focus-visible:ring-2 focus-visible:ring-primary/40",
-          "data-[state=checked]:border-primary/50 data-[state=checked]:bg-primary/50",
+          "hover:shadow-[inset_0_0_0_2px_rgba(255,255,255,0.45)]",
+          "focus-visible:ring-2 focus-visible:ring-dt-point/40",
+          "data-[state=checked]:bg-dt-point data-[state=checked]:shadow-none",
           "disabled:cursor-not-allowed disabled:opacity-40",
           className,
         )}
@@ -35,10 +36,10 @@ export default function Checkbox({
           data-slot="checkbox-indicator"
           className="flex items-center justify-center text-white"
         >
-          <Icon icon="Check" className="size-md stroke-3 stroke-white" />
+          <Icon icon="Check" className="size-3 stroke-[2.5] stroke-[#0A1219]" />
         </CheckboxPrimitive.Indicator>
       </CheckboxPrimitive.Root>
-      {label ? <span className="text-inherit text-white">{label}</span> : null}
+      {label ? <span className="text-[14px] font-normal text-dt-text">{label}</span> : null}
     </label>
   );
 }

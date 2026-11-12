@@ -41,13 +41,13 @@ export default function ViewLoader() {
   if (active && dismissed) setDismissed(false);
 
   const loadingDone = started && !active;
-  const finished = loadingDone && (warmStage === "done" || timedOut);
+  const finished = (loadingDone && (warmStage === "done" || timedOut)) || timedOut;
 
   useEffect(() => {
-    if (!loadingDone) return;
+    if (!started || timedOut) return;
     const t = window.setTimeout(() => setTimedOut(true), WARM_TIMEOUT_MS);
     return () => window.clearTimeout(t);
-  }, [loadingDone]);
+  }, [started, timedOut]);
 
   // [perf] dev: 로딩 중 메인 스레드 long task(>50ms) 기록 → 끝나면 요약
   useEffect(() => {
@@ -88,13 +88,13 @@ export default function ViewLoader() {
       : warmLabel(warmStage);
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-dt-bg">
       <div
-        className="h-16 w-16 animate-spin rounded-full border-4 border-white/10 border-t-primary will-change-transform"
+        className="size-16 animate-spin rounded-full border-4 border-white/8 border-t-dt-point will-change-transform"
         role="progressbar"
         aria-label={label}
       />
-      <p className="mt-md text-lg tracking-wide text-white/70" aria-live="polite">
+      <p className="mt-4 text-[14px] text-dt-text-2" aria-live="polite">
         {label}
       </p>
     </div>

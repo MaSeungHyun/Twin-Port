@@ -8,8 +8,14 @@ import {
 } from "@/constants/container";
 import { getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { composeContainerMatrix } from "@/domain/container";
-import { buildContainerPrototypes } from "@/domain/containerPrototype";
-import { ensureContainerBlockMesh } from "@/domain/containerInstancePool";
+import {
+  applyUnifiedContainerColor,
+  buildContainerPrototypes,
+  buildUnifiedContainerGeometry,
+  buildUnifiedContainerMaterial,
+  CONTAINER_COLOR_ATTR,
+} from "@/domain/containerPrototype";
+import { ensureContainerBlockMesh, ensureUnifiedContainerBlockMesh } from "@/domain/containerInstancePool";
 import { getBlockFadeLevel, getFadeMaterial, useAreaDepthFadeVersion } from "@/domain/areaDepthFade";
 import { beginSceneWarmTask } from "./WaterReflection";
 import { useYardStore } from "@/stores/yard";
@@ -18,7 +24,7 @@ import { occupancyStage, subscribeOccupancyHeavy } from "@/domain/occupancyLook/
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useViewportStore } from "@/stores/viewport";
 import { useGLTF } from "@react-three/drei";
-import { extendKtx2 } from "@/domain/gltfLoaders";
+import { extendKtx2, whenKtx2Ready } from "@/domain/gltfLoaders";
 import { useFrame } from "@react-three/fiber";
 import {
   CONTAINER_LOD_CHECK_EVERY,
@@ -32,6 +38,7 @@ import {
   Color,
   DynamicDrawUsage,
   Group,
+  type InstancedBufferAttribute,
   InstancedMesh,
   LineBasicMaterial,
   type Material,
@@ -169,6 +176,26 @@ export default function ContainerYard({
     [prototypes],
   );
 
+  // [perf] 블록마다 색별 메시 4개 → 통합 메시 1개 (색은 인스턴스 attribute). 정점 대응 실패 시 null → 기존 색별 경로.
+  const unified = useMemo(() => {
+    const geometry = buildUnifiedContainerGeometry(prototypes);
+    if (!geometry) {
+      console.warn("[ContainerYard] 통합 컨테이너 geometry 생성 실패 → 색별 메시 사용");
+      return null;
+    }
+    const material = buildUnifiedContainerMaterial(prototypes);
+    const materials = [
+      material,
+      applyUnifiedContainerColor(getFadeMaterial(material, 1)),
+      applyUnifiedContainerColor(getFadeMaterial(material, 2)),
+    ] as const;
+    return { geometry, materials };
+  }, [prototypes]);
+  const colorIndex = useMemo(
+    () => Object.fromEntries(CONTAINER_COLORS.map((c, i) => [c.key, i])) as Record<ContainerColorKey, number>,
+    [],
+  );
+
   // [containerLod] 블록별 스택 기둥 + 블록 중심 미리 계산
   const blockLods = useMemo(() => {
     const stacks = new Map<
@@ -268,6 +295,25 @@ export default function ContainerYard({
     [],
   );
 
+  // [perf] 언마운트(또는 원본 교체) 시 이 컴포넌트가 만든 geometry/material 해제. 텍스처(map)는 GLTF 캐시 소유라 두고, 블록 메시는 아래 정리 effect 가 뗀다.
+  useEffect(
+    () => () => {
+      for (const proto of Object.values(prototypes)) {
+        proto.geometry.dispose();
+        proto.edgeGeometry.dispose();
+        proto.material.dispose();
+        proto.highlightMaterial.dispose();
+      }
+      for (const level of fadeMaterials) for (const m of Object.values(level)) m.dispose();
+      for (const m of Object.values(wireframeMaterials)) m.dispose();
+      if (unified) {
+        unified.geometry.dispose();
+        for (const m of unified.materials) m.dispose();
+      }
+    },
+    [prototypes, fadeMaterials, wireframeMaterials, unified],
+  );
+
   useFrame(({ clock }) => {
     if (!matchedIds) return;
     const pulse = 0.4 + (Math.sin(clock.elapsedTime * 4) * 0.5 + 0.5) * 1.8;
@@ -288,6 +334,13 @@ export default function ContainerYard({
       return fadeMaterials[1]![color];
     };
     const ensureBlockMesh = (code: string, kind: BlockMeshKind, color: ContainerColorKey) => {
+      if (unified) {
+        const mesh = ensureUnifiedContainerBlockMesh(blockMeshes.current, blockRoot, code, unified.geometry,
+          unified.materials, BLOCK_INSTANCE_CAP);
+        const m = unified.materials;
+        mesh.material = kind === "solid" || kind === "column" ? m[0] : kind === "fade0" || kind === "col0" ? m[1] : m[2];
+        return mesh;
+      }
       const proto = prototypes[color];
       const mesh = ensureContainerBlockMesh(blockMeshes.current, blockRoot, code, color,
         proto.geometry, [proto.material, fadeMaterials[0]![color], fadeMaterials[1]![color]], BLOCK_INSTANCE_CAP);
@@ -303,6 +356,9 @@ export default function ContainerYard({
       const i = mesh.count;
       if (i >= BLOCK_INSTANCE_CAP) return;
       mesh.setMatrixAt(i, m);
+      if (unified) {
+        (mesh.geometry.getAttribute(CONTAINER_COLOR_ATTR) as InstancedBufferAttribute).array[i] = colorIndex[color];
+      }
       mesh.count = i + 1;
       mesh.visible = true;
     };
@@ -378,11 +434,13 @@ export default function ContainerYard({
     for (const mesh of blockMeshes.current.values()) {
       if (mesh.count === 0) continue;
       mesh.instanceMatrix.needsUpdate = true;
+      const colors = mesh.geometry.getAttribute(CONTAINER_COLOR_ATTR) as InstancedBufferAttribute | undefined;
+      if (colors) colors.needsUpdate = true;
       mesh.boundingSphere = null;
     }
     releaseYardWarm.current?.();
     releaseYardWarm.current = null;
-  }, [placements, blockColors, meshesReady, matchedIds, farBlocks, blockLods, fadeVersion, prototypes, fadeMaterials, blockRoot]);
+  }, [placements, blockColors, meshesReady, matchedIds, farBlocks, blockLods, fadeVersion, prototypes, fadeMaterials, blockRoot, unified, colorIndex]);
 
   useEffect(() => {
     const meshes = blockMeshes.current;
@@ -390,6 +448,8 @@ export default function ContainerYard({
       for (const mesh of meshes.values()) {
         mesh.removeFromParent();
         mesh.dispose();
+        // 통합 메시는 블록마다 geometry 를 따로 만든다 (색 인덱스 버퍼 소유)
+        if (mesh.userData.unifiedBase) mesh.geometry.dispose();
       }
       meshes.clear();
     };
@@ -456,4 +516,4 @@ export default function ContainerYard({
   );
 }
 
-useGLTF.preload(containersUrl, false, true, extendKtx2);
+whenKtx2Ready(() => useGLTF.preload(containersUrl, false, true, extendKtx2)); // [perf] KTX2: detectSupport 이후

@@ -16,19 +16,24 @@ import { INFO_TIPS } from "@/constants/infoTips";
 import type { SimCrane, SimOverheadCrane, SimShip } from "@/domain/portSim";
 import { craneStatusLabel, shipStatusLabel } from "@/domain/portTwinMock";
 import { usePortSim } from "@/hooks/usePortSim";
-import { formatSimClock } from "@/domain/portSim";
+import { OVERHEAT_WARN_CAUSE } from "@/domain/overheatMonitor";
+import { formatSimClock, getPortHourlyThroughput } from "@/domain/portSim";
+import { failureKey, useFailureStore, type ActiveFailure } from "@/stores/useFailureStore";
 import { downtimeMinutes, useDowntimeLogStore } from "@/stores/useDowntimeLogStore";
 import { useOpsStore } from "@/stores/useOpsStore";
+import ProgressBar from "@/components/ui/ProgressBar";
+import Tag from "@/components/ui/Tag";
 import { cn } from "@/utils/style";
 import type { ReactNode } from "react";
+import { Tooltip as TooltipPrimitive } from "radix-ui";
 
 const SHARE_KEYS: OpsShareKey[] = ["run", "move", "wait", "fault"];
 
 const SHARE_CLASS: Record<OpsShareKey, string> = {
-  run: "bg-primary",
-  move: "bg-cyber-dim",
-  wait: "bg-warning",
-  fault: "bg-danger",
+  run: "bg-dt-ok",
+  move: "bg-dt-info",
+  wait: "bg-dt-warn",
+  fault: "bg-dt-danger",
 };
 
 function clock(seconds: number) {
@@ -47,15 +52,15 @@ function num(value: number, digits = 0) {
 
 function stateClass(state: string) {
   if (state === "고장" || state === "정체" || state === "fault")
-    return "text-danger";
+    return "text-dt-danger";
   if (
     state === "대기" ||
     state === "감속" ||
     state === "정지" ||
     state === "wait"
   )
-    return "text-warning";
-  return "text-primary";
+    return "text-dt-warn";
+  return "text-dt-info";
 }
 
 function Kpi({
@@ -70,15 +75,15 @@ function Kpi({
   info: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-black/35 px-md py-sm">
-      <p className="flex items-center gap-xs text-md text-white/60">
+    <div className="min-w-0 rounded-[10px] bg-white/[0.03] p-5">
+      <p className="flex items-center gap-1 text-[12px] font-normal text-dt-text-2">
         <span className="truncate">{label}</span>
         <InfoTip text={info} />
       </p>
-      <p className="mt-0.5 truncate text-lg font-semibold tabular-nums text-white">
+      <p className="mt-1 truncate text-[20px] leading-none font-light tabular-nums text-dt-text">
         {value}
       </p>
-      <p className="truncate text-md tabular-nums text-white/60">{sub}</p>
+      <p className="mt-1 truncate text-[12px] font-normal tabular-nums text-dt-text-3">{sub}</p>
     </div>
   );
 }
@@ -99,16 +104,16 @@ function Section({
   return (
     <section
       className={cn(
-        "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-white/10 bg-foreground/80 p-md",
+        "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[10px] bg-white/[0.03] p-5",
         className,
       )}
     >
-      <header className="mb-sm flex shrink-0 items-center justify-between gap-sm">
-        <h3 className="flex items-center gap-xs text-xl font-semibold text-white">
+      <header className="mb-3 flex shrink-0 items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1 text-[16px] font-medium text-dt-text">
           {title}
           <InfoTip text={info} />
         </h3>
-        {aside ? <p className="text-md text-white/60">{aside}</p> : null}
+        {aside ? <p className="text-[12px] font-normal text-dt-text-2">{aside}</p> : null}
       </header>
       <div className="min-h-0 flex-1 scrollbar-themed overflow-auto">{children}</div>
     </section>
@@ -135,32 +140,32 @@ function ShareBar({ share }: { share: Record<OpsShareKey, number> }) {
 
 function ConveyorCard({ conveyor }: { conveyor: OpsConveyorLive }) {
   return (
-    <div className="rounded-md border border-white/10 px-md py-sm">
-      <div className="flex items-center justify-between gap-sm">
-        <p className="text-xl font-semibold text-white">
+    <div className="rounded-[10px] bg-white/[0.03] px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[16px] font-medium text-dt-text">
           {conveyor.name}
         </p>
-        <p className={cn("text-lg", stateClass(conveyor.state))}>
+        <p className={cn("text-[14px] font-normal", stateClass(conveyor.state))}>
           {conveyor.state}
         </p>
       </div>
-      <p className="mt-0.5 text-lg text-white/60">
+      <p className="mt-0.5 text-[12px] font-normal text-dt-text-2">
         {conveyor.from} → {conveyor.to}
       </p>
-      <div className="mt-sm grid grid-cols-3 gap-sm text-lg tabular-nums">
+      <div className="mt-2 grid grid-cols-3 gap-2 text-[12px] tabular-nums">
         <p>
-          <span className="block text-white/60">속도</span>
-          <span className="text-white text-xl">
+          <span className="block text-dt-text-3">속도</span>
+          <span className="text-[14px] font-medium text-dt-text">
             {conveyor.speed.toFixed(1)} m/s
           </span>
         </p>
         <p>
-          <span className="block text-white/60">대기</span>
-          <span className="text-white">{conveyor.queued}개</span>
+          <span className="block text-dt-text-3">대기</span>
+          <span className="text-dt-text">{conveyor.queued}개</span>
         </p>
         <p>
-          <span className="block text-white/60">통과</span>
-          <span className="text-white">{conveyor.passed}회</span>
+          <span className="block text-dt-text-3">통과</span>
+          <span className="text-dt-text">{conveyor.passed}회</span>
         </p>
       </div>
     </div>
@@ -169,10 +174,10 @@ function ConveyorCard({ conveyor }: { conveyor: OpsConveyorLive }) {
 
 function MoveRow({ move }: { move: OpsMove }) {
   return (
-    <div className="grid grid-cols-[52px_minmax(0,1.1fr)_minmax(0,1.4fr)_72px] items-center gap-sm border-b border-white/5 py-xs text-md">
-      <span className="tabular-nums text-white/60">{clock(move.t)}</span>
-      <span className="truncate text-white">{move.container}</span>
-      <span className="truncate text-white/60">
+    <div className="grid grid-cols-[52px_minmax(0,1.1fr)_minmax(0,1.4fr)_72px] items-center gap-2 border-b border-white/8 py-1 text-[12px]">
+      <span className="tabular-nums text-dt-text-3">{clock(move.t)}</span>
+      <span className="truncate text-dt-text">{move.container}</span>
+      <span className="truncate text-dt-text-2">
         {move.from} → {move.to}
       </span>
       <span className={cn("text-right", stateClass(move.status))}>
@@ -183,21 +188,21 @@ function MoveRow({ move }: { move: OpsMove }) {
 }
 
 function faultClass(level: OpsFaultLevel) {
-  if (level === "error") return "text-danger";
-  if (level === "warning") return "text-warning";
-  return "text-primary";
+  if (level === "error") return "text-dt-danger";
+  if (level === "warning") return "text-dt-warn";
+  return "text-dt-ok";
 }
 
 function FaultRow({ fault }: { fault: OpsFault }) {
   return (
-    <div className="grid grid-cols-[52px_minmax(0,0.9fr)_44px_minmax(0,1.2fr)] items-center gap-sm border-b border-white/5 py-xs text-lg">
-      <span className="tabular-nums text-white/60">{clock(fault.t)}</span>
-      <span className="truncate text-white">{fault.name}</span>
+    <div className="grid grid-cols-[52px_minmax(0,0.9fr)_44px_minmax(0,1.2fr)] items-center gap-2 border-b border-white/8 py-1 text-[12px]">
+      <span className="tabular-nums text-dt-text-3">{clock(fault.t)}</span>
+      <span className="truncate text-dt-text">{fault.name}</span>
       <span className={faultClass(fault.level)}>{OPS_FAULT_LABEL[fault.level]}</span>
-      <span className="truncate text-white/60">
+      <span className="truncate text-dt-text-2">
         {fault.message}
         {fault.active && fault.level !== "recovery" ? (
-          <span className="ml-xs text-white">진행</span>
+          <span className="ml-1 text-dt-text">진행</span>
         ) : null}
       </span>
     </div>
@@ -207,13 +212,13 @@ function FaultRow({ fault }: { fault: OpsFault }) {
 function EquipmentRow({ item }: { item: OpsEquipmentLive }) {
   const label = OPS_STATE_LABEL[item.state];
   return (
-    <tr className="border-b border-white/5 text-lg">
-      <td className="px-sm py-xs text-white">{item.name}</td>
-      <td className="px-sm py-xs text-white/60">{item.kind}</td>
+    <tr className="border-b border-white/8 text-[12px]">
+      <td className="px-2 py-1 text-dt-text">{item.name}</td>
+      <td className="px-2 py-1 text-dt-text-2">{item.kind}</td>
       <td className={cn("px-sm py-xs", stateClass(item.state))}>
         {label}
         {item.cause ? (
-          <span className="ml-xs text-white/60">{item.cause}</span>
+          <span className="ml-1 text-dt-text-2">{item.cause}</span>
         ) : null}
       </td>
       <td className="px-sm py-xs tabular-nums">{item.count}</td>
@@ -227,20 +232,21 @@ function EquipmentRow({ item }: { item: OpsEquipmentLive }) {
 }
 
 function simStateClass(status: string) {
-  if (status === "error") return "text-danger";
-  if (status === "idle" || status === "arriving" || status === "departing")
-    return "text-warning";
-  return "text-primary";
+  if (status === "error") return "text-dt-danger";
+  if (status === "idle" || status === "arriving" || status === "departing" || status === "preparing" || status === "berthed")
+    return "text-dt-warn";
+  if (status === "departed") return "text-dt-text-3";
+  return "text-dt-info";
 }
 
 function Th({ heads }: { heads: string[] }) {
   return (
-    <thead className="sticky top-0 z-1 bg-foreground text-md text-white/60">
+    <thead className="sticky top-0 z-1 bg-dt-bg text-[10px] font-medium tracking-[1px] text-dt-text-3">
       <tr>
         {heads.map((head) => (
           <th
             key={head}
-            className="whitespace-nowrap border-b border-white/10 px-sm py-xs font-medium"
+            className="whitespace-nowrap border-b border-white/8 px-2 py-2 font-medium"
           >
             {head}
           </th>
@@ -250,51 +256,61 @@ function Th({ heads }: { heads: string[] }) {
   );
 }
 
+function statusDot(status: string) {
+  if (status === "error") return "bg-dt-danger";
+  if (status === "discharging" || status === "loading") return "bg-dt-info";
+  if (status === "departed") return "bg-dt-text-3";
+  if (status === "idle" || status === "arriving" || status === "departing" || status === "preparing" || status === "berthed")
+    return "bg-dt-warn";
+  return "bg-dt-ok";
+}
+
 function BerthRow({ ship }: { ship: SimShip }) {
   return (
-    <tr className="border-b border-white/5 text-lg">
-      <td className="whitespace-nowrap px-sm py-xs text-white">{ship.berth}</td>
-      <td className="max-w-40 truncate px-sm py-xs text-white">{ship.name}</td>
-      <td className={cn("whitespace-nowrap px-sm py-xs", simStateClass(ship.status))}>
-        {shipStatusLabel(ship.status)}
+    <tr className="border-b border-white/8 text-[12px] text-dt-text">
+      <td className="whitespace-nowrap px-2 py-2">{ship.berth}</td>
+      <td className="max-w-36 truncate px-2 py-2 font-medium">{ship.name}</td>
+      <td className={cn("whitespace-nowrap px-2 py-2", simStateClass(ship.status))}>
+        <span className="inline-flex items-center gap-1.5">
+          <span className={cn("size-2 rounded-full", statusDot(ship.status))} />
+          {shipStatusLabel(ship.status)}
+        </span>
       </td>
-      <td className="w-32 px-sm py-xs">
-        <div className="flex items-center gap-xs">
-          <div className="h-1.5 flex-1 overflow-hidden bg-white/10">
-            <div className="h-full bg-primary" style={{ width: `${ship.progress}%` }} />
-          </div>
-          <span className="w-9 text-right tabular-nums">{num(ship.progress)}%</span>
+      <td className="px-2 py-2">
+        <div className="flex items-center gap-2">
+          <ProgressBar value={ship.progress} tone="info" className="w-[136px]" />
+          <span className="w-9 text-right tabular-nums text-dt-text-2">{num(ship.progress)}%</span>
         </div>
       </td>
-      <td className="whitespace-nowrap px-sm py-xs tabular-nums">
+      <td className="whitespace-nowrap px-2 py-2 tabular-nums">
         {num(ship.discharged)}/{num(ship.dischargeTotal)}
       </td>
-      <td className="whitespace-nowrap px-sm py-xs tabular-nums">
+      <td className="whitespace-nowrap px-2 py-2 tabular-nums">
         {num(ship.loaded)}/{num(ship.loadTotal)}
       </td>
-      <td className="whitespace-nowrap px-sm py-xs tabular-nums">
+      <td className="whitespace-nowrap px-2 py-2 tabular-nums">
         {ship.activeCranes}/{ship.craneNames.length}
       </td>
-      <td className="px-sm py-xs tabular-nums">{num(ship.mph)}</td>
-      <td className="whitespace-nowrap px-sm py-xs tabular-nums text-white/60">{ship.eta}</td>
-      <td className="whitespace-nowrap px-sm py-xs tabular-nums text-white/60">{ship.etd}</td>
+      <td className="px-2 py-2 tabular-nums">{num(ship.mph)}</td>
+      <td className="whitespace-nowrap px-2 py-2 tabular-nums text-dt-text-2">{ship.eta}</td>
+      <td className="whitespace-nowrap px-2 py-2 tabular-nums text-dt-text-2">{ship.etd}</td>
     </tr>
   );
 }
 
 function CraneRow({ crane }: { crane: SimCrane }) {
   return (
-    <tr className="border-b border-white/5 text-lg">
-      <td className="whitespace-nowrap px-sm py-xs text-white">{crane.name}</td>
-      <td className="whitespace-nowrap px-sm py-xs text-white/60">{crane.berth}</td>
-      <td className="max-w-36 truncate px-sm py-xs text-white/60">{crane.vessel}</td>
-      <td className={cn("whitespace-nowrap px-sm py-xs", simStateClass(crane.status))}>
+    <tr className="border-b border-white/8 text-[12px] text-dt-text">
+      <td className="whitespace-nowrap px-2 py-2">{crane.name}</td>
+      <td className="whitespace-nowrap px-2 py-2 text-dt-text-2">{crane.berth}</td>
+      <td className="max-w-36 truncate px-2 py-2 text-dt-text-2">{crane.vessel}</td>
+      <td className={cn("whitespace-nowrap px-2 py-2", simStateClass(crane.status))}>
         {craneStatusLabel(crane.status)}
-        {crane.cause ? <span className="ml-xs text-white/60">{crane.cause}</span> : null}
+        {crane.cause ? <span className="ml-1 text-dt-text-2">{crane.cause}</span> : null}
       </td>
-      <td className="px-sm py-xs tabular-nums">{num(crane.moves)}</td>
-      <td className="px-sm py-xs tabular-nums">{num(crane.mph)}</td>
-      <td className="px-sm py-xs tabular-nums">{num(crane.utilization)}%</td>
+      <td className="px-2 py-2 tabular-nums">{num(crane.moves)}</td>
+      <td className="px-2 py-2 tabular-nums">{num(crane.mph)}</td>
+      <td className="px-2 py-2 tabular-nums">{num(crane.utilization)}%</td>
     </tr>
   );
 }
@@ -302,24 +318,23 @@ function CraneRow({ crane }: { crane: SimCrane }) {
 function OhcRow({ crane }: { crane: SimOverheadCrane }) {
   const pct = crane.capacity > 0 ? (crane.stored / crane.capacity) * 100 : 0;
   return (
-    <tr className="border-b border-white/5 text-lg">
-      <td className="whitespace-nowrap px-sm py-xs text-white">{crane.name}</td>
-      <td className="whitespace-nowrap px-sm py-xs text-white/60">{crane.block}</td>
-      <td className={cn("whitespace-nowrap px-sm py-xs", simStateClass(crane.status))}>
+    <tr className="border-b border-white/8 text-[12px] text-dt-text">
+      <td className="whitespace-nowrap px-2 py-2">{crane.name}</td>
+      <td className="whitespace-nowrap px-2 py-2 text-dt-text-2">{crane.block}</td>
+      <td className={cn("whitespace-nowrap px-2 py-2", simStateClass(crane.status))}>
         {craneStatusLabel(crane.status)}
-        {crane.cause ? <span className="ml-xs text-white/60">{crane.cause}</span> : null}
+        {crane.cause ? <span className="ml-1 text-dt-text-2">{crane.cause}</span> : null}
       </td>
-      <td className="px-sm py-xs tabular-nums">{num(crane.moves)}</td>
-      <td className="px-sm py-xs tabular-nums">{num(crane.mph, 1)}</td>
-      <td className="px-sm py-xs tabular-nums">{num(crane.utilization)}%</td>
-      <td className="w-36 px-sm py-xs">
-        <div className="flex items-center gap-xs">
-          <div className="h-1.5 flex-1 overflow-hidden bg-white/10">
-            <div
-              className={cn("h-full", pct >= 90 ? "bg-danger" : pct >= 70 ? "bg-warning" : "bg-primary")}
-              style={{ width: `${Math.min(100, pct)}%` }}
-            />
-          </div>
+      <td className="px-2 py-2 tabular-nums">{num(crane.moves)}</td>
+      <td className="px-2 py-2 tabular-nums">{num(crane.mph, 1)}</td>
+      <td className="px-2 py-2 tabular-nums">{num(crane.utilization)}%</td>
+      <td className="w-40 px-2 py-2">
+        <div className="flex items-center gap-2">
+          <ProgressBar
+            value={pct}
+            tone={pct >= 90 ? "danger" : pct >= 70 ? "warn" : "info"}
+            className="min-w-0 flex-1"
+          />
           <span className="w-16 text-right tabular-nums">
             {num(crane.stored)}/{num(crane.capacity)}
           </span>
@@ -332,7 +347,7 @@ function OhcRow({ crane }: { crane: SimOverheadCrane }) {
 /** 탭 공통 레이아웃 — 흰 글씨 기준, 세로 스크롤 */
 function TabBody({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-md scrollbar-themed overflow-y-auto overscroll-contain p-md text-white">
+    <div className="scrollbar-themed flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-6 text-dt-text">
       {children}
     </div>
   );
@@ -341,11 +356,11 @@ function TabBody({ children }: { children: ReactNode }) {
 function TabTitle({ title, info, aside }: { title: string; info: string; aside?: ReactNode }) {
   return (
     <div className="flex shrink-0 items-baseline justify-between gap-md">
-      <h2 className="flex items-center gap-xs text-xl font-semibold text-white">
+      <h2 className="flex items-center gap-1 text-[16px] font-medium text-dt-text">
         {title}
         <InfoTip text={info} />
       </h2>
-      {aside ? <p className="text-md tabular-nums text-white/60">{aside}</p> : null}
+      {aside ? <p className="text-[12px] font-normal tabular-nums text-dt-text-2">{aside}</p> : null}
     </div>
   );
 }
@@ -360,7 +375,7 @@ function SimClock() {
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="py-md text-center text-lg text-white/60">{text}</p>;
+  return <p className="py-4 text-center text-[14px] font-normal text-dt-text-2">{text}</p>;
 }
 
 function BerthTable({ ships }: { ships: SimShip[] }) {
@@ -392,20 +407,6 @@ function CraneTable({ cranes }: { cranes: SimCrane[] }) {
   );
 }
 
-function PortKpis() {
-  const k = usePortSim().kpi;
-  return (
-    <div className="grid shrink-0 grid-cols-2 gap-sm xl:grid-cols-6">
-      <Kpi label="선석 작업" value={`${k.shipsWorking}/${k.shipsTotal}척`} sub="양하·적재 중" info={INFO_TIPS.kpiBerth} />
-      <Kpi label="관제 누적" value={`${num(k.shiftMoves)}개`} sub="안벽 크레인 합" info={INFO_TIPS.kpiShiftMoves} />
-      <Kpi label="생산성" value={`${num(k.mph)}개/h`} sub="가동 크레인 합" info={INFO_TIPS.kpiMph} />
-      <Kpi label="양하 / 적재" value={`${num(k.discharged)} / ${num(k.loaded)}`} sub="기항 중 선박" info={INFO_TIPS.kpiDischargeLoad} />
-      <Kpi label="크레인 가동" value={`${k.cranesActive}/${k.cranesTotal}대`} sub={`고장 ${k.cranesError} · 대기 ${k.cranesIdle}`} info={INFO_TIPS.kpiCranes} />
-      <Kpi label="야드 장치율" value={`${num(k.yardPct)}%`} sub={`${num(k.yardStored)}/${num(k.yardCapacity)} · OHC ${num(k.ohcUtilization)}%`} info={INFO_TIPS.kpiYard} />
-    </div>
-  );
-}
-
 function ScenarioKpis() {
   const data = useOpsStore((s) => s.snapshot);
   if (!data) return null;
@@ -431,29 +432,255 @@ function ScenarioPending() {
   );
 }
 
-/** 개요 — 항만 KPI + 선석·크레인 요약 + 양하 시나리오 KPI */
+const CARD = "flex min-h-0 flex-col overflow-hidden rounded-[10px] bg-white/[0.03] p-5";
+
+function OverviewKpi({
+  label,
+  value,
+  unit,
+  aside,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  aside: string;
+}) {
+  return (
+    <div className="relative min-h-[88px] min-w-0 overflow-hidden rounded-[10px] bg-white/[0.03] p-5">
+      <p className="text-[12px] font-normal text-dt-text-2">{label}</p>
+      <p className="absolute top-5 right-5 max-w-[120px] truncate text-right text-[12px] font-normal text-dt-text-3">
+        {aside}
+      </p>
+      <p className="mt-2 truncate text-[28px] leading-none font-light tabular-nums text-dt-text">
+        {value}
+        {unit ? <span className="ml-1 text-[12px] font-normal text-dt-text-3">{unit}</span> : null}
+      </p>
+    </div>
+  );
+}
+
+/** 막대에 호버하면 시각·처리량 툴팁 (InfoTip 과 같은 스타일) */
+function HourlyChart() {
+  const bars = getPortHourlyThroughput(12);
+  const peak = Math.max(1, ...bars.map((bar) => bar.moves));
+  return (
+    <TooltipPrimitive.Provider delayDuration={0} skipDelayDuration={0}>
+      <div className="flex min-h-0 flex-1 items-end gap-2">
+        {bars.map((bar) => (
+          <TooltipPrimitive.Root key={`${bar.label}-${bar.current ? "now" : "past"}`}>
+            <TooltipPrimitive.Trigger asChild>
+              <div
+                aria-label={`${bar.label}:00 ${num(bar.moves)}개`}
+                className="group flex min-w-0 flex-1 cursor-default flex-col items-center gap-2"
+              >
+                <div className="flex h-[180px] w-full items-end justify-center">
+                  <div
+                    className={cn(
+                      "w-full max-w-8 rounded-sm transition-[filter,box-shadow] duration-150 group-hover:brightness-125 group-hover:shadow-[0_0_0_1px_#ffffff40]",
+                      bar.current ? "bg-dt-point" : "bg-dt-info/50",
+                    )}
+                    style={{ height: `${Math.max(4, (bar.moves / peak) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-medium tracking-[1px] text-dt-text-3 transition-colors group-hover:text-dt-text">{bar.label}</span>
+              </div>
+            </TooltipPrimitive.Trigger>
+            <TooltipPrimitive.Portal>
+              <TooltipPrimitive.Content
+                side="top"
+                sideOffset={6}
+                collisionPadding={8}
+                className="z-[1000] rounded-lg bg-dt-bg/92 px-3 py-2 text-[12px] leading-snug font-normal tabular-nums text-dt-text shadow-[inset_0_0_0_2px_#ffffff1a]"
+              >
+                {bar.label}:00 · {num(bar.moves)}개{bar.current ? " (진행 중)" : ""}
+                <TooltipPrimitive.Arrow className="fill-dt-bg" />
+              </TooltipPrimitive.Content>
+            </TooltipPrimitive.Portal>
+          </TooltipPrimitive.Root>
+        ))}
+      </div>
+    </TooltipPrimitive.Provider>
+  );
+}
+
+function CraneDonut({
+  active,
+  idle,
+  caution,
+  fault,
+}: {
+  active: number;
+  idle: number;
+  caution: number;
+  fault: number;
+}) {
+  const parts = [
+    { label: "가동", value: active, color: "var(--color-dt-ok)" },
+    { label: "대기", value: idle, color: "var(--color-dt-off)" },
+    { label: "주의", value: caution, color: "var(--color-dt-warn)" },
+    { label: "고장", value: fault, color: "var(--color-dt-danger)" },
+  ];
+  const total = parts.reduce((sum, part) => sum + part.value, 0) || 1;
+  const rate = Math.round((active / total) * 100);
+  const radius = 46;
+  const circ = 2 * Math.PI * radius;
+  let offset = 0;
+  return (
+    <div className="flex min-h-0 flex-1 items-center gap-6">
+      <svg viewBox="0 0 120 120" className="aspect-square h-auto w-full max-w-40 shrink-0">
+        <g transform="rotate(-90 60 60)">
+          {parts.filter((part) => part.value > 0).map((part) => {
+            const length = (part.value / total) * circ;
+            const node = (
+              <circle
+                key={part.label}
+                cx="60"
+                cy="60"
+                r={radius}
+                fill="none"
+                stroke={part.color}
+                strokeWidth="14"
+                strokeDasharray={`${length} ${circ - length}`}
+                strokeDashoffset={-offset}
+              />
+            );
+            offset += length;
+            return node;
+          })}
+        </g>
+        <text x="60" y="58" textAnchor="middle" fill="var(--color-dt-text)" fontSize="20" fontWeight="300">
+          {rate}%
+        </text>
+        <text x="60" y="76" textAnchor="middle" fill="var(--color-dt-text-3)" fontSize="10">
+          가동률
+        </text>
+      </svg>
+      <ul className="flex min-w-0 flex-1 flex-col gap-3">
+        {parts.map((part) => (
+          <li key={part.label} className="flex items-center gap-2">
+            <span className="size-4 rounded-sm" style={{ background: part.color }} />
+            <span className="text-[14px] font-normal text-dt-text">{part.label}</span>
+            <span className="ml-auto text-[14px] font-medium tabular-nums text-dt-text">{part.value}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+type AlarmTone = "danger" | "warning" | "ok";
+
+type OverviewAlarm = {
+  id: string;
+  tone: AlarmTone;
+  tag: string;
+  title: string;
+  sub: string;
+  time: string;
+};
+
+// TODO: 실데이터 연결 — 고장·주의·복구가 모두 없을 때만 표시
+const MOCK_ALARMS: OverviewAlarm[] = [
+  { id: "mock-1", tone: "danger", tag: "고장", title: "QC-07 스프레더", sub: "유압 이상", time: "11:42" },
+  { id: "mock-2", tone: "warning", tag: "주의", title: "OHC-B26", sub: "주행 모터 온도", time: "11:38" },
+  { id: "mock-3", tone: "ok", tag: "복구", title: "QC-56", sub: "정상 가동 재개", time: "11:21" },
+];
+
+function OverviewAlarms() {
+  const history = useDowntimeLogStore((s) => s.entries);
+  const faults = useOpsStore((s) => s.snapshot)?.faults ?? [];
+  const live: OverviewAlarm[] = [
+    ...history.slice(0, 6).map((entry) => ({
+      id: entry.id,
+      tone: (entry.end == null ? "danger" : "ok") as AlarmTone,
+      tag: entry.end == null ? "고장" : "복구",
+      title: entry.name,
+      sub: entry.cause,
+      time: formatSimClock(entry.start, false),
+    })),
+    ...faults.slice(0, 6).map((fault) => ({
+      id: fault.id,
+      tone: (fault.level === "error" ? "danger" : fault.level === "warning" ? "warning" : "ok") as AlarmTone,
+      tag: fault.level === "error" ? "고장" : fault.level === "warning" ? "주의" : "복구",
+      title: fault.name,
+      sub: fault.message,
+      time: clock(fault.t),
+    })),
+  ];
+  const items = live.length > 0 ? live.slice(0, 8) : MOCK_ALARMS;
+  return (
+    <ul className="scrollbar-themed flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+      {items.map((item) => (
+        <li key={item.id} className="flex items-start gap-3">
+          <Tag tone={item.tone}>{item.tag}</Tag>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14px] font-medium text-dt-text">{item.title}</p>
+            <p className="truncate text-[12px] font-normal text-dt-text-2">{item.sub}</p>
+          </div>
+          <span className="shrink-0 text-[12px] font-normal tabular-nums text-dt-text-3">{item.time}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** 안벽 크레인 도넛. 주의는 과열 경고만, 고장 상태와 겹치면 고장으로만 센다 */
+function quayDonutCounts(cranes: SimCrane[], active: Record<string, ActiveFailure>) {
+  let working = 0;
+  let idle = 0;
+  let caution = 0;
+  let fault = 0;
+  for (const crane of cranes) {
+    const failure = active[failureKey("quayCrane", crane.index)];
+    const overheatWarn = failure?.state === "warning" && failure.cause === OVERHEAT_WARN_CAUSE;
+    if (crane.status === "error") fault += 1;
+    else if (overheatWarn) caution += 1;
+    else if (crane.status === "idle") idle += 1;
+    else working += 1;
+  }
+  return { active: working, idle, caution, fault };
+}
+
+/** 개요 — KPI 6, 시간대 처리량, 크레인 도넛, 선석 표, 알람 */
 export function OverviewTab() {
   const sim = usePortSim();
-  const data = useOpsStore((s) => s.snapshot);
+  const failures = useFailureStore((s) => s.active);
+  const k = sim.kpi;
+  const donut = quayDonutCounts(sim.cranes, failures);
   return (
-    <TabBody>
-      <TabTitle title="항만 운영 현황" info={INFO_TIPS.portOverview} aside={<SimClock />} />
-      <PortKpis />
-      <div className="grid h-[320px] shrink-0 gap-md xl:grid-cols-[3fr_2fr]">
-        <Section title="선석 현황" aside={`${sim.ships.length}개 선석`} info={INFO_TIPS.berthStatus} className="max-h-full">
-          <BerthTable ships={sim.ships} />
-        </Section>
-        <Section title="안벽 크레인 현황" aside={`${sim.cranes.length}대`} info={INFO_TIPS.craneStatus} className="max-h-full">
-          <CraneTable cranes={sim.cranes} />
-        </Section>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="grid shrink-0 grid-cols-3 gap-3 min-[1280px]:grid-cols-6">
+        <OverviewKpi label="선석 작업" value={`${k.shipsWorking}/${k.shipsTotal}`} unit="척" aside="양하·적재 중" />
+        <OverviewKpi label="관제 누적" value={num(k.shiftMoves)} unit="개" aside="안벽 크레인 합" />
+        <OverviewKpi label="생산성" value={num(k.mph)} unit="개/h" aside="가동 크레인 합" />
+        <OverviewKpi label="양하/적재" value={`${num(k.discharged)}/${num(k.loaded)}`} unit="" aside="기항 중 선박" />
+        <OverviewKpi label="크레인 가동" value={`${k.cranesActive}/${k.cranesTotal}`} unit="대" aside={`고장 ${k.cranesError} · 대기 ${k.cranesIdle}`} />
+        <OverviewKpi label="야드 장치율" value={num(k.yardPct)} unit="%" aside={`${num(k.yardStored)}/${num(k.yardCapacity)}`} />
       </div>
-      <TabTitle
-        title={data ? `${data.title} 요약` : "양하 시나리오 요약"}
-        info={INFO_TIPS.opsScenario}
-        aside={data ? `${clock(data.elapsed)} · ${data.cycle}사이클` : undefined}
-      />
-      {data ? <ScenarioKpis /> : <ScenarioPending />}
-    </TabBody>
+      <div className="grid shrink-0 grid-cols-1 gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <section className={cn(CARD, "min-h-[284px]")}>
+          <h3 className="mb-3 shrink-0 text-[16px] font-medium text-dt-text">시간대별 처리량</h3>
+          <HourlyChart />
+        </section>
+        <section className={cn(CARD, "min-h-[284px]")}>
+          <h3 className="mb-3 shrink-0 text-[16px] font-medium text-dt-text">안벽 크레인 가동</h3>
+          <CraneDonut active={donut.active} idle={donut.idle} caution={donut.caution} fault={donut.fault} />
+        </section>
+      </div>
+      {/* 남은 높이를 채우고, 선석 현황·알람·고장은 카드 안에서만 스크롤 (대시보드 전체 스크롤 방지) */}
+      <div className="grid min-h-[320px] flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-4 min-[1280px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] min-[1280px]:grid-rows-[minmax(0,1fr)]">
+        <section className={CARD}>
+          <h3 className="mb-3 shrink-0 text-[16px] font-medium text-dt-text">선석 현황</h3>
+          <div className="scrollbar-themed min-h-0 flex-1 overflow-auto">
+            <BerthTable ships={sim.ships} />
+          </div>
+        </section>
+        <section className={CARD}>
+          <h3 className="mb-3 shrink-0 text-[16px] font-medium text-dt-text">알람·고장</h3>
+          <OverviewAlarms />
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -501,7 +728,7 @@ export function YardSummary() {
   const sim = usePortSim();
   const k = sim.kpi;
   return (
-    <div className="flex shrink-0 flex-col gap-md p-md pb-0 text-white">
+    <div className="flex shrink-0 flex-col gap-4 p-6 pb-0 text-dt-text">
       <TabTitle title="야드·블록" info={INFO_TIPS.kpiYard} aside={<SimClock />} />
       <div className="grid shrink-0 grid-cols-2 gap-sm xl:grid-cols-4">
         <Kpi label="야드 장치율" value={`${num(k.yardPct)}%`} sub="슬롯 대비 장치" info={INFO_TIPS.kpiYard} />
@@ -519,7 +746,7 @@ export function YardSummary() {
           </tbody>
         </table>
       </Section>
-      <h3 className="flex items-center gap-xs text-xl font-semibold text-white">
+      <h3 className="flex items-center gap-1 text-[16px] font-medium text-dt-text">
         블록 점유
         <InfoTip text={INFO_TIPS.blockList} />
       </h3>
@@ -552,7 +779,7 @@ export function ScenarioTab() {
               </div>
             </Section>
             <Section title="이동 내역" info={INFO_TIPS.moves} aside="최근 구간" className="max-h-full">
-              <div className="sticky top-0 z-1 grid grid-cols-[52px_minmax(0,1.1fr)_minmax(0,1.4fr)_72px] gap-sm border-b border-white/10 bg-foreground pb-xs text-md text-white/60">
+              <div className="sticky top-0 z-1 grid grid-cols-[52px_minmax(0,1.1fr)_minmax(0,1.4fr)_72px] gap-2 border-b border-white/8 bg-dt-bg pb-1 text-[10px] font-medium tracking-[1px] text-dt-text-3">
                 <span>시각</span>
                 <span>컨테이너</span>
                 <span>구간</span>
@@ -597,16 +824,16 @@ export function FaultTab() {
         <Kpi label="오류 기록" value={`${data?.faults.length ?? 0}건`} sub="양하 시나리오" info={INFO_TIPS.faults} />
         <Kpi label="진행 중" value={`${data?.faults.filter((f) => f.active && f.level !== "recovery").length ?? 0}건`} sub="미복구" info={INFO_TIPS.faults} />
       </div>
-      <Section title="고장 장비" info={INFO_TIPS.kpiCranes} aside={`${down.length}대`} className="h-[220px] shrink-0">
+      <Section title="고장 장비" info={INFO_TIPS.kpiCranes} aside={`${down.length}대`} className="min-h-[140px] flex-[2]">
         {down.length === 0 ? (
           <Empty text="고장 상태 장비가 없습니다" />
         ) : (
           <ul className="flex flex-col">
             {down.map((c) => (
-              <li key={c.name} className="flex justify-between gap-sm border-b border-white/5 py-xs text-lg">
-                <span className="text-white">{c.name}</span>
-                <span className="text-danger">
-                  고장{c.cause ? <span className="ml-xs text-white/60">{c.cause}</span> : null}
+              <li key={c.name} className="flex justify-between gap-2 border-b border-white/8 py-2 text-[14px]">
+                <span className="text-dt-text">{c.name}</span>
+                <span className="text-dt-danger">
+                  고장{c.cause ? <span className="ml-1 text-dt-text-2">{c.cause}</span> : null}
                 </span>
               </li>
             ))}
@@ -617,9 +844,9 @@ export function FaultTab() {
         title="다운타임 이력"
         info={INFO_TIPS.downtime}
         aside={`${history.length}건 · 진행 ${history.filter((e) => e.end == null).length}`}
-        className="h-[280px] shrink-0"
+        className="min-h-[160px] flex-[3]"
       >
-        <div className="sticky top-0 z-1 grid grid-cols-[minmax(0,1fr)_88px_88px_52px_minmax(0,1.2fr)] gap-sm border-b border-white/10 bg-foreground pb-xs text-md text-white/60">
+        <div className="sticky top-0 z-1 grid grid-cols-[minmax(0,1fr)_88px_88px_52px_minmax(0,1.2fr)] gap-2 border-b border-white/8 bg-dt-bg pb-1 text-[10px] font-medium tracking-[1px] text-dt-text-3">
           <span>장비</span>
           <span>시작</span>
           <span>종료</span>
@@ -632,21 +859,21 @@ export function FaultTab() {
           history.map((e) => (
             <div
               key={e.id}
-              className="grid grid-cols-[minmax(0,1fr)_88px_88px_52px_minmax(0,1.2fr)] gap-sm border-b border-white/5 py-xs text-lg tabular-nums"
+              className="grid grid-cols-[minmax(0,1fr)_88px_88px_52px_minmax(0,1.2fr)] gap-2 border-b border-white/8 py-2 text-[12px] tabular-nums"
             >
-              <span className="truncate text-white">{e.name}</span>
-              <span className="text-white/60">{formatSimClock(e.start)}</span>
-              <span className={e.end == null ? "text-danger" : "text-white/60"}>
+              <span className="truncate text-dt-text">{e.name}</span>
+              <span className="text-dt-text-2">{formatSimClock(e.start)}</span>
+              <span className={e.end == null ? "text-dt-danger" : "text-dt-text-2"}>
                 {e.end == null ? "진행 중" : formatSimClock(e.end)}
               </span>
-              <span className="text-white">{downtimeMinutes(e, now)}m</span>
-              <span className="truncate text-white/60">{e.cause}</span>
+              <span className="text-dt-text">{downtimeMinutes(e, now)}m</span>
+              <span className="truncate text-dt-text-2">{e.cause}</span>
             </div>
           ))
         )}
       </Section>
-      <Section title="기기별 오류" info={INFO_TIPS.faults} aside="이상 · 고장 · 복구" className="min-h-[300px] flex-1">
-        <div className="sticky top-0 z-1 grid grid-cols-[52px_minmax(0,0.9fr)_44px_minmax(0,1.2fr)] gap-sm border-b border-white/10 bg-foreground pb-xs text-md text-white/60">
+      <Section title="기기별 오류" info={INFO_TIPS.faults} aside="이상 · 고장 · 복구" className="min-h-[160px] flex-[3]">
+        <div className="sticky top-0 z-1 grid grid-cols-[52px_minmax(0,0.9fr)_44px_minmax(0,1.2fr)] gap-2 border-b border-white/8 bg-dt-bg pb-1 text-[10px] font-medium tracking-[1px] text-dt-text-3">
           <span>시각</span>
           <span>기기</span>
           <span>단계</span>

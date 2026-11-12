@@ -35,7 +35,7 @@ import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 import { Html, useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, type MouseEvent } from "react";
 import { Box3, Quaternion, Vector3, type Object3D } from "three";
 
 type Resolved = Omit<AreaCamTarget, "glb"> & {
@@ -65,7 +65,22 @@ const fly = (detail: CameraFlyToDetail) =>
   );
 
 const BUTTON_CLASS =
-  "flex cursor-pointer items-center justify-center whitespace-nowrap rounded-full border-2 border-white/60 bg-[#00000080] px-md py-xs text-xl font-light tracking-wide text-text-primary shadow-lg transition-all duration-200 ease-out hover:scale-110 hover:border-primary hover:bg-primary/80 hover:text-black hover:shadow-[0_0_12px_rgba(255,255,255,0.35)] active:scale-100";
+  "pointer-events-auto flex h-7 cursor-pointer items-center justify-center rounded-lg bg-dt-bg/80 px-3 text-[12px] font-bold whitespace-nowrap text-dt-text shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--color-dt-info)_80%,transparent)] transition-colors hover:bg-dt-info/12 hover:shadow-[inset_0_0_0_2px_var(--color-dt-info-bright)]";
+
+function ZonePin({ label, onClick }: { label: string; onClick: (event: MouseEvent) => void }) {
+  return (
+    <div className="flex flex-col items-center" style={{ transform: "translate(-50%, calc(-100% + 8px))" }}>
+      <button type="button" className={BUTTON_CLASS} onClick={onClick}>
+        {label}
+      </button>
+      <span className="h-5 w-px bg-dt-info/60" />
+      <span className="relative grid size-4 place-items-center">
+        <span className="absolute inset-0 rounded-full bg-dt-info/24" />
+        <span className="size-2 rounded-full bg-dt-info" />
+      </span>
+    </div>
+  );
+}
 
 /** [areagroup] 구역 크레인(존재하는 GLB index 순)을 CRANE_GROUP_SIZE 개씩 연속 묶음 → 가운데 크레인 위 버튼 */
 function buildCraneGroups(key: string, glbIndices: number[]): CraneGroup[] {
@@ -341,13 +356,11 @@ function AreaCamButtons() {
           <Html
             key={g.label}
             position={g.button}
-            center
             zIndexRange={[30, 21]}
-            style={{ userSelect: "none" }}
+            style={{ pointerEvents: "none", userSelect: "none" }}
           >
-            <button
-              type="button"
-              className={BUTTON_CLASS}
+            <ZonePin
+              label={g.label}
               onClick={(e) => {
                 e.stopPropagation();
                 // 바다(가장 가까운 정박 선박) 쪽에서 안벽을 보도록. 선박이 없으면 현재 카메라 쪽
@@ -376,9 +389,7 @@ function AreaCamButtons() {
                   depth: { level: CRANE_GROUP_DEPTH_LEVEL, label: g.label },
                 });
               }}
-            >
-              {g.label}
-            </button>
+            />
           </Html>
         ))}
       </>
@@ -390,20 +401,16 @@ function AreaCamButtons() {
         <Html
           key={t.id}
           position={t.point}
-          center
           zIndexRange={[30, 21]}
-          style={{ userSelect: "none" }}
+          style={{ pointerEvents: "none", userSelect: "none" }}
         >
-          <button
-            type="button"
-            className={BUTTON_CLASS}
+          <ZonePin
+            label={t.label}
             onClick={(e) => {
               e.stopPropagation();
               fly(t.fly);
             }}
-          >
-            {t.label}
-          </button>
+          />
         </Html>
       ))}
     </>

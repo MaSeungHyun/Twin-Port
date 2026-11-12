@@ -1,16 +1,20 @@
-import { loadMark, loadSpan } from "@/debug/loadTiming";
+import { loadMark, loadSpan, startLoadHeartbeat } from "@/debug/loadTiming";
 import { occupancyStage, syncOccupancyVisibility } from "@/domain/occupancyLook/occupancySync";
-import { openRenderGate } from "@/domain/renderGate";
+import { nextScreenRender, openRenderGate } from "@/domain/renderGate";
+import { compileInClippingGroups } from "@/domain/compileObject";
+import { getOutlineWarmer } from "@/domain/outlineWarm";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import {
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
+  type Camera,
   Color,
   DoubleSide,
   LessEqualDepth,
   InstancedMesh,
+  Material,
   Matrix4,
   Mesh,
   type Object3D,
@@ -57,7 +61,6 @@ import { SHIP_POSITION_Y } from "@/constants/model";
 import { SHIP_TWEEN } from "@/constants/tween";
 import { oceanState } from "../OceanTsl/oceanApi";
 import { SHORE, shoreTex } from "../OceanTsl/scene/resources";
-import type { Material } from "three";
 import type { ShipInstance } from "./Ship";
 
 /**
@@ -320,6 +323,7 @@ function makeReflectionMesh(
   shore?: { margin: number; fade: number },
 ) {
   const mesh = new Mesh(geometry, getReflectionMaterial("color", shore));
+  mesh.userData.outlineHidden = true;
   mesh.frustumCulled = false;
   mesh.matrixAutoUpdate = false;
   mesh.renderOrder = REFLECTION_RENDER_ORDER + 1;
@@ -490,6 +494,7 @@ export function makeReflectionInstanced(geometry: BufferGeometry, source: Instan
   };
   const color = make("color");
   color.name = `${source.name || "instanced"}-reflection`;
+  color.userData.outlineHidden = true;
   color.add(make("depth"));
   return color;
 }
@@ -523,6 +528,136 @@ export function reflectionBoxOf(source: BufferGeometry) {
  * 반사 빌드가 모두 끝나면 씬의 숨김 오브젝트를 잠깐 visible 로 두고 compileAsync (동기 수집 직후 원복 → 화면 노출 없음).
  * IntroOverlay 는 useSceneWarmReady() 가 true 일 때만 '관제 시작' 버튼을 띄움.
  */
+const WARM_LANES = 4;
+
+/** three RenderObject.getMaterialCacheKey 와 같은 규칙으로 재질 값을 줄인다 (숫자는 on/off, 텍스처는 mapping). */
+const protoGetterKeys = new WeakMap<object, string[]>();
+function materialKeys(m: Material) {
+  const ctor = m.constructor;
+  let proto = protoGetterKeys.get(ctor);
+  if (!proto) {
+    proto = [];
+    for (let p = Object.getPrototypeOf(m); p; p = Object.getPrototypeOf(p)) {
+      const ds = Object.getOwnPropertyDescriptors(p);
+      for (const k in ds) if (typeof ds[k]?.get === "function") proto.push(k);
+    }
+    protoGetterKeys.set(ctor, proto);
+  }
+  return [...Object.keys(m), ...proto];
+}
+function materialVariantKey(m: Material) {
+  let key = typeof m.customProgramCacheKey === "function" ? m.customProgramCacheKey() : "";
+  const values = m as unknown as Record<string, unknown>;
+  for (const p of materialKeys(m)) {
+    if (/^(is[A-Z]|_)|^(visible|version|uuid|name|opacity|userData)$/.test(p)) continue;
+    const v = values[p];
+    if (v === null || v === undefined) key += String(v);
+    else if (typeof v === "number") key += p === "side" ? String(v) : v !== 0 ? "1" : "0";
+    else if (typeof v === "object") {
+      const tex = v as { isTexture?: boolean; mapping?: number; magFilter?: number; minFilter?: number; wrapS?: number; wrapT?: number; wrapR?: number };
+      key += tex.isTexture ? `{${tex.mapping}:${tex.magFilter}:${tex.minFilter}:${tex.wrapS}:${tex.wrapT}:${tex.wrapR}}` : "{}";
+    } else key += String(v);
+    key += ",";
+  }
+  return key;
+}
+
+/** three RenderObject.getGeometryCacheKey 와 같은 정점 속성 구성 */
+function geometryVariantKey(geometry: BufferGeometry) {
+  let key = "";
+  for (const name of Object.keys(geometry.attributes).sort()) {
+    const a = geometry.attributes[name] as unknown as { data?: { stride?: number }; offset?: number; itemSize?: number; normalized?: boolean };
+    key += `${name}:${a.data?.stride ?? ""}:${a.offset ?? ""}:${a.itemSize ?? ""}:${a.normalized ? "n" : ""},`;
+  }
+  const morphs = geometry.morphAttributes as Record<string, { id: number }[]>;
+  for (const name of Object.keys(morphs).sort()) {
+    key += `morph-${name}:${morphs[name]!.map((a) => a.id).join("/")},`;
+  }
+  if (geometry.index) key += "index,";
+  return key;
+}
+
+/**
+ * three 의 노드 빌드 캐시 키(RenderObject.getCacheKey)와 같은 경우에만 예열을 건너뛴다.
+ * - InstancedMesh(또는 count>1)는 three 가 object.uuid 를 키에 넣어 객체마다 노드를 따로 빌드한다.
+ *   예전 키는 인스턴싱 여부만 봐서 첫 객체만 예열되고, 나머지(야드 블록·크레인 인스턴스)는
+ *   화면에 처음 들어올 때(관제 시작 비행·초반 카메라 이동) 메인 스레드에서 빌드됐다.
+ * - 재질 값·정점 속성 세부(itemSize/normalized/stride)·receiveShadow 도 three 키와 맞춘다.
+ */
+function shaderVariantKey(object: Object3D, material: Material | Material[], geometry?: BufferGeometry | null) {
+  const counted = object as Object3D & { isInstancedMesh?: boolean; count?: number };
+  const perObject = Boolean(counted.isInstancedMesh) || (counted.count ?? 0) > 1;
+  let clip = "";
+  let node: Object3D | null = object.parent;
+  while (node) {
+    if ((node as { isClippingGroup?: boolean }).isClippingGroup) {
+      clip = `clip:${node.id}`;
+      break;
+    }
+    node = node.parent;
+  }
+  const list = Array.isArray(material) ? material : [material];
+  const mats = list.map((m) => `${m.type}|${materialVariantKey(m)}`).join("~");
+  const geo = geometry ? geometryVariantKey(geometry) : "";
+  return `${perObject ? object.uuid : "M"}|${clip}|${object.receiveShadow ? 1 : 0}|${geo}|${mats}`;
+}
+
+async function compileShaderOnce(
+  gl: unknown,
+  object: Object3D,
+  camera: unknown,
+  scene: Object3D,
+  seen: Set<string>,
+) {
+  const mesh = object as Mesh;
+  const key = shaderVariantKey(object, mesh.material as Material | Material[], mesh.geometry);
+  if (seen.has(key)) return;
+  seen.add(key);
+  await compileInClippingGroups(gl, object, camera, scene);
+}
+
+/** [wire] 같은 변형을 와이어(외곽선) 렌더 타깃 문맥으로도 컴파일. 첫 와이어 전환 때 셰이더 빌드를 없앤다 (WebGPU 전용) */
+async function compileOutlineOnce(object: Object3D, camera: unknown, scene: Object3D, seen: Set<string>) {
+  const warmer = getOutlineWarmer();
+  const mesh = object as Mesh;
+  if (!warmer || !mesh.isMesh) return;
+  const key = shaderVariantKey(object, mesh.material as Material | Material[], mesh.geometry);
+  if (seen.has(key)) return;
+  seen.add(key);
+  try {
+    await warmer.object(object, camera, scene);
+  } catch (e) {
+    if (import.meta.env.DEV) console.warn("[warm] 와이어 예열 실패", object.name, e);
+  }
+}
+
+/**
+ * 로더 뒤 첫 화면 제출.
+ * 객체를 숨겼다 조금씩 켜는 분할은 이 환경에서 총시간이 더 길어져(29s+),
+ * 게이트를 연 뒤 R3F 첫 프레임 1회로 소화한다. (목표 ≤200ms 분할은 별도 재시도 필요)
+ */
+async function prerenderInSlices(
+  scene: Object3D,
+  _camera: Camera,
+  gl: { render: (s: Object3D, c: Camera) => void; domElement: HTMLCanvasElement },
+  setFrameloop: (mode: "always" | "demand" | "never") => void,
+) {
+  const canvas = gl.domElement;
+  const opacity = canvas.style.opacity;
+  canvas.style.opacity = "0";
+  setFrameloop("always");
+  openRenderGate("warm-done");
+  const wall0 = performance.now();
+  const ms = await nextScreenRender(20000);
+  syncOccupancyVisibility(scene);
+  canvas.style.opacity = opacity;
+  const longest = Math.max(0, ms);
+  loadMark(
+    `첫 화면 조각 1개 최장 ${longest.toFixed(0)}ms, 벽시계 ${(performance.now() - wall0).toFixed(0)}ms`,
+  );
+  if (ms > 200) loadMark(`첫 화면 느린조각 frame0`, `${ms.toFixed(0)}ms`);
+}
+
 let warmPending = 0;
 let warmDone = false;
 let warmCompiling = false;
@@ -566,6 +701,7 @@ export function SceneWarmup() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
+  const setFrameloop = useThree((s) => s.setFrameloop);
   const monitoringStarted = useViewportStore((s) => s.monitoringStarted);
   const idleFrames = useRef(0);
   const running = useRef(false);
@@ -586,7 +722,6 @@ export function SceneWarmup() {
     emitWarm();
     // [load] 씬 1회 compileAsync(=수 초짜리 단일 long task) → 객체 단위로 나눠 컴파일, 사이마다 메인 스레드 양보.
     // 같은 material/geometry 조합은 three 노드 캐시로 1회만 빌드. targetScene=scene → 실제 조명/환경/안개 캐시 키와 동일
-    const r = gl as unknown as { compileAsync?: (o: Object3D, c: typeof camera, s?: Object3D) => Promise<unknown> };
     const endWarm = loadSpan("warm compile (객체별)");
     const targets: Object3D[] = [];
     scene.traverse((o) => {
@@ -600,10 +735,15 @@ export function SceneWarmup() {
       warmDone = true;
       emitWarm();
     };
+    let stopBeat = () => {};
     void (async () => {
       const slice = createTimeSlicer(12);
       const slow: string[] = [];
       let compileMs = 0;
+      let compiled = 0;
+      stopBeat = startLoadHeartbeat(() => `셰이더 ${compiled}/${targets.length}`);
+      loadMark("warm compile 시작", `${targets.length}개`);
+      try {
       // [occupancy] 숨긴 조상(블록 막대 그룹, 선박 occupancy 메시)까지 켠 채 컴파일하고, 전부 끝난 뒤에 되돌린다.
       // 객체마다 바로 숨기면 compileAsync 가 돌기 전에 visible=false 가 되어 전환 때 처음 컴파일된다.
       const restore: { o: Object3D; visible: boolean; culled?: boolean }[] = [];
@@ -628,6 +768,8 @@ export function SceneWarmup() {
         }
       }
       const bumped: InstancedMesh[] = [];
+      const seen = new Set<string>();
+      const outlineSeen = new Set<string>();
       const compileTarget = async (o: Object3D) => {
         if (!o.parent) return;
         const t0 = performance.now();
@@ -638,7 +780,8 @@ export function SceneWarmup() {
           bumped.push(inst);
         }
         try {
-          await r.compileAsync?.(o, camera, scene);
+          await compileShaderOnce(gl, o, camera, scene, seen);
+          await compileOutlineOnce(o, camera, scene, outlineSeen);
           // [depthfade] Depth 반투명 크레인 변형도 미리 컴파일 (런타임 첫 페이드 히치 방지)
           // [areafade] 구역 Depth 반투명 정적 메시(지면·건물·수목) 변형도 함께
           // [occupancy] userData.warmMaterials = 전환 때 갈아끼울 재질 (선적 컨테이너 등)
@@ -650,7 +793,8 @@ export function SceneWarmup() {
             const orig = mesh.material;
             mesh.material = variant;
             try {
-              await r.compileAsync?.(o, camera, scene);
+              await compileShaderOnce(gl, o, camera, scene, seen);
+              await compileOutlineOnce(o, camera, scene, outlineSeen);
             } finally {
               mesh.material = orig;
             }
@@ -664,7 +808,8 @@ export function SceneWarmup() {
               try {
                 // compileAsync는 첫 await 뒤에도 object.geometry를 읽는다.
                 // 완료 전에 복구하면 원본만 예열되고 실제 LOD의 첫 렌더가 이동 중에 컴파일된다.
-                await r.compileAsync?.(o, camera, scene);
+                await compileShaderOnce(gl, o, camera, scene, seen);
+                await compileOutlineOnce(o, camera, scene, outlineSeen);
               } finally {
                 mesh.geometry = origGeo;
               }
@@ -675,17 +820,26 @@ export function SceneWarmup() {
         }
         const d = performance.now() - t0;
         compileMs += d;
+        compiled += 1;
+        if (compiled % 80 === 0) loadMark("warm compile 진행", `${compiled}/${targets.length} 합계 ${compileMs.toFixed(0)}ms`);
         if (d > 40) {
           const m = (o as Mesh).material as { type?: string; name?: string } | undefined;
           slow.push(`${o.name || o.type}[${m?.name || m?.type || "-"}] ${d.toFixed(0)}ms`);
         }
-        await slice();
+        if (d > 1) await slice();
       };
       // 서로 다른 객체는 제한적으로 병렬 처리하되 같은 객체의 변형은 반드시 순차 예열한다.
       let nextTarget = 0;
-      await Promise.all(Array.from({ length: 4 }, async () => {
+      await Promise.all(Array.from({ length: WARM_LANES }, async () => {
         while (nextTarget < targets.length) await compileTarget(targets[nextTarget++]!);
       }));
+      const outlineWarmer = getOutlineWarmer();
+      if (outlineWarmer) {
+        await outlineWarmer.composite().catch((e: unknown) => {
+          if (import.meta.env.DEV) console.warn("[warm] 와이어 합성 예열 실패", e);
+        });
+        loadMark("wire(외곽선) 예열", `${outlineSeen.size}개 변형`);
+      }
       for (const mesh of bumped) if (mesh.count === 1) mesh.count = 0;
       for (const item of restore) {
         item.o.visible = item.visible;
@@ -693,14 +847,24 @@ export function SceneWarmup() {
       }
       // 스냅샷이 예열 도중 켜진 값을 기억해도, 스토어 기준으로 오큐펀시 전용 메시는 다시 숨긴다.
       syncOccupancyVisibility(scene);
-      endWarm(`${targets.length} objects, 객체별 비동기 예열 시간 합계 ${compileMs.toFixed(0)}ms (최대 4개 병렬)`);
-      if (import.meta.env.DEV && slow.length) console.info("[load] warm 느린 객체(>40ms)", slow);
-      // 게이트 개방 → 첫 화면 렌더(그림자 패스 등 잔여 빌드)를 로더 뒤에서 몇 프레임 소화한 뒤 완료
-      openRenderGate("warm-done");
-      await new Promise<void>((res) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => res()))),
+      endWarm(`${targets.length} objects, 객체별 비동기 예열 시간 합계 ${compileMs.toFixed(0)}ms (최대 ${WARM_LANES}개 병렬)`);
+      const pipelines = (gl as unknown as { _pipelines?: { programs?: { vertex?: { size?: number }; fragment?: { size?: number }; compute?: { size?: number } } } })._pipelines?.programs;
+      const programs = (gl as unknown as { info?: { memory?: { programs?: number } } }).info?.memory?.programs;
+      loadMark(
+        `warm shaders 정점 ${pipelines?.vertex?.size ?? "?"} 프래그먼트 ${pipelines?.fragment?.size ?? "?"} 컴퓨트 ${pipelines?.compute?.size ?? "?"} 프로그램 ${programs ?? "?"}`,
       );
+      if (import.meta.env.DEV && slow.length) console.info("[load] warm 느린 객체(>40ms)", slow);
+      // 게이트 개방 → 첫 화면 렌더(그림자 패스 등 잔여 빌드)를 로더 뒤에서 조각으로 나눠 소화한 뒤 완료
+      await prerenderInSlices(scene, camera, gl, setFrameloop);
+      for (let frame = 1; frame <= 3; frame += 1) {
+        const t0 = performance.now();
+        await new Promise<void>((res) => requestAnimationFrame(() => res()));
+        loadMark(`warm 뒤 프레임 ${frame}`, `${(performance.now() - t0).toFixed(0)}ms`);
+      }
       loadMark("warm done → 로더 종료");
+      } finally {
+        stopBeat();
+      }
     })().then(done, done);
   });
   return null;

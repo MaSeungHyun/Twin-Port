@@ -53,7 +53,7 @@ export function Sky({ dome = true, lights = true }: { dome?: boolean; lights?: b
   }, PRI.ocean);
   return (
     <>
-      <mesh ref={skyRef} material={sky} frustumCulled={false} renderOrder={-1} visible={dome}>
+      <mesh ref={skyRef} material={sky} frustumCulled={false} renderOrder={-1} visible={dome} userData={{ noWireframe: true }}>
         <sphereGeometry args={[40000, 64, 32]} />
       </mesh>
       {lights && <directionalLight ref={sunRef} />}

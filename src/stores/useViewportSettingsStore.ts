@@ -11,9 +11,9 @@ export type ShadowQuality = "off" | "low" | "high";
 
 /** 품질 프리셋 → DPR 상한 */
 export const QUALITY_DPR: Record<QualityPreset, number> = {
-  performance: 1,
-  balanced: 1.25,
-  high: 1.5,
+  performance: 0.75,
+  balanced: 1,
+  high: 1.25,
 };
 /** 그림자 품질 → 맵 크기 / 따라가기 최소 반경(m). 맵이 작으면 반경도 줄여 texel 밀도 유지 */
 export const SHADOW_PRESET: Record<
@@ -21,6 +21,13 @@ export const SHADOW_PRESET: Record<
   { mapSize: number; followHalfSize: number }
 > = {
   low: { mapSize: 1024, followHalfSize: 400 },
+  high: { mapSize: 2048, followHalfSize: 700 },
+};
+
+/** 품질 프리셋 → 그림자 맵 크기. 필터는 항상 PCF라 전환 때 셰이더를 다시 컴파일하지 않는다. */
+export const QUALITY_SHADOW: Record<QualityPreset, { mapSize: number; followHalfSize: number }> = {
+  performance: { mapSize: 512, followHalfSize: 300 },
+  balanced: { mapSize: 1024, followHalfSize: 400 },
   high: { mapSize: 2048, followHalfSize: 700 },
 };
 

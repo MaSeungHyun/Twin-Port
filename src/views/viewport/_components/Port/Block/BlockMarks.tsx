@@ -1,5 +1,6 @@
 import { useYardStore } from "@/stores/yard";
 import { useObjectStore } from "@/stores/object";
+import { useViewportStore } from "@/stores/viewport";
 import {
   getBlockFootprintCenter,
   getBlockFootprintSize,
@@ -46,6 +47,10 @@ export default function BlockMarks({
   const blocks = useYardStore((s) => s.blocks);
   const deckY = useYardStore((s) => s.deckY);
   const heatmapVisible = useObjectStore((s) => s.heatmapVisible);
+  const hudHidden = useViewportStore((s) => s.hudHidden);
+  const started = useViewportStore((s) => s.monitoringStarted);
+  const introOpen = useViewportStore((s) => s.introOpen);
+  const showLabels = !hudHidden && started && !introOpen;
   const floorRef = useRef<InstancedMesh>(null);
 
   const geometry = useMemo(() => new BoxGeometry(1, 1, 1), []);
@@ -56,6 +61,7 @@ export default function BlockMarks({
         metalness: 0.05,
         transparent: true,
         opacity: 0.28,
+        toneMapped: false,
         depthTest: true,
         depthWrite: true,
         polygonOffset: true,
@@ -107,17 +113,19 @@ export default function BlockMarks({
         receiveShadow
         raycast={() => null}
       />
-      {blocks.map((block) => {
-        const occupancy = occupancyByCode[block.code];
-        if (!occupancy) return null;
-        return (
-          <BlockFloorLabel
-            key={`label-${block.code}`}
-            block={block}
-            occupancy={occupancy}
-          />
-        );
-      })}
+      {showLabels
+        ? blocks.map((block) => {
+            const occupancy = occupancyByCode[block.code];
+            if (!occupancy) return null;
+            return (
+              <BlockFloorLabel
+                key={`label-${block.code}`}
+                block={block}
+                occupancy={occupancy}
+              />
+            );
+          })
+        : null}
     </group>
   );
 }

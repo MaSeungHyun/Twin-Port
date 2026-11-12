@@ -1,4 +1,5 @@
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
+import { useMainThreadKtx2 } from "@/domain/ktx2MainThread";
 import { LoaderUtils } from "three";
 import type { GLTFLoader } from "three-stdlib";
 import { fetchGlb } from "@/domain/glbCache";
@@ -11,6 +12,8 @@ import { loadSpan } from "@/debug/loadTiming";
  * - meshopt 은 drei useGLTF 3번째 인자(true)로 MeshoptDecoder 연결
  * 폴백: 문제가 생기면 busan.glb.backup-* (PNG/비압축 원본)로 되돌리고 이 extendLoader 를 빼면 됨.
  */
+useMainThreadKtx2();
+
 export const ktx2Loader = new KTX2Loader().setTranscoderPath(
   `${import.meta.env.BASE_URL}basis/`,
 );

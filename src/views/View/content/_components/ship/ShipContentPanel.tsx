@@ -7,6 +7,7 @@ import {
   getShipTwinProfile,
   resolveShipTwinIndex,
   shipTwinDetailRows,
+  shipStatusLabel,
 } from "@/domain/portTwinMock";
 import { useContentViewStore } from "@/stores/contentView";
 import { useViewportStore } from "@/stores/viewport";
@@ -14,6 +15,7 @@ import { useYardStore } from "@/stores/yard";
 import { cn } from "@/utils/style";
 import { useMemo } from "react";
 import ContentDetailLayout, { DetailFields } from "../ContentDetailLayout";
+import Button from "@/components/Button";
 import { CyberHeading } from "../cyber/CyberPanel";
 
 type ShipListItem = {
@@ -103,6 +105,12 @@ export default function ShipContentPanel() {
         }
       >
         <DetailFields rows={shipTwinDetailRows(twin)} />
+        <Button
+          onClick={() => useContentViewStore.getState().setActiveView("schedule")}
+          className="mx-md my-sm border border-cyber/30 py-sm text-primary"
+        >
+          입출항 스케줄 보기
+        </Button>
       </ContentDetailLayout>
     );
   }
@@ -110,7 +118,7 @@ export default function ShipContentPanel() {
   return (
     <div className="relative z-1 flex min-h-0 flex-1 flex-col overflow-hidden">
       <CyberHeading
-        title="Ships"
+        title="선박"
         subtitle={`${items.length} vessels`}
         info={INFO_TIPS.shipList}
       />
@@ -132,6 +140,9 @@ export default function ShipContentPanel() {
                 </p>
                 <p className="mt-0.5 truncate text-lg text-text-secondary">
                   {item.subtitle}
+                </p>
+                <p className="mt-xs text-base text-primary">
+                  {shipStatusLabel(getShipTwinProfile(item.index).status)}
                 </p>
               </div>
               {selectedShipKey === item.key ? (

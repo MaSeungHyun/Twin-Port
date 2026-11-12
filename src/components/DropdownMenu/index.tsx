@@ -61,16 +61,16 @@ function SubTrigger({
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
-        "flex cursor-pointer items-center gap-xs rounded-sm px-xs py-1.5 text-sm text-white outline-none select-none",
-        "focus:bg-primary/20 data-[state=open]:bg-primary/20",
-        "[&_svg]:pointer-events-none [&_svg]:size-xl [&_svg]:shrink-0",
+        "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] text-dt-text outline-none select-none",
+        "focus:bg-white/8 data-[state=open]:bg-white/8",
+        "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
         inset && "pl-8",
         className,
       )}
       {...props}
     >
       {children}
-      <span className="ml-auto text-white/40">›</span>
+      <span className="ml-auto text-dt-text-3">›</span>
     </DropdownMenuPrimitive.SubTrigger>
   );
 }
@@ -85,7 +85,7 @@ function SubContent({
       data-slot="dropdown-menu-sub-content"
       {...props}
       className={cn(
-        "relative z-[99999] min-w-32 overflow-hidden rounded-md border border-white/10 bg-background p-1 shadow-lg",
+        "relative z-[99999] min-w-32 overflow-hidden rounded-[10px] bg-dt-bg/88 p-1 text-[12px] text-dt-text shadow-[inset_0_0_0_2px_#ffffff14] backdrop-blur-[24px]",
         className,
       )}
       style={{ zIndex: 99999, ...style }}
@@ -108,7 +108,7 @@ function Content({
         // drei Html이 매 프레임 z-index를 갱신하므로, UI 팝업은 인라인으로 확실히 위에 둔다
         style={{ zIndex: 99999, ...style }}
         className={cn(
-          "relative z-[99999] min-w-40 overflow-hidden rounded-md border border-white/10 bg-background p-1 text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)]",
+          "presence-pop relative z-[99999] min-w-40 overflow-hidden rounded-[10px] bg-dt-bg/88 p-1 text-[12px] text-dt-text shadow-[inset_0_0_0_2px_#ffffff14] backdrop-blur-[24px]",
           className,
         )}
       />
@@ -129,12 +129,12 @@ function Item({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-xs rounded-sm px-xs py-1 text-sm outline-none select-none",
-        "focus:bg-primary/20 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
-        "[&_svg]:pointer-events-none [&_svg]:size-xl [&_svg]:shrink-0",
+        "relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-[12px] text-dt-text outline-none select-none",
+        "focus:bg-white/8 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
         inset && "pl-8",
         variant === "danger" &&
-          "text-danger focus:bg-danger/15 focus:text-danger",
+          "text-dt-danger focus:bg-dt-danger/15 focus:text-dt-danger",
         className,
       )}
       {...props}
@@ -152,16 +152,16 @@ function CheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-xs rounded-sm py-1.5 pr-xs pl-8 text-sm outline-none select-none",
-        "focus:bg-primary/20 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "relative flex cursor-pointer items-center gap-2 rounded-md py-1.5 pr-2 pl-8 text-[12px] text-dt-text outline-none select-none",
+        "focus:bg-white/8 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className,
       )}
       checked={checked}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-lg items-center justify-center">
+      <span className="pointer-events-none absolute left-2 flex size-4 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <span className="size-1.5 rounded-full bg-primary" />
+          <span className="size-1.5 rounded-full bg-dt-point" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -178,15 +178,15 @@ function RadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-xs rounded-sm py-1.5 pr-xs pl-8 text-sm outline-none select-none",
-        "focus:bg-primary/20 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "relative flex cursor-pointer items-center gap-2 rounded-md py-1.5 pr-2 pl-8 text-[12px] text-dt-text outline-none select-none",
+        "focus:bg-white/8 data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className,
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-lg items-center justify-center">
+      <span className="pointer-events-none absolute left-2 flex size-4 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <span className="size-1.5 rounded-full bg-primary" />
+          <span className="size-1.5 rounded-full bg-dt-point" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -205,7 +205,7 @@ function Label({
     <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
       className={cn(
-        "px-xs py-1.5 text-xs font-medium text-white/45",
+        "px-2 py-1.5 text-[10px] font-medium tracking-[1px] text-dt-text-3",
         inset && "pl-8",
         className,
       )}
@@ -221,7 +221,7 @@ function Separator({
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("-mx-1 my-1 h-px bg-white/10", className)}
+        className={cn("-mx-1 my-1 h-px bg-white/8", className)}
       {...props}
     />
   );
@@ -231,7 +231,7 @@ function Shortcut({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn("ml-auto text-xs tracking-widest text-white/35", className)}
+      className={cn("ml-auto text-[10px] tracking-[1px] text-dt-text-3", className)}
       {...props}
     />
   );

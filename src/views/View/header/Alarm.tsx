@@ -1,141 +1,172 @@
-import { INFO_TIPS } from "@/constants/infoTips";
-
-import { DropdownMenu } from "@/components/DropdownMenu";
 import toastMockData from "@/data/toast_mock.json";
+import { useHudUiStore } from "@/stores/hud";
 import { useFailureStore } from "@/stores/useFailureStore";
-import IconButton from "@/components/IconButton";
-import AlarmCard from "./AlarmCard";
-import LevelFilter from "@/components/LevelFilter";
-import {
-  ALARM_LEVELS,
-  alarmLevelFromToast,
-  DEFAULT_ALARM_LEVEL_FILTER,
-  type AlarmLevelFilterState,
-} from "@/components/LevelFilter/constants";
-import { CyberHeading } from "@/views/View/content/_components/cyber/CyberPanel";
-import { useScrollEdgeFade } from "@/hooks/useScrollEdgeFade";
-import { useCallback, useMemo, useState } from "react";
+import { useViewportStore } from "@/stores/viewport";
+import Icon from "@/components/Icon";
+import { cn } from "@/utils/style";
+import { useMemo, useState } from "react";
 
-function matchesAlarmFilter(
-  level: string,
-  filter: AlarmLevelFilterState,
-): boolean {
-  const alarmLevel = alarmLevelFromToast(level);
-  if (alarmLevel === "danger") return filter.danger;
-  if (alarmLevel === "warning") return filter.warning;
-  return true;
+type AlarmFilter = "all" | "error" | "warning" | "success";
+
+type AlarmLevel = Exclude<AlarmFilter, "all">;
+
+type AlarmRow = {
+  id: string;
+  level: AlarmLevel;
+  title: string;
+  message?: string;
+  createdAt: string;
+};
+
+const FILTERS: { id: AlarmFilter; label: string }[] = [
+  { id: "all", label: "전체" },
+  { id: "error", label: "긴급" },
+  { id: "warning", label: "주의" },
+  { id: "success", label: "복구" },
+];
+
+const LEVEL_BADGE: Record<AlarmLevel, string> = {
+  error: "bg-[#F0434B]/15 text-[#FF6B78]",
+  warning: "bg-[#E0A020]/15 text-[#F5C451]",
+  success: "bg-[#1F9D6A]/15 text-[#3DDC97]",
+};
+
+const LEVEL_LABEL: Record<AlarmLevel, string> = {
+  error: "긴급",
+  warning: "주의",
+  success: "복구",
+};
+
+function asLevel(level: string): AlarmLevel {
+  if (level === "error" || level === "danger") return "error";
+  if (level === "warning") return "warning";
+  if (level === "success") return "success";
+  return "success";
+}
+
+function clock(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function useAlarmRows() {
+  const failureEvents = useFailureStore((s) => s.events);
+  return useMemo<AlarmRow[]>(() => {
+    const live = failureEvents.map((event) => ({
+      id: event.id,
+      level: asLevel(event.level),
+      title: event.title,
+      message: event.message,
+      createdAt: event.createdAt,
+    }));
+    const mock = toastMockData.map((item) => ({
+      id: item.id,
+      level: asLevel(item.level),
+      title: item.title,
+      message: item.message,
+      createdAt: item.createdAt,
+    }));
+    return [...live, ...mock];
+  }, [failureEvents]);
 }
 
 export default function Alarm() {
-  // [failure] 시나리오 이벤트(최신순) + 기존 mock
-  const failureEvents = useFailureStore((s) => s.events);
-  const toastMock = useMemo(
-    () => [...failureEvents, ...toastMockData],
-    [failureEvents],
-  );
-  const [levelFilter, setLevelFilter] = useState<AlarmLevelFilterState>(
-    DEFAULT_ALARM_LEVEL_FILTER,
-  );
-
-  const levelCounts = useMemo(() => {
-    const counts: Record<(typeof ALARM_LEVELS)[number], number> = {
-      danger: 0,
-      warning: 0,
-    };
-    for (const item of toastMock) {
-      const level = alarmLevelFromToast(item.level);
-      if (level === "danger" || level === "warning") {
-        counts[level] += 1;
-      }
-    }
-    return counts;
-  }, [toastMock]);
-
-  const filteredItems = useMemo(
-    () =>
-      toastMock.filter((item) => matchesAlarmFilter(item.level, levelFilter)),
-    [levelFilter, toastMock],
-  );
-
-  const toggleLevelFilter = useCallback(
-    (level: (typeof ALARM_LEVELS)[number]) => {
-      setLevelFilter((prev) => ({ ...prev, [level]: !prev[level] }));
-    },
-    [],
-  );
-
-  const scrollItemCount =
-    toastMock.length === 0 || filteredItems.length === 0
-      ? 0
-      : filteredItems.length;
-  const { scrollRef, edge, onScroll } = useScrollEdgeFade(scrollItemCount);
+  const alarmOpen = useHudUiStore((s) => s.alarmOpen);
+  const unseenAlarmCount = useHudUiStore((s) => s.unseenAlarmCount);
+  const toggleAlarm = useHudUiStore((s) => s.toggleAlarm);
+  const started = useViewportStore((s) => s.monitoringStarted);
+  const introOpen = useViewportStore((s) => s.introOpen);
+  const live = started && !introOpen;
+  const rows = useAlarmRows();
+  const hasAlert = live && rows.some((row) => row.level === "error" || row.level === "warning");
 
   return (
-    <DropdownMenu>
-      <DropdownMenu.Trigger asChild>
-        <IconButton icon="Bell" label="알림">
-          {toastMock.length > 0 ? (
-            <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-danger" />
-          ) : null}
-        </IconButton>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content
-        sideOffset={30}
-        alignOffset={-10}
-        align="end"
-        className="flex h-120 w-100 min-h-0 flex-col border-cyber/25 p-0 shadow-[0_12px_40px_rgba(0,0,0,0.55),0_0_28px_rgba(0,232,255,0.1)]"
-      >
-        <CyberHeading
-          title="알림"
-          info={INFO_TIPS.alarm}
-          trailing={
-            <LevelFilter
-              ariaLabel="알림 종류 필터"
-              levels={ALARM_LEVELS}
-              counts={levelCounts}
-              value={levelFilter}
-              onChange={toggleLevelFilter}
-              size="sm"
-              preventPointerDown
-            />
-          }
-        />
+    <button
+      type="button"
+      aria-label="알림"
+      aria-pressed={live && alarmOpen}
+      onClick={() => { if (live) toggleAlarm(); }}
+      className={cn(
+        "relative grid size-10 place-items-center rounded-lg text-white/75 hover:bg-[#2A3544]",
+        live && alarmOpen && "bg-white/10 text-white",
+      )}
+    >
+      <Icon icon="Bell" className="size-5" />
+      {unseenAlarmCount > 0 ? (
+        <span className="absolute top-1 right-1 grid h-4 min-w-4 place-items-center rounded bg-dt-danger px-1 text-[10px] leading-none font-bold text-white">
+          {unseenAlarmCount > 9 ? "9+" : unseenAlarmCount}
+        </span>
+      ) : hasAlert ? (
+        <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-dt-danger" />
+      ) : null}
+    </button>
+  );
+}
 
-        <div className="scroll-edge-fade relative min-h-0 flex-1">
-          <div
-            ref={scrollRef}
-            onScroll={onScroll}
-            className="flex h-full flex-col gap-2 scrollbar-themed overflow-y-auto overscroll-contain px-xl py-sm"
-          >
-            {toastMock.length === 0 ? (
-              <p className="flex flex-1 items-center justify-center py-xl text-lg text-text-secondary">
-                새 알림이 없습니다
-              </p>
-            ) : filteredItems.length === 0 ? (
-              <p className="flex flex-1 items-center justify-center py-xl text-lg text-text-secondary">
-                표시할 알림이 없습니다
-              </p>
-            ) : (
-              filteredItems.map((item) => (
-                <AlarmCard
-                  key={`${item.title}-${item.createdAt}`}
-                  item={item}
-                />
-              ))
+export function AlarmPanel() {
+  const rows = useAlarmRows();
+  const [filter, setFilter] = useState<AlarmFilter>("all");
+  const [ackAt, setAckAt] = useState<number | null>(null);
+
+  const pending = rows.filter((row) => ackAt == null || new Date(row.createdAt).getTime() > ackAt);
+  const shown = filter === "all" ? pending : pending.filter((row) => row.level === filter);
+
+  return (
+    <aside className="flex h-full max-h-[calc(100dvh-112px-var(--toast-lift,0px))] w-full flex-col overflow-hidden text-white">
+      <header className="flex shrink-0 items-center justify-between gap-2 px-6 pt-6 pb-3">
+        <h2 className="text-[16px] font-medium text-[#F2F5F8]">알람</h2>
+        <button
+          type="button"
+          onClick={() => setAckAt(Date.now())}
+          className="text-[12px] text-[#9AA8B6] hover:text-white"
+        >
+          모두 확인
+        </button>
+      </header>
+      <div className="flex shrink-0 gap-3 px-6 pb-3">
+        {FILTERS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={filter === item.id}
+            onClick={() => setFilter(item.id)}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-[12px] text-[#9AA8B6] hover:text-white",
+              filter === item.id && "bg-white/8 text-[#F2F5F8]",
             )}
-          </div>
-          <div
-            aria-hidden
-            className="scroll-edge-fade__edge scroll-edge-fade__top"
-            data-visible={edge.top}
-          />
-          <div
-            aria-hidden
-            className="scroll-edge-fade__edge scroll-edge-fade__bottom"
-            data-visible={edge.bottom}
-          />
-        </div>
-      </DropdownMenu.Content>
-    </DropdownMenu>
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-1">
+        {shown.length === 0 ? (
+          <p className="px-2 py-8 text-center text-[12px] text-white/40">표시할 알람이 없습니다</p>
+        ) : (
+          shown.map((row) => (
+            <div key={row.id} className="flex items-start gap-2 border-b border-white/8 px-2 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("shrink-0 rounded px-1.5 py-px text-[10px]", LEVEL_BADGE[row.level])}>
+                    {LEVEL_LABEL[row.level]}
+                  </span>
+                  <p className="truncate text-[13px] font-medium">{row.title}</p>
+                </div>
+                {row.message ? <p className="mt-0.5 truncate text-[11px] text-white/45">{row.message}</p> : null}
+              </div>
+              <time className="shrink-0 text-[22px] leading-none font-light tabular-nums text-[#F2F5F8]">{clock(row.createdAt)}</time>
+            </div>
+          ))
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setFilter("all")}
+        className="px-6 py-4 text-center text-[12px] text-[#9AA8B6] hover:text-white"
+      >
+        전체 알람 보기
+      </button>
+    </aside>
   );
 }

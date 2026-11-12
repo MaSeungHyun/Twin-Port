@@ -9,7 +9,7 @@ import { FFTOceanFrag } from "./webgpu/fftFrag";
 import { makeIslandMatGPU, makeOceanMatGPU, makeProbeGPU, makeSeabedGPU, makeSkyMatGPU } from "./webgpu/oceanTSL";
 import { PERF_Q, Q, useSettings, type Quality } from "./state/settingsStore";
 import { SceneContext, type SceneCtx } from "./scene/context";
-import { radialGrid, type Cube, type Probe, type Seabed, type UniformMat } from "./scene/resources";
+import { oceanGrid, type Cube, type Probe, type Seabed, type UniformMat } from "./scene/resources";
 import { Ocean } from "./scene/Ocean";
 import { Sky } from "./scene/Sky";
 import { WATER_PRESETS } from "./spectrum";
@@ -155,7 +155,7 @@ function PortOceanScene({ skyDome }: { skyDome: boolean }) {
   const gl = useThree((s) => s.gl);
   const rings = useSettings((s) => Q[s.quality].rings);
   const n = useSettings(useShallow((s) => s.perf.n));
-  const grid = useMemo(() => radialGrid(rings), [rings]);
+  const grid = useMemo(() => oceanGrid(rings), [rings]);
   const sim = useMemo<OceanSim>(
     () => {
       const aniso = Math.min(16, (gl as unknown as { getMaxAnisotropy(): number }).getMaxAnisotropy());

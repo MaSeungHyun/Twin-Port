@@ -3,8 +3,14 @@ import { resolveCraneIndex } from "@/domain/cameraFocus";
 import { resolveOverheadCraneIndex } from "@/domain/overheadCraneTwin";
 import { isViewportTracking, useViewportStore } from "@/stores/viewport";
 
-export type ContentView = "block" | "container" | "ship" | "crane";
+export type ContentView = "terminal" | "block" | "container" | "berth" | "schedule" | "ship" | "crane";
 
+/** 상세 화면에서도 소속 메뉴의 선택 표시를 유지한다. */
+export function contentMenu(view: ContentView | null): ContentView | null {
+  if (view === "block" || view === "container" || view === "berth") return "terminal";
+
+  return view;
+}
 export type CraneTab = "quay" | "overhead";
 
 export type DetailGraphSubject = {
@@ -260,11 +266,11 @@ export const useContentViewStore = create<ContentViewState>((set, get) => ({
 
 export const CONTENT_VIEW_NAV: {
   view: ContentView;
-  icon: "LayoutTemplate" | "Container" | "Ship" | "Construction";
+  icon: "LayoutTemplate" | "CalendarDays" | "Ship" | "Construction";
   label: string;
 }[] = [
-  { view: "block", icon: "LayoutTemplate", label: "Blocks" },
-  { view: "container", icon: "Container", label: "Containers" },
-  { view: "ship", icon: "Ship", label: "Ships" },
-  { view: "crane", icon: "Construction", label: "Cranes" },
+  { view: "terminal", icon: "LayoutTemplate", label: "터미널" },
+  { view: "schedule", icon: "CalendarDays", label: "스케줄" },
+  { view: "ship", icon: "Ship", label: "선박" },
+  { view: "crane", icon: "Construction", label: "장비" },
 ];

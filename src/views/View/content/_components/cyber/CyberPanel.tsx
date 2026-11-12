@@ -7,54 +7,12 @@ type CyberPanelProps = {
   className?: string;
 };
 
-const cyberPanelClass =
-  "relative isolate overflow-hidden border border-cyber/20 bg-[linear-gradient(168deg,rgba(4,12,24,0.54)_0%,rgba(2,6,14,0.9)_100%)] shadow-[inset_0_0_60px_rgba(0,100,180,0.07),0_0_30px_rgba(0,232,255,0.05)] before:pointer-events-none before:absolute before:inset-0 before:z-0 before:bg-[repeating-linear-gradient(-45deg,transparent_0_6px,rgba(0,232,255,0.9)_6px_7px)] before:opacity-[0.035] before:content-[''] before:[mask-image:linear-gradient(to_left,#000_0%,transparent_55%)]";
-
-const cyberCornerBase =
-  "pointer-events-none absolute z-2 size-3.5 border-cyber";
-
-/** 사이버틱 HUD 프레임 — 코너 브래킷 + 해치 텍스처 */
+/** 선석 등 남은 패널 프레임. 코너 장식 없이 공통 패널 표면 */
 export default function CyberPanel({ children, className }: CyberPanelProps) {
   return (
-    <div className={cn(cyberPanelClass, className)}>
-      <CyberCorners />
+    <div className={cn("hud-glass relative overflow-hidden rounded-[14px] text-dt-text", className)}>
       {children}
     </div>
-  );
-}
-
-export function CyberCorners() {
-  return (
-    <>
-      <span
-        aria-hidden
-        className={cn(
-          cyberCornerBase,
-          "top-0 left-0 border-t-2 border-l-2 shadow-[-2px_-2px_10px_rgba(0,232,255,0.45)]",
-        )}
-      />
-      <span
-        aria-hidden
-        className={cn(
-          cyberCornerBase,
-          "top-0 right-0 border-t-2 border-r-2 shadow-[2px_-2px_10px_rgba(0,232,255,0.45)]",
-        )}
-      />
-      <span
-        aria-hidden
-        className={cn(
-          cyberCornerBase,
-          "bottom-0 left-0 border-b-2 border-l-2 shadow-[-2px_2px_10px_rgba(0,232,255,0.45)]",
-        )}
-      />
-      <span
-        aria-hidden
-        className={cn(
-          cyberCornerBase,
-          "right-0 bottom-0 border-r-2 border-b-2 shadow-[2px_2px_10px_rgba(0,232,255,0.45)]",
-        )}
-      />
-    </>
   );
 }
 
@@ -74,16 +32,16 @@ export function CyberHeading({
 }) {
   return (
     <header
-      className={cn("shrink-0 border-b border-cyber/15 px-xl py-sm", className)}
+      className={cn("shrink-0 border-b border-white/8 px-6 py-3", className)}
     >
-      <div className="flex items-start justify-between gap-md">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="cyber-heading flex items-center gap-sm text-2xl">
+          <h2 className="flex items-center gap-2 text-[16px] font-medium text-dt-text">
             {title}
-            {info ? <InfoTip text={info} className="text-lg" /> : null}
+            {info ? <InfoTip text={info} className="text-[14px]" /> : null}
           </h2>
           {subtitle ? (
-            <div className="mt-0.5 text-text-secondary">{subtitle}</div>
+            <div className="mt-1 text-[12px] text-dt-text-2">{subtitle}</div>
           ) : null}
         </div>
         {trailing ? <div className="shrink-0 pt-0.5">{trailing}</div> : null}

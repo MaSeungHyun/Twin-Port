@@ -6,7 +6,8 @@ import {
   type ContainerColorKey,
 } from "@/constants/container";
 import {
-  type BufferGeometry,
+  BufferAttribute,
+  BufferGeometry,
   Color,
   EdgesGeometry,
   FrontSide,
@@ -18,6 +19,7 @@ import {
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { attribute, type float, select, texture, uniform, uv, varying, type vec2, vec4 } from "three/tsl";
 
 export type ContainerPrototype = {
   geometry: BufferGeometry;
@@ -176,4 +178,91 @@ export function buildContainerPrototypes(
   }
 
   return prototypes;
+}
+
+/** [perf] 통합 컨테이너 메시의 인스턴스별 색 인덱스 attribute 이름 (CONTAINER_COLORS 순서) */
+export const CONTAINER_COLOR_ATTR = "containerColor";
+
+/**
+ * [perf] 색 그룹 4개는 같은 상자(정점 24개)에 UV 영역만 다르다. 첫 색 geometry 의 위치·법선·인덱스를 쓰고
+ * 색마다의 UV 를 uv / uv1 / uv2 / uv3 으로 담은 geometry 를 만든다. 정점 대응이 하나라도 안 맞으면 null (기존 색별 메시 유지).
+ */
+export function buildUnifiedContainerGeometry(
+  prototypes: Record<ContainerColorKey, ContainerPrototype>,
+): BufferGeometry | null {
+  const keys = CONTAINER_COLORS.map((c) => c.key);
+  if (keys.length === 0 || keys.length > 4) return null;
+  const base = prototypes[keys[0]!].geometry;
+  const pos = base.getAttribute("position");
+  const nor = base.getAttribute("normal");
+  if (!pos || !nor) return null;
+  base.computeBoundingBox();
+  const size = base.boundingBox!.getSize(new Vector3()).length();
+  const eps = Math.max(size * 1e-4, 1e-5);
+  const out = new BufferGeometry();
+  out.setIndex(base.getIndex());
+  for (const name of Object.keys(base.attributes)) {
+    if (/^uv\d*$/.test(name)) continue;
+    out.setAttribute(name, base.getAttribute(name));
+  }
+  for (let k = 0; k < keys.length; k += 1) {
+    const g = prototypes[keys[k]!].geometry;
+    const gp = g.getAttribute("position");
+    const gn = g.getAttribute("normal");
+    const guv = g.getAttribute("uv");
+    if (!gp || !gn || !guv || gp.count !== pos.count) {
+      out.dispose();
+      return null;
+    }
+    const uvs = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i += 1) {
+      let found = -1;
+      for (let j = 0; j < gp.count; j += 1) {
+        if (Math.abs(gp.getX(j) - pos.getX(i)) > eps || Math.abs(gp.getY(j) - pos.getY(i)) > eps || Math.abs(gp.getZ(j) - pos.getZ(i)) > eps) continue;
+        const dot = gn.getX(j) * nor.getX(i) + gn.getY(j) * nor.getY(i) + gn.getZ(j) * nor.getZ(i);
+        if (dot < 0.99) continue;
+        found = j;
+        break;
+      }
+      if (found < 0) {
+        out.dispose();
+        return null;
+      }
+      uvs[i * 2] = guv.getX(found);
+      uvs[i * 2 + 1] = guv.getY(found);
+    }
+    out.setAttribute(k === 0 ? "uv" : `uv${k}`, new BufferAttribute(uvs, 2));
+  }
+  out.computeBoundingBox();
+  out.computeBoundingSphere();
+  return out;
+}
+
+/**
+ * [perf] 인스턴스 색 인덱스로 uv~uv3 중 하나를 골라 map 을 읽는 colorNode 를 붙인다 (원래 color × map 과 같은 결과).
+ * 페이드 복제본(clone 은 colorNode 를 복사하지 않음)에도 다시 붙인다. 이미 붙어 있으면 그대로 둔다(재컴파일 방지).
+ */
+export function applyUnifiedContainerColor(material: Material) {
+  const m = material as MeshStandardMaterial & { colorNode?: unknown };
+  // clone 은 userData 는 복사하지만 colorNode 는 복사하지 않으므로 둘 다 확인한다.
+  if (m.colorNode && material.userData.unifiedContainerColor) return material;
+  const map = m.map;
+  if (!map) return material;
+  const ci = attribute(CONTAINER_COLOR_ATTR, "float") as unknown as ReturnType<typeof float>;
+  const uvAt = (index: number) => uv(index) as unknown as ReturnType<typeof vec2>;
+  const pick = varying(
+    select(ci.lessThan(0.5), uvAt(0), select(ci.lessThan(1.5), uvAt(1), select(ci.lessThan(2.5), uvAt(2), uvAt(3)))),
+  );
+  m.colorNode = texture(map, pick).mul(vec4(uniform(m.color), 1));
+  m.userData.unifiedContainerColor = true;
+  m.needsUpdate = true;
+  return material;
+}
+
+/** 통합 메시용 기본 재질: 첫 색 재질 복제 + 인스턴스 색 colorNode */
+export function buildUnifiedContainerMaterial(prototypes: Record<ContainerColorKey, ContainerPrototype>) {
+  const source = prototypes[CONTAINER_COLORS[0]!.key].material;
+  const material = source.clone();
+  material.name = `${source.name || "container"}-unified`;
+  return applyUnifiedContainerColor(material) as MeshStandardMaterial;
 }

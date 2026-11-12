@@ -6,7 +6,7 @@ import { useViewportStore } from "@/stores/viewport";
 import {
   CAMERA_PULLBACK_DELAY,
   CAMERA_PULLBACK_DURATION,
-  CAMERA_PULLBACK_EVENT,
+  CAMERA_INTRO_DURATION,
   CAMERA_INTRO_ENABLED,
   CAMERA_INTRO_SLOT1,
   CAMERA_INTRO_SLOT2,
@@ -176,10 +176,14 @@ export default function CameraSlots() {
 
   // [camintro] Monitoring Mode toggle intentionally does NOT move the camera (user request): camera stays where it is.
 
-  // [camintro] "관제 시작" → camera stays where it is (interaction enabled immediately).
-  // [pullback] 지정 배(CAMERA_PULLBACK_SHIP_INDEX) 출항 시작 이벤트 → DELAY 후 slot 2로 DURATION 동안 서서히 빠짐
+  // [camintro] "관제 시작" → 홈(intro slot 2)과 같은 목적지로 바로 이동.
+  // [pullback] 출항을 기다리는 이동은 이 흐름에 연결하지 않는다. 함수는 남겨 둔다.
   useEffect(() => {
-    const start = () => useViewportStore.getState().setInteractionReady(true);
+    const start = () => {
+      useViewportStore.getState().setInteractionReady(true);
+      const home = introSlot("2") ?? readSlots()["home"];
+      if (home) recallRef.current("2", false, home, CAMERA_INTRO_DURATION);
+    };
     let timer = 0;
     const pull = () => {
       window.clearTimeout(timer);
@@ -190,11 +194,10 @@ export default function CameraSlots() {
       }, CAMERA_PULLBACK_DELAY * 1000);
     };
     window.addEventListener(CAMERA_INTRO_START_EVENT, start);
-    window.addEventListener(CAMERA_PULLBACK_EVENT, pull);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener(CAMERA_INTRO_START_EVENT, start);
-      window.removeEventListener(CAMERA_PULLBACK_EVENT, pull);
+      void pull;
     };
   }, []);
 
@@ -301,7 +304,7 @@ export default function CameraSlots() {
     // [camintro] precedence on load: slot 1 (stored → constant) > Home slot > GLB view camera.
     // Slot 1 is forced on EVERY frame from the very first one (priority -2 = before render) through frame 30,
     // so the GLB view camera (Ground layout effect) is never visible → no load flash.
-    if (homeDone.current < 31) {
+    if (homeDone.current < 31 && !useViewportStore.getState().interactionReady) {
       const n = ++homeDone.current;
       if (n === 1) intro1.current = CAMERA_INTRO_ENABLED ? introSlot("1") : null;
       const s1 = intro1.current;

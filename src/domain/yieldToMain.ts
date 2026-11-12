@@ -5,6 +5,11 @@ export function yieldToMain(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0));
 }
 
+/** 화면이 한 번 그려진 뒤로 미룬다. scheduler.yield 는 연달아 쓰면 렌더가 약 100ms 마다만 끼어든다. */
+export function afterNextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+}
+
 /** budgetMs 를 넘겼을 때만 양보하는 체크포인트 */
 export function createTimeSlicer(budgetMs = 8) {
   let start = performance.now();

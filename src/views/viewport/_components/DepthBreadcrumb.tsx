@@ -8,13 +8,12 @@ export default function DepthBreadcrumb() {
   const stack = useCameraDepthStore((s) => s.stack);
   if (!stack.length) return null;
   return (
-    <div className="pointer-events-none absolute bottom-[32px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-sm rounded-lg border-2 border-white/40 bg-[#00000080] px-md py-xs shadow-lg select-none">
-      <span className="text-md tracking-wide text-text-primary">
+    <div className="pointer-events-none absolute bottom-16 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-lg bg-dt-bg/92 px-3 py-2 shadow-[inset_0_0_0_2px_#ffffff14] select-none">
+      <span className="text-[14px] text-dt-text">
         {stack.map((e) => e.label).join(` ${DEPTH_BREADCRUMB_SEPARATOR} `)}
-        {/* {DEPTH_BREADCRUMB_TRAILING ? ` ${DEPTH_BREADCRUMB_SEPARATOR}` : ""} */}
       </span>
       {stack.length < 2 && (
-        <span className="text-sm font-light text-white/50">ESC</span>
+        <span className="text-[12px] font-normal text-dt-text-3">ESC</span>
       )}
     </div>
   );

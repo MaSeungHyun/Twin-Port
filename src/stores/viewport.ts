@@ -7,6 +7,9 @@ type ViewportState = {
   /** [monitorgate] '관제 시작' 클릭 시점부터 true (한 번만). 고장 시나리오·토스트·알람 이벤트는 이 전엔 전부 차단 */
   monitoringStarted: boolean;
   startMonitoring: () => void;
+  /** 관제 시작 오버레이가 떠 있는 동안 true. 이 동안 패널·월드 라벨은 숨긴다 */
+  introOpen: boolean;
+  setIntroOpen: (open: boolean) => void;
   /** 관제모드 — Block 전체 마크 + 탑뷰 */
   monitorMode: boolean;
   setMonitorMode: (enabled: boolean) => void;
@@ -63,6 +66,12 @@ type ViewportState = {
   cancelTrackingByPan: () => void;
   /** CameraFlight 가 1회 소비: true 면 Tracking 해제 시 복귀 비행 생략 */
   skipReturnFlight: boolean;
+  /** [hud] 전체 UI 숨김 — 헤더·패널·토스트·월드 라벨/콜아웃/구역 버튼 등 (H 토글) */
+  hudHidden: boolean;
+  toggleHudHidden: () => void;
+  /** 3D 표시. wire 는 지형·블록·건물·크레인·선박·컨테이너만 와이어프레임 */
+  renderMode: "solid" | "wire";
+  setRenderMode: (mode: "solid" | "wire") => void;
 };
 
 export const useViewportStore = create<ViewportState>((set) => ({
@@ -70,6 +79,8 @@ export const useViewportStore = create<ViewportState>((set) => ({
   setInteractionReady: (ready) => set({ interactionReady: ready }),
   monitoringStarted: false,
   startMonitoring: () => set({ monitoringStarted: true }),
+  introOpen: true,
+  setIntroOpen: (introOpen) => set({ introOpen }),
   monitorMode: false,
   setMonitorMode: (enabled) =>
     set({
@@ -242,6 +253,10 @@ export const useViewportStore = create<ViewportState>((set) => ({
     }),
   toggleShowDangerousBlockCards: () =>
     set((state) => ({ showDangerousBlockCards: !state.showDangerousBlockCards })),
+  hudHidden: false,
+  toggleHudHidden: () => set((state) => ({ hudHidden: !state.hudHidden })),
+  renderMode: "solid",
+  setRenderMode: (renderMode) => set({ renderMode }),
 }));
 
 /** 컨테이너·선박·크레인 Tracking 중 */

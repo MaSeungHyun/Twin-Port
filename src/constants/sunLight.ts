@@ -29,6 +29,8 @@ export const SUN_SHADOW_MAP_SIZE = 2048;
 /** 태양광 그림자 기본 ON */
 export const SUN_CAST_SHADOW = true;
 export const SUN_SHADOW_BLUR_SAMPLES = 16;
+/** [perf] 그림자 맵 갱신 주기(프레임). 2 = 격프레임. 그림자 카메라가 움직이거나 범위가 바뀌면 그 프레임에 바로 갱신한다. 1 = 매 프레임(기존 동작). */
+export const SUN_SHADOW_UPDATE_EVERY = 2;
 
 /** VSM은 PCF와 bias 튜닝이 다를 수 있음 */
 export const SUN_SHADOW_BIAS = -0.00015;

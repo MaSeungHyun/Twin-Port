@@ -1,5 +1,7 @@
 import * as THREE from "three";
-import { SHORE_N, setShoreField } from "./scene/resources";
+import { SHORE_N, oceanGrid, setShoreField } from "./scene/resources";
+import { Q, useSettings } from "./state/settingsStore";
+import { afterNextFrame } from "@/domain/yieldToMain";
 import { oceanState } from "./oceanApi";
 import { bakeShoreCore, type ShoreBakeInput, type ShoreBakeMesh } from "./shoreBakeCore";
 import { beginSceneWarmTask } from "../Port/WaterReflection";
@@ -118,7 +120,17 @@ export function bakePortShoreOnce(root: THREE.Object3D) {
     finishWarm();
   };
   bakePortShore(root).then(
-    (r) => finish(r ? `rect ${r.rect.map((v) => v.toFixed(0)).join(",")} cell ${r.cell.toFixed(1)}m` : "베이크 실패(해안 거품 없음)"),
+    async (r) => {
+      // 바다 마운트 커밋이 한 프레임에 몰리지 않게 지오메트리는 앞 프레임에서 만든다.
+      try {
+        await afterNextFrame();
+        oceanGrid(Q[useSettings.getState().quality].rings);
+        await afterNextFrame();
+      } catch (e) {
+        console.warn("[OceanTsl] 바다 지오메트리 미리 만들기 실패", e);
+      }
+      finish(r ? `rect ${r.rect.map((v) => v.toFixed(0)).join(",")} cell ${r.cell.toFixed(1)}m` : "베이크 실패(해안 거품 없음)");
+    },
     (e) => {
       console.warn("[OceanTsl] shore bake failed", e);
       finish("베이크 실패(해안 거품 없음)");

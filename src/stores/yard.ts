@@ -5,10 +5,10 @@ import { generateYardContainers } from "@/domain/generateYardContainers";
 import type { QuayBerth, QuayCranePlacement } from "@/domain/extractQuayBerths";
 import type { Vec3 } from "@/constants/geometry";
 import type { Container } from "@/types/container";
-import mockContainers from "@/data/container_mock.json";
 import { create } from "zustand";
 
-const DEFAULT_CONTAINERS = mockContainers as Container[];
+/** 모델이 블록을 추출하면 generateYardContainers 로 바뀐다. 그 전 빈 목록은 화면 목록과 같다. */
+const DEFAULT_CONTAINERS: Container[] = [];
 
 type YardState = {
   blocks: readonly BlockDefinition[];

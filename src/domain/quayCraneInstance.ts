@@ -45,6 +45,8 @@ let focus: ReadonlySet<number> | null = null;
 let dimmed = new Set<number>();
 let returning = false;
 let dimOpacity = 1;
+/** 같은 원본 재질의 흐린 복제. 흐림 값은 그룹 전체가 한 값(dimOpacity)이라 복제를 나눠도 화면이 같다. */
+const fadeCache = new Map<string, Material | Material[]>();
 
 const _cam = new Vector3();
 const _world = new Vector3();
@@ -57,13 +59,18 @@ function materialKey(material: Material | Material[]) {
 
 /** 비포커스 슬롯만 전용 알파 재질 사용. 모든 LOD가 같은 opacity uniform을 공유한다. */
 function makeFadeMaterial(material: Material | Material[]) {
+  const key = materialKey(material);
+  const cached = fadeCache.get(key);
+  if (cached) return cached;
   const clone = (source: Material) => {
     const faded = source.clone();
     faded.customProgramCacheKey = () => `${source.customProgramCacheKey()}|quay-instance-fade`;
     // 부품이 겹치면 opacity만으로는 다시 진해진다. 알베도도 같이 0.1까지 낮춘다.
     return attachCraneFade(faded);
   };
-  return Array.isArray(material) ? material.map(clone) : clone(material);
+  const faded = Array.isArray(material) ? material.map(clone) : clone(material);
+  fadeCache.set(key, faded);
+  return faded;
 }
 
 function paintDim(value: number) {
@@ -167,6 +174,7 @@ function place() {
 }
 
 function resetGroups() {
+  fadeCache.clear();
   groups = [];
   hoverIdByGlb = new Map();
   localCenter = new Map();

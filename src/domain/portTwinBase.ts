@@ -7,6 +7,8 @@ export type ShipOperationalStatus =
   | "discharging"
   | "departing"
   | "arriving"
+  | "preparing"
+  | "departed"
   | "idle";
 
 export type CraneOperationalStatus = "active" | "idle" | "error";

@@ -2,6 +2,7 @@ import { OrbitControls } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { setCameraDragging } from "@/domain/hoverOutline";
 import { ORBIT_MAX_DISTANCE } from "@/constants/camera";
+import { CAMERA_ZOOM_EVENT } from "@/constants/cameraIntro";
 import { useViewportStore } from "@/stores/viewport";
 import { useEffect, type RefObject } from "react";
 
@@ -91,6 +92,27 @@ export default function Controls({ controlsRef }: ControlsProps) {
       }
     };
   }, [controlsRef, setEvents]);
+
+  useEffect(() => {
+    const onZoom = (event: Event) => {
+      const controls = controlsRef.current;
+      if (!controls) return;
+      const direction = (event as CustomEvent<{ direction?: "in" | "out" }>).detail?.direction;
+      const cam = controls.object;
+      const offset = cam.position.clone().sub(controls.target);
+      const dist = offset.length();
+      if (dist < 1e-3) return;
+      const next = Math.min(
+        ORBIT_MAX_DISTANCE,
+        Math.max(40, dist * (direction === "out" ? 1.22 : 0.82)),
+      );
+      offset.setLength(next);
+      cam.position.copy(controls.target).add(offset);
+      controls.update();
+    };
+    window.addEventListener(CAMERA_ZOOM_EVENT, onZoom);
+    return () => window.removeEventListener(CAMERA_ZOOM_EVENT, onZoom);
+  }, [controlsRef]);
 
   return (
     <OrbitControls

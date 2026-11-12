@@ -11,6 +11,9 @@
 import { BLOCKS, getBlockSlotGrid, type BlockDefinition } from "@/constants/block";
 import { SHIP_PLACEMENTS } from "@/constants/model";
 import { PORT_SIM } from "@/constants/portSim";
+import { shipPhase, shipCumulativeMoves as shipCum } from "@/domain/portCall";
+import { PORT_CALL, PORT_CALL_SCENARIOS } from "@/constants/portCall";
+import { usePortCallStore } from "@/stores/usePortCallStore";
 import type { OpsSnapshot } from "@/domain/opsScenario";
 import type { QuayBerth } from "@/domain/extractQuayBerths";
 import { getCraneListSource } from "@/domain/cameraFocus";
@@ -72,6 +75,8 @@ export type ShipPlan = {
   periodH: number;
   offsetH: number;
   fill0: number;
+  delayH: number;
+  departureCause: string;
 };
 
 export type PortSimModel = {
@@ -134,7 +139,9 @@ function buildModel(
     const workH = work / rate;
     const arriveH =
       PORT_SIM.arriveHoursMin + seeded(i, 17) * (PORT_SIM.arriveHoursMax - PORT_SIM.arriveHoursMin);
-    const periodH = workH + PORT_SIM.departHours + arriveH;
+    const scenario = PORT_CALL_SCENARIOS.find((item) => item.id === usePortCallStore.getState().scenario)!;
+    const delayH = i === 0 ? scenario.delayH : 0;
+    const periodH = workH + PORT_SIM.departHours + delayH + arriveH;
     return {
       index: i,
       profile,
@@ -148,8 +155,10 @@ function buildModel(
       rate,
       workH,
       periodH,
-      offsetH: seeded(i, 7) * periodH,
+      offsetH: seeded(i, 7) * (periodH - delayH),
       fill0: 0.45 + seeded(i, 11) * 0.2,
+      delayH,
+      departureCause: delayH > 0 ? scenario.cause : "출항 지원 준비 완료",
     };
   });
 
@@ -184,30 +193,13 @@ function buildModel(
 
 /* ───────────── 선박 스케줄 계산(순수 함수) ───────────── */
 
-type ShipPhase = { status: ShipOperationalStatus; voyage: number; local: number; done: number };
 
-function shipPhase(plan: ShipPlan, h: number): ShipPhase {
-  const x = h + plan.offsetH;
-  const voyage = Math.floor(x / plan.periodH);
-  const local = x - voyage * plan.periodH;
-  if (local < plan.workH) {
-    const done = Math.floor((local / plan.workH) * plan.work);
-    return {
-      status: done < plan.discharge ? "discharging" : "loading",
-      voyage,
-      local,
-      done,
-    };
-  }
-  if (local < plan.workH + PORT_SIM.departHours)
-    return { status: "departing", voyage, local, done: plan.work };
-  return { status: "arriving", voyage, local, done: 0 };
-}
 
-/** 시뮬레이션 시각 h 까지 이 선석의 누적 처리 개수(기항을 넘어 이어짐) */
-function shipCum(plan: ShipPlan, h: number) {
-  const p = shipPhase(plan, h);
-  return p.voyage * plan.work + (p.status === "arriving" ? plan.work : p.done);
+function shipBerthState(status: ShipOperationalStatus) {
+  if (status === "preparing") return "출항 준비";
+  if (status === "departing") return "이안 중";
+  if (status === "berthed") return "접안·작업 대기";
+  return "작업 중";
 }
 
 /** [a,b] 시각 동안 선석이 작업 중이던 시간(h) */
@@ -252,6 +244,15 @@ export type SimShip = {
   mph: number;
   eta: string;
   etd: string;
+  callId: string;
+  berthState: string;
+  remaining: number;
+  delayMinutes: number;
+  departureCause: string;
+  schedule: { label: string; at: string; complete: boolean }[];
+  plannedDeparture: string;
+  nextBerthing: string;
+  nextDelayMinutes: number;
   /** 관제 기준 시각 이후 누적 처리 */
   shiftMoves: number;
 };
@@ -386,7 +387,20 @@ function sample(inp: Inputs): PortSimSnapshot {
     const crew = cranes.filter((c) => c.shipIndex === plan.index);
     const discharged = Math.min(phase.done, plan.discharge);
     const loaded = Math.max(0, phase.done - plan.discharge);
-    const start = phase.status === "arriving" ? h + (plan.periodH - phase.local) : h - phase.local;
+    const nextCall = phase.status === "arriving" || phase.status === "berthed";
+    const start = nextCall ? h + (plan.periodH - phase.local) : h - phase.local;
+    const departure = start + plan.workH + PORT_CALL.preparationH + plan.delayH;
+    const nextPlanned = start + plan.periodH - plan.delayH - PORT_CALL.berthingH;
+    const nextExpected = Math.max(nextPlanned, departure + PORT_CALL.turnaroundH);
+    const schedule = [
+      ["입항", start - PORT_CALL.approachH],
+      ["접안", start - PORT_CALL.berthingH],
+      ["양하 시작", start],
+      ["적재 시작", start + plan.discharge / plan.rate],
+      ["출항 준비", start + plan.workH],
+      ["이안", departure],
+      ["출항 완료", start + plan.workH + PORT_SIM.departHours + plan.delayH],
+    ] as const;
     return {
       index: plan.index,
       key: `ship-${plan.index}`,
@@ -405,8 +419,17 @@ function sample(inp: Inputs): PortSimSnapshot {
       craneNames: crew.map((c) => c.name),
       activeCranes: crew.filter((c) => c.mph > 0).length,
       mph: crew.reduce((sum, c) => sum + c.mph, 0),
-      eta: formatSimClock(wall(start)),
-      etd: formatSimClock(wall(start + plan.workH)),
+      eta: formatSimClock(wall(start - PORT_CALL.approachH)),
+      etd: formatSimClock(wall(departure)),
+      callId: `CALL-${plan.index + 1}-${phase.voyage + (nextCall ? 1 : 0)}`,
+      berthState: phase.status === "departed" || phase.status === "arriving" ? "공석·다음 기항 배정" : shipBerthState(phase.status),
+      remaining: plan.work - phase.done,
+      delayMinutes: Math.round(plan.delayH * 60),
+      departureCause: plan.departureCause,
+      schedule: schedule.map(([label, at]) => ({ label, at: formatSimClock(wall(at)), complete: h >= at })),
+      plannedDeparture: formatSimClock(wall(departure - plan.delayH)),
+      nextBerthing: formatSimClock(wall(nextExpected)),
+      nextDelayMinutes: Math.round((nextExpected - nextPlanned) * 60),
       shiftMoves: shipCum(plan, h) - shipCum(plan, 0),
     };
   });
@@ -476,7 +499,8 @@ function currentInputs(): Inputs {
   const yard = useYardStore.getState();
   const cranes = yard.quayCranes.length > 0 ? yard.quayCranes : getCraneListSource().placements;
   const blocks = yard.blocks.length > 0 ? yard.blocks : BLOCKS;
-  const mKey = [yard.ships, cranes, blocks, yard.containers];
+  const call = usePortCallStore.getState();
+  const mKey = [yard.ships, cranes, blocks, yard.containers, call.scenario];
   if (!modelCache || !sameKey(modelCache.key, mKey)) {
     modelCache = {
       key: mKey,
@@ -486,7 +510,7 @@ function currentInputs(): Inputs {
   const sim = usePortSimStore.getState();
   if (sim.startedAt == null && idleStartedAt == null) idleStartedAt = Date.now();
   const startedAt = sim.startedAt ?? idleStartedAt!;
-  const h = PORT_SIM.warmHours + (sim.elapsedS * PORT_SIM.speed) / 3600;
+  const h = PORT_SIM.warmHours + (sim.elapsedS * PORT_SIM.speed) / 3600 + call.offsetH;
   return {
     model: modelCache.model,
     h,
@@ -510,6 +534,34 @@ function cached(): { inputs: Inputs; snap: PortSimSnapshot } {
 /** 현재 시뮬레이션 스냅샷 — 렌더/콜백 어디서든 호출 가능(같은 tick 이면 캐시) */
 export function getPortSim(): PortSimSnapshot {
   return cached().snap;
+}
+
+export type PortHourlyThroughput = {
+  label: string;
+  moves: number;
+  current: boolean;
+};
+
+/** 최근 12시간 선석 처리량. 마지막 막대가 현재 시각 */
+export function getPortHourlyThroughput(count = 12): PortHourlyThroughput[] {
+  const { model, h, shiftStartMs } = cached().inputs;
+  const bars: PortHourlyThroughput[] = [];
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const end = h - i;
+    const start = Math.max(0, end - 1);
+    const to = Math.max(start, end);
+    const moves = model.ships.reduce((sum, plan) => {
+      if (to <= 0) return sum;
+      return sum + Math.max(0, shipCum(plan, to) - shipCum(plan, start));
+    }, 0);
+    const hour = new Date(shiftStartMs + end * HOUR_MS).getHours();
+    bars.push({
+      label: pad2(hour),
+      moves: Math.round(moves),
+      current: i === 0,
+    });
+  }
+  return bars;
 }
 
 /** 야드 장치 컨테이너 id 목록(텔레메트리 하중 표시용) */

@@ -1,4 +1,4 @@
-import IconButton from "@/components/IconButton";
+import Icon from "@/components/Icon";
 import Checkbox from "@/components/Checkbox";
 import { DropdownMenu } from "@/components/DropdownMenu";
 import { useObjectStore } from "@/stores/object";
@@ -16,10 +16,16 @@ export default function ViewOption() {
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
-        <IconButton icon="Eye" label="View Option" />
+        <button
+          type="button"
+          className="hidden h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] lg:flex data-[state=closed]:bg-white/4 data-[state=closed]:text-dt-text data-[state=closed]:hover:bg-white/8 data-[state=open]:dt-active"
+        >
+          <Icon icon="Layers" className="size-4 stroke-current" />
+          레이어
+        </button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content className="min-w-40 p-sm text-lg">
-        <div className="flex flex-col gap-sm px-xs py-xs text-lg text-white">
+      <DropdownMenu.Content collisionPadding={8} className="max-h-[calc(100dvh-112px)] w-[200px] max-w-[calc(100vw-16px)] overflow-y-auto p-3">
+        <div className="flex flex-col gap-2 px-1 py-1 text-[12px] text-dt-text">
           {/* <Checkbox
             id="view-option-terrain"
             label="Terrain"
@@ -28,19 +34,19 @@ export default function ViewOption() {
           /> */}
           <Checkbox
             id="view-option-container"
-            label="Container"
+            label="컨테이너"
             checked={containerVisible}
             onCheckedChange={(checked) => setContainerVisible(checked === true)}
           />
           <Checkbox
             id="view-option-heatmap"
-            label="HeatMap"
+            label="점유율 히트맵"
             checked={heatmapVisible}
             onCheckedChange={(checked) => setHeatmapVisible(checked === true)}
           />
           <Checkbox
             id="view-option-reflection"
-            label="Reflection"
+            label="수면 반사"
             checked={reflectionVisible}
             onCheckedChange={(checked) => setReflectionVisible(checked === true)}
           />

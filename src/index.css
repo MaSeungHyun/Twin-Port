@@ -11,6 +11,7 @@ body,
   max-height: 100dvh;
   margin: 0;
   overflow: hidden;
+  background-color: #0a1219;
 
   box-sizing: border-box;
   font-family: var(--font-sans);
@@ -20,7 +21,24 @@ body,
 
 @theme {
   --font-sans: "Noto Sans KR", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Pretendard", "Noto Sans KR", ui-sans-serif, sans-serif;
+  --font-display: "Noto Sans KR", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* 관제 UI 토큰. 활성 글자 #FF8459 는 XD 탭 활성색 */
+  --color-dt-bg: #0a1219;
+  --color-dt-text: #f2f5f8;
+  --color-dt-text-2: #9aa8b6;
+  --color-dt-text-3: #5c6b7a;
+  --color-dt-point: #ff6b3d;
+  --color-dt-point-bright: #ff8459;
+  --color-dt-ok: #14d99b;
+  --color-dt-ok-bright: #6fe8c0;
+  --color-dt-warn: #ffb020;
+  --color-dt-warn-bright: #ffc966;
+  --color-dt-danger: #f0484a;
+  --color-dt-danger-bright: #ff8a8b;
+  --color-dt-info: #3d9bff;
+  --color-dt-info-bright: #8cc4ff;
+  --color-dt-off: #6b7a8a;
 
   --color-background: #042938;
   --color-foreground: #0A151D;
@@ -128,13 +146,141 @@ body,
   animation: dangerous-rim-pulse 2.6s ease-in-out infinite;
 }
 
+/* 패널: #0A1219 72%, 안쪽 2px #FFFFFF 8%, blur 24 + brightness 0.9 */
+.hud-glass {
+  background-color: #0a1219b8;
+  box-shadow: inset 0 0 0 2px #ffffff14;
+  -webkit-backdrop-filter: blur(24px) brightness(0.9);
+  backdrop-filter: blur(24px) brightness(0.9);
+}
+
+.hud-kpi {
+  background-color: #0a1219cc;
+  box-shadow: inset 0 0 0 2px #ffffff14;
+  -webkit-backdrop-filter: blur(24px) brightness(0.9);
+  backdrop-filter: blur(24px) brightness(0.9);
+}
+
+/* 흐림 예산 밖: 콜아웃·뷰 컨트롤·타임라인 등. 단색 92% */
+.hud-flat {
+  background-color: #0a1219eb;
+  box-shadow: inset 0 0 0 2px #ffffff14;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 탭·세그먼트·헤더 버튼 활성. @utility 여야 data-state·aria 변형이 붙는다. 2px는 패널만 */
+@utility dt-active {
+  background-color: #ff6b3d29;
+  color: var(--color-dt-point-bright);
+  box-shadow: inset 0 0 0 1px #ff6b3d80;
+}
+
+@keyframes hud-in-left {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(0); }
+}
+@keyframes hud-in-right {
+  from { transform: translateX(120%); }
+  to { transform: translateX(0); }
+}
+@keyframes hud-in-down {
+  from { transform: translateY(-140%); }
+  to { transform: translateY(0); }
+}
+@keyframes hud-in-up {
+  from { transform: translateY(160%); }
+  to { transform: translateY(0); }
+}
+.hud-in-left,
+.hud-in-right,
+.hud-in-down,
+.hud-in-up {
+  animation-duration: 0.45s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+.hud-in-left { animation-name: hud-in-left; }
+.hud-in-right { animation-name: hud-in-right; }
+.hud-in-down { animation-name: hud-in-down; }
+.hud-in-up { animation-name: hud-in-up; }
+@media (prefers-reduced-motion: reduce) {
+  .hud-in-left,
+  .hud-in-right,
+  .hud-in-down,
+  .hud-in-up { animation: none; }
+}
+@keyframes presence-left-in { from { transform: translateX(calc(-100% - 24px)); } to { transform: translateX(0); } }
+@keyframes presence-left-out { from { transform: translateX(0); } to { transform: translateX(calc(-100% - 24px)); } }
+@keyframes presence-right-in { from { transform: translateX(calc(100% + 24px)); } to { transform: translateX(0); } }
+@keyframes presence-right-out { from { transform: translateX(0); } to { transform: translateX(calc(100% + 24px)); } }
+@keyframes presence-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes presence-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes presence-pop-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes presence-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
+@keyframes presence-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes presence-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes presence-dash-in { from { opacity: 0; transform: translateX(-50%) scale(0.98); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+@keyframes presence-dash-out { from { opacity: 1; transform: translateX(-50%) scale(1); } to { opacity: 0; transform: translateX(-50%) scale(0.98); } }
+@keyframes presence-toast-in { from { transform: translateX(110%); } to { transform: translateX(0); } }
+@keyframes presence-toast-out {
+  from { transform: translateX(0); max-height: 80px; opacity: 1; }
+  to { transform: translateX(110%); max-height: 0; opacity: 0; }
+}
+.presence-left-in { animation: presence-left-in 200ms cubic-bezier(0.2, 0, 0, 1) both; }
+.presence-left-out { animation: presence-left-out 160ms cubic-bezier(0.4, 0, 1, 1) both; will-change: transform, opacity; }
+.presence-right-in { animation: presence-right-in 200ms cubic-bezier(0.2, 0, 0, 1) both; }
+.presence-right-out { animation: presence-right-out 160ms cubic-bezier(0.4, 0, 1, 1) both; will-change: transform, opacity; }
+.presence-fade-in { animation: presence-fade-in 120ms cubic-bezier(0.2, 0, 0, 1) both; }
+.presence-fade-out { animation: presence-fade-out 80ms cubic-bezier(0.4, 0, 1, 1) both; }
+.presence-pop[data-state="open"] { animation: presence-pop-in 160ms ease-out both; }
+.presence-pop[data-state="closed"] { animation: presence-pop-out 120ms ease-in both; pointer-events: none; }
+.presence-pop-in { animation: presence-pop-in 160ms ease-out both; }
+.presence-pop-out { animation: presence-pop-out 120ms ease-in both; }
+.presence-overlay-in { animation: presence-overlay-in 200ms ease-out both; }
+.presence-overlay-out { animation: presence-overlay-out 160ms ease-in both; }
+.presence-dash-in { animation: presence-dash-in 200ms ease-out both; }
+.presence-dash-out { animation: presence-dash-out 160ms ease-in both; }
+.presence-toast-in { animation: presence-toast-in 200ms ease-out both; }
+.presence-toast-out { animation: presence-toast-out 160ms ease-in both; overflow: hidden; pointer-events: none; }
+.presence-left-out,
+.presence-right-out,
+.presence-fade-out,
+.presence-pop-out,
+.presence-overlay-out,
+.presence-dash-out,
+.presence-left-out *,
+.presence-right-out *,
+.presence-fade-out *,
+.presence-pop-out * { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .presence-left-in, .presence-left-out, .presence-right-in, .presence-right-out,
+  .presence-fade-in, .presence-fade-out, .presence-pop-in, .presence-pop-out,
+  .presence-overlay-in, .presence-overlay-out, .presence-dash-in, .presence-dash-out,
+  .presence-toast-in, .presence-toast-out,
+  .presence-pop[data-state="open"], .presence-pop[data-state="closed"] { animation-duration: 0ms; }
+}
+@keyframes hud-out-right {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+.hud-out-right {
+  animation: hud-out-right 200ms ease-out both;
+  pointer-events: none;
+}
+/* 토스트 묶음 높이 + 16. 토스트가 없으면 0 */
+:root { --toast-lift: 0px; }
+.hud-panel-bottom {
+  bottom: calc(24px + var(--toast-lift, 0px));
+  transition: bottom 200ms ease-out;
+}
+
 /* ── Content panel: cyber HUD ── */
 .cyber-heading {
-  font-style: italic;
-  font-weight: 700;
+  font-style: normal;
+  font-weight: 600;
   color: #fff;
-  letter-spacing: 0.02em;
-  text-shadow: 0 0 20px rgba(0, 232, 255, 0.35);
+  letter-spacing: 0.01em;
 }
 
 .cyber-detail-title {
@@ -372,8 +518,8 @@ body,
   z-index: 1;
   opacity: 0;
   transition: opacity 0.2s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .scroll-edge-fade__edge[data-visible="true"] {

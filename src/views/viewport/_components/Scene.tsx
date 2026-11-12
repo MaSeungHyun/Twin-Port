@@ -12,6 +12,7 @@ import Controls from "./Controls";
 import Models from "./Models";
 import SunLight from "./SunLight";
 import OccupancyTransition from "./OccupancyTransition";
+import OutlineMode from "./OutlineMode";
 import SkyMeshDebug from "./SkyMeshDebug";
 import OceanTsl from "./OceanTsl/OceanTsl";
 import EnvironmentHdr from "./EnvironmentHdr";
@@ -39,7 +40,7 @@ import {
   INITIAL_CAMERA_QUATERNION,
 } from "@/constants/camera";
 
-import { PCFSoftShadowMap, SRGBColorSpace } from "three";
+import { PCFShadowMap, SRGBColorSpace } from "three";
 import CameraFlight from "./CameraFlight";
 import { PerfCollector } from "./PerfOverlay";
 
@@ -144,12 +145,15 @@ import CameraSlots from "@/debug/CameraSlots";
 import AreaCamButtons from "./Port/AreaCamButtons";
 import StatusCallout from "./StatusCallout";
 import DepthBreadcrumb from "./DepthBreadcrumb";
-import CameraHomeButton from "./CameraHomeButton";
 
 function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const downPos = useRef<{ x: number; y: number } | null>(null);
-  // [perf] DPR 상한 (4K 에서 픽셀 수 감소). 헤더 품질 프리셋(1/1.25/1.5) 또는 DebugUI 오버라이드
+  const hudHidden = useViewportStore((s) => s.hudHidden);
+  const started = useViewportStore((s) => s.monitoringStarted);
+  const introOpen = useViewportStore((s) => s.introOpen);
+  const showWorld = !hudHidden && started && !introOpen;
+  // DPR 상한은 min(devicePixelRatio, renderScale). 균형 프리셋은 1.0
   const renderScale = useViewportSettingsStore((s) => s.renderScale);
   const dpr = Math.min(
     typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
@@ -167,8 +171,7 @@ function Scene() {
       {/* 디버그 패널: 개발 모드 또는 ?debug 일 때만 표시 */}
       {/* TEMP: 디버그 UI 비활성화 */}
       {/* <DebugUI /> */}
-      <DepthBreadcrumb />
-      <CameraHomeButton />
+      {showWorld ? <DepthBreadcrumb /> : null}
       <R3FCanvas
         className="h-full w-full touch-none"
         style={{
@@ -176,7 +179,7 @@ function Scene() {
           overflow: "hidden",
           backgroundColor: "#000",
         }}
-        shadows={{ type: PCFSoftShadowMap }}
+        shadows={{ type: PCFShadowMap }}
         // R3F 9 는 async gl 팩토리 지원 (타입 정의는 동기만 선언)
         gl={createRenderer as never}
         frameloop="always"
@@ -201,6 +204,7 @@ function Scene() {
         <Suspense fallback={null}>
           <EnvironmentHdr />
           <OccupancyTransition />
+          <OutlineMode />
           <Controls controlsRef={controlsRef} />
           <CameraFlight controlsRef={controlsRef} />
           {/* <ambientLight color={0xacaccc} intensity={0.2} /> */}
@@ -220,8 +224,8 @@ function Scene() {
           <CameraPanel />
           <CamParam />
           <CameraSlots />
-          <AreaCamButtons />
-          <StatusCallout />
+          {showWorld ? <AreaCamButtons /> : null}
+          {showWorld ? <StatusCallout /> : null}
         </Suspense>
 
         <PerfCollector />
