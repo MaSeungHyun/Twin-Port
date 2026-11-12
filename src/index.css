@@ -25,6 +25,8 @@ body,
 
   /* 관제 UI 토큰. 활성 글자 #FF8459 는 XD 탭 활성색 */
   --color-dt-bg: #0a1219;
+  /* 헤더를 뺀 모든 패널 배경 (#0A1219 72%). .hud-glass·.hud-kpi·.hud-flat, bg-dt-panel 이 같이 쓴다 */
+  --color-dt-panel: #0a1219b8;
   --color-dt-text: #f2f5f8;
   --color-dt-text-2: #9aa8b6;
   --color-dt-text-3: #5c6b7a;
@@ -148,25 +150,25 @@ body,
 
 /* 패널: #0A1219 72%, 안쪽 2px #FFFFFF 8%, blur 24 + brightness 0.9 */
 .hud-glass {
-  background-color: #0a1219b8;
+  background-color: var(--color-dt-panel);
   box-shadow: inset 0 0 0 2px #ffffff14;
   -webkit-backdrop-filter: blur(24px) brightness(0.9);
   backdrop-filter: blur(24px) brightness(0.9);
 }
 
 .hud-kpi {
-  background-color: #0a1219cc;
+  background-color: var(--color-dt-panel);
   box-shadow: inset 0 0 0 2px #ffffff14;
   -webkit-backdrop-filter: blur(24px) brightness(0.9);
   backdrop-filter: blur(24px) brightness(0.9);
 }
 
-/* 흐림 예산 밖: 콜아웃·뷰 컨트롤·타임라인 등. 단색 92% */
+/* 뷰 컨트롤·선석 일정 등. XD 패널 공통(배경 72%, 안쪽 2px, blur 24 + brightness -10)과 같다 */
 .hud-flat {
-  background-color: #0a1219eb;
+  background-color: var(--color-dt-panel);
   box-shadow: inset 0 0 0 2px #ffffff14;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: blur(24px) brightness(0.9);
+  backdrop-filter: blur(24px) brightness(0.9);
 }
 
 /* 탭·세그먼트·헤더 버튼 활성. @utility 여야 data-state·aria 변형이 붙는다. 2px는 패널만 */
@@ -222,10 +224,10 @@ body,
 @keyframes presence-overlay-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes presence-dash-in { from { opacity: 0; transform: translateX(-50%) scale(0.98); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
 @keyframes presence-dash-out { from { opacity: 1; transform: translateX(-50%) scale(1); } to { opacity: 0; transform: translateX(-50%) scale(0.98); } }
-@keyframes presence-toast-in { from { transform: translateX(110%); } to { transform: translateX(0); } }
+@keyframes presence-toast-in { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes presence-toast-out {
-  from { transform: translateX(0); max-height: 80px; opacity: 1; }
-  to { transform: translateX(110%); max-height: 0; opacity: 0; }
+  from { transform: translateX(0); max-height: 120px; opacity: 1; }
+  to { transform: translateX(40px); max-height: 0; opacity: 0; }
 }
 .presence-left-in { animation: presence-left-in 200ms cubic-bezier(0.2, 0, 0, 1) both; }
 .presence-left-out { animation: presence-left-out 160ms cubic-bezier(0.4, 0, 1, 1) both; will-change: transform, opacity; }
@@ -241,8 +243,8 @@ body,
 .presence-overlay-out { animation: presence-overlay-out 160ms ease-in both; }
 .presence-dash-in { animation: presence-dash-in 200ms ease-out both; }
 .presence-dash-out { animation: presence-dash-out 160ms ease-in both; }
-.presence-toast-in { animation: presence-toast-in 200ms ease-out both; }
-.presence-toast-out { animation: presence-toast-out 160ms ease-in both; overflow: hidden; pointer-events: none; }
+.presence-toast-in { animation: presence-toast-in 240ms cubic-bezier(0.2, 0, 0, 1) both; }
+.presence-toast-out { animation: presence-toast-out 200ms cubic-bezier(0.4, 0, 1, 1) both; overflow: hidden; pointer-events: none; }
 .presence-left-out,
 .presence-right-out,
 .presence-fade-out,

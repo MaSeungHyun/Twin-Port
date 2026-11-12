@@ -17,6 +17,10 @@ type ViewportState = {
   selectedBlockCode: string | null;
   selectBlock: (code: string) => void;
   clearBlockSelection: () => void;
+  /** 블록 상세 '위치추적' — 카메라 Tracking + 그 블록 점유율 막대만 표시 */
+  trackedBlockCode: string | null;
+  trackBlock: (code: string) => void;
+  clearBlockTracking: () => void;
   /** 목록에서 선택한 컨테이너 — 하이라이트/카메라 포커스용 */
   selectedContainerId: string | null;
   /** 목록/상세에서 선택한 선박 */
@@ -85,6 +89,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   setMonitorMode: (enabled) =>
     set({
       monitorMode: enabled,
+      trackedBlockCode: null,
       ...(enabled
         ? {
             selectedShipKey: null,
@@ -96,10 +101,31 @@ export const useViewportStore = create<ViewportState>((set) => ({
     }),
   selectedBlockCode: null,
   selectBlock: (code) =>
+    set((state) => {
+      const next = state.selectedBlockCode === code ? null : code;
+      // 다른 블록을 고르면 기존 블록 위치추적은 끝낸다
+      return state.trackedBlockCode != null && state.trackedBlockCode !== next
+        ? { selectedBlockCode: next, trackedBlockCode: null }
+        : { selectedBlockCode: next };
+    }),
+  clearBlockSelection: () => set({ selectedBlockCode: null, trackedBlockCode: null }),
+  trackedBlockCode: null,
+  trackBlock: (code) =>
     set((state) => ({
-      selectedBlockCode: state.selectedBlockCode === code ? null : code,
+      trackedBlockCode: code,
+      selectedBlockCode: code,
+      selectedContainerId: null,
+      selectedShipKey: null,
+      selectedCraneIndex: null,
+      focusedCraneGlbIndex: null,
+      focusedShipKey: null,
+      selectedOverheadCraneIndex: null,
+      focusedOverheadCraneIndex: null,
+      focusNonce: state.focusNonce + 1,
+      outlineSuppressed: false,
+      alarmFollow: null,
     })),
-  clearBlockSelection: () => set({ selectedBlockCode: null }),
+  clearBlockTracking: () => set({ trackedBlockCode: null }),
   selectedContainerId: null,
   selectedShipKey: null,
   selectedCraneIndex: null,
@@ -111,6 +137,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   selectContainer: (id) => {
     set((state) => ({
       selectedContainerId: id,
+      trackedBlockCode: null,
       selectedShipKey: null,
       selectedCraneIndex: null,
       focusedCraneGlbIndex: null,
@@ -127,6 +154,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set((state) => ({
       selectedShipKey: key,
       focusedShipKey: key,
+      trackedBlockCode: null,
       selectedContainerId: null,
       selectedCraneIndex: null,
       focusedCraneGlbIndex: null,
@@ -142,6 +170,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set((state) => ({
       selectedCraneIndex: index,
       focusedCraneGlbIndex: index,
+      trackedBlockCode: null,
       focusedShipKey: null,
       selectedContainerId: null,
       selectedShipKey: null,
@@ -157,6 +186,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
     set((state) => ({
       selectedOverheadCraneIndex: index,
       focusedOverheadCraneIndex: index,
+      trackedBlockCode: null,
       selectedCraneIndex: null,
       focusedCraneGlbIndex: null,
       focusedShipKey: null,
@@ -217,6 +247,7 @@ export const useViewportStore = create<ViewportState>((set) => ({
   startAlarmFollow: (kind, index, auto = false) =>
     set((state) => ({
       alarmFollow: { kind, index },
+      trackedBlockCode: null,
       alarmAuto: auto,
       selectedContainerId: null,
       selectedShipKey: null,
@@ -233,10 +264,12 @@ export const useViewportStore = create<ViewportState>((set) => ({
         state.selectedContainerId != null ||
         state.selectedShipKey != null ||
         state.selectedCraneIndex != null ||
-        state.selectedOverheadCraneIndex != null;
+        state.selectedOverheadCraneIndex != null ||
+        state.trackedBlockCode != null;
       if (!tracking) return {};
       return {
         alarmFollow: null,
+        trackedBlockCode: null,
         selectedContainerId: null,
         selectedShipKey: null,
         selectedCraneIndex: null,
@@ -259,13 +292,14 @@ export const useViewportStore = create<ViewportState>((set) => ({
   setRenderMode: (renderMode) => set({ renderMode }),
 }));
 
-/** 컨테이너·선박·크레인 Tracking 중 */
+/** 컨테이너·선박·크레인·블록 Tracking 중 */
 export function isViewportTracking(state: ViewportState): boolean {
   return (
     Boolean(state.selectedContainerId) ||
     Boolean(state.selectedShipKey) ||
     state.selectedCraneIndex != null ||
-    state.selectedOverheadCraneIndex != null
+    state.selectedOverheadCraneIndex != null ||
+    state.trackedBlockCode != null
   );
 }
 

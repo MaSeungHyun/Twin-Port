@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import Icon from "@/components/Icon";
 import WindowedList from "@/components/ui/WindowedList";
 import { getBlockSlotGrid } from "@/constants/block";
@@ -36,18 +36,28 @@ const LEVEL_CLASS: Record<BlockLevel, string> = {
   spare: "text-[#6FE8C0]",
 };
 
+/** 상태 점·게이지 채움 색 (글자색 LEVEL_CLASS 와 같은 계열) */
+const LEVEL_FILL: Record<BlockLevel, string> = {
+  full: "bg-[#F0484A]",
+  high: "bg-[#FFB020]",
+  mid: "bg-[#3D9BFF]",
+  spare: "bg-[#14D99B]",
+};
+
 const ZONES = ["A", "B", "C", "D", "E", "F"] as const;
 
 const BlockRow = memo(function BlockRow({
   code,
   line,
   level,
+  percent,
   selected,
   onSelect,
 }: {
   code: string;
   line: string;
   level: BlockLevel;
+  percent: number;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -56,18 +66,31 @@ const BlockRow = memo(function BlockRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex h-16 w-full items-center gap-2 rounded-lg px-3 text-left",
-        selected ? "bg-dt-info/12 shadow-[inset_0_0_0_1px_#3D9BFF80]" : "hover:bg-white/6",
+        "relative flex h-16 w-full items-center gap-2 rounded-lg px-3 text-left",
+        selected
+          ? "bg-dt-info/12 shadow-[inset_0_0_0_1px_#3D9BFF80]"
+          : "after:absolute after:inset-x-3 after:bottom-0 after:h-px after:bg-white/8 hover:bg-white/6",
       )}
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] text-[#F2F5F8]">{code}</span>
+        <span className="block text-[14px] font-bold text-[#F2F5F8]">{code}</span>
         <span className="block text-[12px] text-[#9AA8B6]">{line}</span>
       </span>
-      <span className={cn("shrink-0 text-[12px]", LEVEL_CLASS[level])}>{LEVEL_LABEL[level]}</span>
+      <span className="flex shrink-0 flex-col items-end gap-1.5">
+        <span className={cn("flex items-center gap-1.5 text-[12px]", LEVEL_CLASS[level])}>
+          <span className={cn("size-1.5 rounded-[1px]", LEVEL_FILL[level])} />
+          {LEVEL_LABEL[level]}
+        </span>
+        <span className="block h-[3px] w-14 overflow-hidden rounded-full bg-white/10">
+          <span
+            className={cn("block h-full rounded-full", LEVEL_FILL[level])}
+            style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
+          />
+        </span>
+      </span>
     </button>
   );
-}, (prev, next) => prev.code === next.code && prev.line === next.line && prev.level === next.level && prev.selected === next.selected);
+}, (prev, next) => prev.code === next.code && prev.line === next.line && prev.level === next.level && prev.percent === next.percent && prev.selected === next.selected);
 
 function levelOf(percent: number): BlockLevel {
   if (percent >= 93) return "full";
@@ -88,11 +111,14 @@ export default function BlockHud() {
   const blocks = useYardStore((s) => s.blocks);
   const containers = useYardStore((s) => s.containers);
   const selectBlock = useViewportStore((s) => s.selectBlock);
+  const trackBlock = useViewportStore((s) => s.trackBlock);
   const storeCode = useViewportStore((s) => s.selectedBlockCode);
   const selection = useDetailSelection(storeCode, () => {
     useViewportStore.getState().clearBlockSelection();
   });
   const setActiveView = useContentViewStore((s) => s.setActiveView);
+  // 블록 화면을 떠나면 블록 위치추적(점유율 막대)도 끝낸다
+  useEffect(() => () => useViewportStore.getState().clearBlockTracking(), []);
   const tick = usePortSimStore((s) => (selection.key == null ? 0 : Math.floor(s.elapsedS)));
   const [filter, setFilter] = useState<BlockFilter>("all");
   const [query, setQuery] = useState("");
@@ -163,7 +189,7 @@ export default function BlockHud() {
               className="w-full bg-transparent text-[12px] text-[#F2F5F8] outline-none placeholder:text-[#5C6B7A]"
             />
           </label>
-          <div className="mt-3 flex gap-4">
+          <div className="mt-3 flex gap-2">
             {FILTERS.map((item) => (
               <button
                 key={item.id}
@@ -171,17 +197,21 @@ export default function BlockHud() {
                 aria-pressed={filter === item.id}
                 onClick={() => setFilter(item.id)}
                 className={cn(
-                  "h-7 text-[12px] text-dt-text-2",
-                  filter === item.id && "text-dt-point-bright",
+                  "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-dt-text-2 hover:text-dt-text",
+                  filter === item.id && "dt-active hover:text-dt-point-bright",
                 )}
               >
+                {item.id !== "all" ? <span className={cn("size-1.5 rounded-full", LEVEL_FILL[item.id])} /> : null}
                 {item.label} {counts[item.id]}
               </button>
             ))}
           </div>
           <div className="mt-4 flex items-center justify-between text-[10px] text-[#5C6B7A]">
             <span>총 {rows.length}개</span>
-            <span className="text-[12px] text-[#9AA8B6]">코드순</span>
+            <span className="flex items-center gap-1 text-[12px] text-[#9AA8B6]">
+              코드순
+              <Icon icon="ArrowUpDown" className="size-3" />
+            </span>
           </div>
         </header>
         <WindowedList
@@ -195,6 +225,7 @@ export default function BlockHud() {
               code={item.blockCode}
               line={`${item.occupied.toLocaleString()} / ${item.capacity.toLocaleString()} 슬롯 · ${Math.round(item.percent)}%`}
               level={levelOf(item.percent)}
+              percent={item.percent}
               selected={selected?.blockCode === item.blockCode}
               onSelect={() => focus(item)}
             />
@@ -303,12 +334,13 @@ export default function BlockHud() {
             >
               컨테이너 목록
             </button>
+            {/* 위치추적 = 카메라 Tracking + 이 블록 점유율 막대만 표시. focus 는 토글이라 쓰면 상세가 닫힌다 */}
             <button
               type="button"
-              onClick={() => focus(selected)}
-              className="h-10 flex-1 rounded-md bg-[#FF6B3D] text-[14px] font-medium text-[#0A1219]"
+              onClick={() => trackBlock(selected.blockCode)}
+              className="h-10 flex-1 rounded-lg bg-dt-point text-[14px] font-medium text-dt-bg"
             >
-              3D 강조
+              위치추적
             </button>
           </div>
           </div>

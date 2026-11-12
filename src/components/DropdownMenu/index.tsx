@@ -85,7 +85,7 @@ function SubContent({
       data-slot="dropdown-menu-sub-content"
       {...props}
       className={cn(
-        "relative z-[99999] min-w-32 overflow-hidden rounded-[10px] bg-dt-bg/88 p-1 text-[12px] text-dt-text shadow-[inset_0_0_0_2px_#ffffff14] backdrop-blur-[24px]",
+        "relative z-[99999] min-w-32 hud-glass overflow-hidden rounded-[10px] p-1 text-[12px] text-dt-text",
         className,
       )}
       style={{ zIndex: 99999, ...style }}
@@ -108,7 +108,7 @@ function Content({
         // drei Html이 매 프레임 z-index를 갱신하므로, UI 팝업은 인라인으로 확실히 위에 둔다
         style={{ zIndex: 99999, ...style }}
         className={cn(
-          "presence-pop relative z-[99999] min-w-40 overflow-hidden rounded-[10px] bg-dt-bg/88 p-1 text-[12px] text-dt-text shadow-[inset_0_0_0_2px_#ffffff14] backdrop-blur-[24px]",
+          "presence-pop relative z-[99999] min-w-40 hud-glass overflow-hidden rounded-[10px] p-1 text-[12px] text-dt-text",
           className,
         )}
       />

@@ -67,7 +67,9 @@ export default function Header() {
   };
 
   return (
-    <header className="relative z-[200] flex h-16 w-full shrink-0 items-center bg-dt-bg pr-6 text-dt-text shadow-[inset_0_-1px_0_#ffffff14]">
+    <header className="relative z-[200] flex h-16 w-full shrink-0 items-center pr-6 text-dt-text">
+      {/* 배경·흐림은 뒤쪽 층에 둔다. header 자체에 backdrop-filter 를 걸면 그 안의 그래픽 설정 패널 흐림이 헤더 안쪽만 보게 된다(backdrop root) */}
+      <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[#0A121980] shadow-[inset_0_-1px_0_#ffffff14] backdrop-blur-[24px] backdrop-brightness-90" />
       <div className="absolute top-4 left-6 flex h-8 items-center gap-2">
         <span className="grid size-8 place-items-center rounded-lg bg-dt-point">
           <Icon icon="Anchor" className="size-4 text-white" />
@@ -106,7 +108,7 @@ export default function Header() {
         <div className="mr-1 hidden items-center min-[1800px]:flex">
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-4">
-              <Icon icon="Sun" className="size-5 text-[#F5C451]" />
+              <Icon icon="Sun" className="size-5 stroke-[#F5C451]" />
               <p className="text-[14px] leading-5 font-normal text-dt-text">맑음 18°C</p>
             </div>
             <p className="text-[10px] leading-[15px] font-medium tracking-[0.1em] text-dt-text-3">
@@ -163,7 +165,7 @@ export default function Header() {
       </div>
       {/* 로딩·관제 시작 전에는 HUD 가 없어 헤더(z-200, 로딩 화면 z-100 위)에 직접 띄운다. 관제 중에는 HudOverlay 오른쪽 틀이 같은 패널을 띄운다 */}
       {!live && graphicsOpen ? (
-        <div className="absolute top-[72px] right-6 w-[360px] rounded-[14px] bg-dt-bg/92 shadow-[inset_0_0_0_2px_#ffffff14] backdrop-blur-[24px]">
+        <div className="hud-glass absolute top-[72px] right-6 w-[360px] rounded-[14px]">
           <GraphicsSettingsPanel onClose={() => setGraphicsOpen(false)} />
         </div>
       ) : null}

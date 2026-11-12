@@ -16,7 +16,7 @@ import { occupancyStage } from "@/domain/occupancyLook/occupancySync";
 import { useOccupancyStore } from "@/stores/occupancy";
 import { useShipDebugStore } from "@/stores/shipDebug";
 import { useViewportStore } from "@/stores/viewport";
-import { QUALITY_SHADOW, useViewportSettingsStore } from "@/stores/useViewportSettingsStore";
+import { QUALITY_SHADOW, SHADOW_PRESET, useViewportSettingsStore } from "@/stores/useViewportSettingsStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CameraHelper,
@@ -30,6 +30,14 @@ import {
 import SunGlow from "./SunGlow";
 
 const FOLDER = "Directional Light";
+
+/** 세션 시작 때 저장된 품질·그림자 설정으로 정하는 그림자 맵 크기/반경. 그림자 '낮음'이면 품질 값과 낮음 중 작은 쪽 */
+function sessionShadowPreset() {
+  const { quality, shadowQuality } = useViewportSettingsStore.getState();
+  const byQuality = QUALITY_SHADOW[quality];
+  const byShadow = shadowQuality === "low" ? SHADOW_PRESET.low : SHADOW_PRESET.high;
+  return byQuality.mapSize <= byShadow.mapSize ? byQuality : byShadow;
+}
 
 // [shadow] persisted shadow + target settings (localStorage)
 const SUN_SAVE_KEY = "tp.sunShadow.v3";
@@ -293,10 +301,12 @@ export default function SunLight() {
   // [shadow] 사용자 프리셋(헤더 Graphics settings)이 leva / tp.sunShadow.v3 보다 우선. leva 는 개발 전용 오버라이드.
   // [perf] 그림자 갱신은 useFrame 에서 SUN_SHADOW_UPDATE_EVERY 프레임마다(+그림자 카메라 이동 시 즉시). 움직이는 배/크레인 그림자는 최대 1프레임 늦다.
   const shadowQuality = useViewportSettingsStore((st) => st.shadowQuality);
-  const graphicsQuality = useViewportSettingsStore((st) => st.quality);
   const occupancyLook = useOccupancyStore((st) => st.occupancyLook);
   const devOverride = import.meta.env.DEV && sh.devOverride;
-  const preset = QUALITY_SHADOW[graphicsQuality];
+  // [black] 그림자 맵 크기는 세션 시작 때 값으로 고정한다. 실행 중 mapSize 를 바꾸면 ShadowNode 가 shadowMap.setSize() 를 부르고,
+  // RenderTarget.setSize 는 안에서 dispose() 한다 → 받는 재질이 지워진 깊이 텍스처를 계속 바인딩해 화면이 까매졌다(품질 변경 시).
+  // 품질의 해상도(DPR)는 바로, 그림자 해상도(품질·그림자 낮음/높음)는 다음 실행부터 적용된다.
+  const [preset] = useState(sessionShadowPreset);
   // castShadow 를 끄면 받는 재질이 전부 다시 컴파일된다. 끄기는 갱신 정지 + 세기 0.
   const shadowsPaused = !devOverride && (shadowQuality === "off" || occupancyLook);
   const castShadow = devOverride ? c.castShadow : true;
@@ -328,7 +338,7 @@ export default function SunLight() {
     light.shadow.needsUpdate = !shadowsPaused;
     const ms = mapSize;
     if (light.shadow.mapSize.x !== ms) {
-      // ShadowNode가 매 업데이트마다 mapSize로 shadowMap.setSize() 하므로 dispose 불필요
+      // 개발 오버라이드에서만 바뀐다. setSize 가 렌더 타깃을 dispose 하므로 실사용 경로에서는 세션 동안 고정(위 preset)
       light.shadow.mapSize.set(ms, ms);
     }
   }, [sh, tg.followCamera, followHalfSize, mapSize, shadowsPaused]);

@@ -99,7 +99,7 @@ export default function MonitoringOverlay() {
       aria-hidden={phase === "out"}
     >
       <section className={cn(
-        "absolute top-6 left-1/2 flex h-[min(944px,calc(100dvh-112px))] w-[min(1680px,calc(100vw-48px))] flex-col overflow-hidden rounded-[14px] bg-dt-bg text-dt-text shadow-[inset_0_0_0_2px_#ffffff14]",
+        "absolute top-6 left-1/2 flex h-[min(944px,calc(100dvh-112px))] w-[min(1680px,calc(100vw-48px))] flex-col hud-glass overflow-hidden rounded-[14px] text-dt-text",
         phase === "out" ? "presence-dash-out" : "presence-dash-in",
       )}>
         <header className="flex items-start justify-between px-6 pt-4">

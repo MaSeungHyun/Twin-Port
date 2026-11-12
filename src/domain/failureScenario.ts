@@ -8,9 +8,11 @@ import {
   FAILURE_WARNING_CAUSES,
   type FailureKind,
 } from "@/constants/failureScenario";
+import { PORT_SIM } from "@/constants/portSim";
 import { afterNextFrame } from "@/domain/yieldToMain";
 import { overheadCraneKey, overheadCraneTitle } from "@/domain/overheadCraneTwin";
 import { useContentViewStore } from "@/stores/contentView";
+import { usePortSimStore } from "@/stores/usePortSimStore";
 import { failureKey, useFailureStore } from "@/stores/useFailureStore";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
@@ -37,6 +39,38 @@ export function focusEquipment(kind: FailureKind, index: number, auto = false) {
     if (kind === "quayCrane") content.openCraneDetail(`crane-${index}`);
     else content.openOverheadCraneDetail(overheadCraneKey(index));
   });
+}
+
+/**
+ * 토스트 '추적' — 좌측 크레인 목록 클릭과 같은 경로: 크레인 상세를 열고 카메라 Tracking(selectCrane / selectOverheadCrane).
+ */
+export function trackEquipment(kind: FailureKind, index: number) {
+  const content = useContentViewStore.getState();
+  content.closeDetailGraph();
+  if (kind === "quayCrane") content.openCraneDetail(`crane-${index}`);
+  else content.openOverheadCraneDetail(overheadCraneKey(index));
+  const viewport = useViewportStore.getState();
+  if (kind === "quayCrane") viewport.selectCrane(index);
+  else viewport.selectOverheadCrane(index);
+}
+
+/** 알람 토스트 윗줄 분류 */
+export const ALARM_TOAST_CATEGORY = "CRANE";
+
+/** 실제 시각(ms) → 운영 시뮬레이션 시계(배속). 크레인 상세 정지 이력(portSim failureHistory)과 같은 변환 */
+function simMs(ms: number) {
+  const origin = usePortSimStore.getState().startedAt;
+  return origin == null ? ms : origin + (ms - origin) * PORT_SIM.speed;
+}
+
+/** 알람 토스트 시각 — 시뮬레이션 시계 기준이라 다운타임 분과 맞는다 */
+export function alarmToastAt(now = Date.now()) {
+  return simMs(now);
+}
+
+/** 고장 시작(since) ~ now 다운타임(시뮬레이션 분, 최소 1분) */
+export function alarmDowntimeMinutes(since: number, now = Date.now()) {
+  return Math.max(1, Math.round((simMs(now) - simMs(since)) / 60000));
 }
 
 // [autofocus] 고장 알람 → 카메라 자동 이동 (debounce + 최소 간격, 최신 고장 우선)
@@ -119,7 +153,13 @@ export function startFailureScenario(): () => void {
         later(failAt - rand(...slot.warningLead), () => {
           useFailureStore.getState().setActive({ kind, index, state: "warning", cause: warnCause, since: Date.now() });
           useFailureStore.getState().pushEvent({ level: "warning", title: `${name} 이상 징후`, message: warnCause });
-          toaster.warning(`${name} 이상 징후`, { message: warnCause, id: toastId, duration: cfg.warningToastMs, onClick });
+          toaster.warning(`${name} ${warnCause}`, {
+            id: toastId,
+            at: alarmToastAt(),
+            meta: ALARM_TOAST_CATEGORY,
+            duration: cfg.warningToastMs,
+            onClick,
+          });
           toastIds.add(toastId);
         });
       }
@@ -127,14 +167,16 @@ export function startFailureScenario(): () => void {
       later(failAt, () => {
         useFailureStore.getState().setActive({ kind, index, state: "failure", cause, since: Date.now() });
         useFailureStore.getState().pushEvent({ level: "error", title: `${name} 고장`, message: cause });
-        // [toasttrack] 추적 → 위험 알람 추적(모드 2). 복구 토스트가 같은 id 로 교체할 때까지 유지
-        const onTrack = () => window.dispatchEvent(new CustomEvent<FailureFocusDetail>(FAILURE_FOCUS_EVENT, { detail: { kind, index, label: name } }));
-        toaster.error(`${name} 고장`, { message: cause, id: toastId, onClick, onTrack });
+        // [toasttrack] 추적 → 좌측 목록 클릭과 같은 Tracking. 복구 토스트가 같은 id 로 교체할 때까지 유지
+        const onTrack = () => trackEquipment(kind, index);
+        toaster.error(`${name} ${cause}`, { id: toastId, at: alarmToastAt(), meta: ALARM_TOAST_CATEGORY, onClick, onTrack });
         requestAutoFocus(kind, index, name); // FAILURE_AUTO_FOCUS.enabled=false 면 no-op
         toastIds.add(toastId);
       });
 
       later(recoverAt, () => {
+        const failed = useFailureStore.getState().active[key];
+        const downtime = failed?.state === "failure" ? alarmDowntimeMinutes(failed.since) : null;
         useFailureStore.getState().setActive({
           kind,
           index,
@@ -143,7 +185,13 @@ export function startFailureScenario(): () => void {
           since: Date.now(),
         });
         useFailureStore.getState().pushEvent({ level: "success", title: `${name} 복구`, message: "정상 가동 재개" });
-        toaster.success(`${name} 복구`, { message: "정상 가동 재개", id: toastId, duration: cfg.recoveryToastMs, onClick });
+        toaster.success(`${name} 정상 복구`, {
+          id: toastId,
+          at: alarmToastAt(),
+          meta: downtime == null ? undefined : `다운타임 ${downtime}분`,
+          duration: cfg.recoveryToastMs,
+          onClick,
+        });
         later(cfg.recoveryToastMs, () => {
           const current = useFailureStore.getState().active[key];
           if (current?.state === "safe") useFailureStore.getState().clearActive(kind, index);

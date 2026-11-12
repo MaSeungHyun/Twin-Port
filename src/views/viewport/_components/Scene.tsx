@@ -42,7 +42,6 @@ import {
 
 import { PCFShadowMap, SRGBColorSpace } from "three";
 import CameraFlight from "./CameraFlight";
-import { PerfCollector } from "./PerfOverlay";
 
 // import EnvironmentRotationPanel from "./EnvironmentRotationPanel";
 
@@ -228,7 +227,6 @@ function Scene() {
           {showWorld ? <StatusCallout /> : null}
         </Suspense>
 
-        <PerfCollector />
         {/* StatsGl 은 WebGL 전용이라 WebGPU 전환 시 제거 */}
       </R3FCanvas>
     </div>

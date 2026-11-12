@@ -4,14 +4,16 @@
  */
 import { toaster } from "@/components/Toaster";
 import { CRANE_TELEMETRY as T } from "@/constants/craneTelemetry";
-import {
-  FAILURE_FOCUS_EVENT,
-  FAILURE_SCENARIO,
-  type FailureFocusDetail,
-  type FailureKind,
-} from "@/constants/failureScenario";
+import { FAILURE_SCENARIO, type FailureKind } from "@/constants/failureScenario";
 import { maxMotorC } from "@/domain/craneTelemetry";
-import { equipmentName, focusEquipment } from "@/domain/failureScenario";
+import {
+  ALARM_TOAST_CATEGORY,
+  alarmDowntimeMinutes,
+  alarmToastAt,
+  equipmentName,
+  focusEquipment,
+  trackEquipment,
+} from "@/domain/failureScenario";
 import { getPortSim } from "@/domain/portSim";
 import { failureKey, useFailureStore } from "@/stores/useFailureStore";
 
@@ -22,14 +24,12 @@ export const OVERHEAT_FAULT_CAUSE = "호이스트 모터 과열 정지 (E-OH02)"
 const owned = new Map<string, "warning" | "failure" | "safe">();
 const timers = new Set<number>();
 
-function toastOpts(kind: FailureKind, index: number, name: string) {
+function toastOpts(kind: FailureKind, index: number) {
   return {
     id: `failure-${failureKey(kind, index)}`,
     onClick: () => focusEquipment(kind, index),
-    onTrack: () =>
-      window.dispatchEvent(
-        new CustomEvent<FailureFocusDetail>(FAILURE_FOCUS_EVENT, { detail: { kind, index, label: name } }),
-      ),
+    // 좌측 목록 클릭과 같은 Tracking
+    onTrack: () => trackEquipment(kind, index),
   };
 }
 
@@ -43,23 +43,25 @@ function visit(kind: FailureKind, index: number) {
   const state = owned.get(key);
   const c = maxMotorC(kind, index);
   const name = equipmentName(kind, index);
-  const opts = toastOpts(kind, index, name);
+  const opts = toastOpts(kind, index);
   const now = Date.now();
 
   if (c >= T.faultC && state !== "failure") {
     owned.set(key, "failure");
     store.setActive({ kind, index, state: "failure", cause: OVERHEAT_FAULT_CAUSE, since: now });
     store.pushEvent({ level: "error", title: `${name} 고장`, message: OVERHEAT_FAULT_CAUSE });
-    toaster.error(`${name} 고장`, { message: OVERHEAT_FAULT_CAUSE, ...opts });
+    toaster.error(`${name} ${OVERHEAT_FAULT_CAUSE}`, { ...opts, at: alarmToastAt(now), meta: ALARM_TOAST_CATEGORY });
     return;
   }
   if (state === "failure" && c < T.recoverC) {
     owned.set(key, "safe");
+    const downtime = current?.state === "failure" ? alarmDowntimeMinutes(current.since, now) : null;
     store.setActive({ kind, index, state: "safe", cause: "냉각 완료 · 정상 가동 재개", since: now });
     store.pushEvent({ level: "success", title: `${name} 복구`, message: "냉각 완료 · 정상 가동 재개" });
-    toaster.success(`${name} 복구`, {
-      message: "냉각 완료 · 정상 가동 재개",
+    toaster.success(`${name} 정상 복구`, {
       id: opts.id,
+      at: alarmToastAt(now),
+      meta: downtime == null ? undefined : `다운타임 ${downtime}분`,
       onClick: opts.onClick,
       duration: FAILURE_SCENARIO.recoveryToastMs,
     });
@@ -77,9 +79,10 @@ function visit(kind: FailureKind, index: number) {
     owned.set(key, "warning");
     store.setActive({ kind, index, state: "warning", cause: OVERHEAT_WARN_CAUSE, since: now });
     store.pushEvent({ level: "warning", title: `${name} 이상 징후`, message: OVERHEAT_WARN_CAUSE });
-    toaster.warning(`${name} 이상 징후`, {
-      message: OVERHEAT_WARN_CAUSE,
+    toaster.warning(`${name} ${OVERHEAT_WARN_CAUSE}`, {
       id: opts.id,
+      at: alarmToastAt(now),
+      meta: ALARM_TOAST_CATEGORY,
       onClick: opts.onClick,
       duration: FAILURE_SCENARIO.warningToastMs,
     });

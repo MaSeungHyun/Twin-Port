@@ -223,8 +223,11 @@ function BlockOccupancyBar({
 
 export default function BlockOccupancyView({
   visible = true,
+  onlyBlockCode = null,
 }: {
   visible?: boolean;
+  /** 블록 위치추적 — 이 블록 막대만 보인다 (null = 전체). 재질은 그대로, visible 만 바꾼다 */
+  onlyBlockCode?: string | null;
 }) {
   const blocks = useYardStore((s) => s.blocks);
   const yardOffset = useYardStore((s) => s.yardOffset);
@@ -247,6 +250,7 @@ export default function BlockOccupancyView({
     };
   }, [materials]);
   const selectedContainerId = useViewportStore((s) => s.selectedContainerId);
+  const focusBlockCode = useViewportStore((s) => s.trackedBlockCode);
   const trackedBlockCode = useMemo(() => {
     if (!selectedContainerId) return null;
     return (
@@ -262,8 +266,8 @@ export default function BlockOccupancyView({
           key={occupancy.blockCode}
           occupancy={occupancy}
           index={index}
-          visible={visible}
-          tracked={occupancy.blockCode === trackedBlockCode}
+          visible={visible && (onlyBlockCode == null || occupancy.blockCode === onlyBlockCode)}
+          tracked={occupancy.blockCode === trackedBlockCode || occupancy.blockCode === focusBlockCode}
           materials={materials}
         />
       ))}

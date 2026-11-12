@@ -11,6 +11,7 @@ import OccupancyPanels from "@/views/viewport/_components/OccupancyPanels";
 import Icon from "@/components/Icon";
 import { FrameSlot } from "@/components/ui/PanelFrames";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { useLayoutEffect, useRef } from "react";
 import Tag from "@/components/ui/Tag";
 import { cn } from "@/utils/style";
 
@@ -71,6 +72,94 @@ function SegBar({ parts, className }: { parts: { value: number; color: string }[
   );
 }
 
+type RenderMode = "solid" | "wire";
+
+/** 3D/와이어 활성 표시(주황 알약)가 버튼 사이를 넘어가는 시간·곡선 (넘침 없음). 글자색 전환도 같은 값 */
+const PILL_MOVE_MS = 300;
+const PILL_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
+
+/**
+ * 3D / 와이어 토글. 버튼마다 배경을 칠하지 않고 주황 알약 하나를 활성 버튼 위치·너비로 옮긴다.
+ * 버튼은 간격·구분선 없이 한 트랙에 붙어 있어, 알약이 경계 없이 넘어가고 글자색도 같은 시간에 바뀐다.
+ * 위치는 버튼 offsetLeft/offsetWidth 를 재서 쓰므로 글자 굵기로 너비가 바뀌어도 맞고, 첫 표시 때는 애니메이션 없이 바로 놓인다.
+ * prefers-reduced-motion 이면 이동 없이 바로 옮긴다.
+ */
+function RenderModeToggle() {
+  const renderMode = useViewportStore((s) => s.renderMode);
+  const setRenderMode = useViewportStore((s) => s.setRenderMode);
+  const groupRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLSpanElement>(null);
+  const buttonRefs = useRef<Record<RenderMode, HTMLButtonElement | null>>({ solid: null, wire: null });
+  const lastX = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    const pill = pillRef.current;
+    const target = buttonRefs.current[renderMode];
+    if (!pill || !target) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const place = (animate: boolean) => {
+      pill.style.transition = animate
+        ? `transform ${PILL_MOVE_MS}ms ${PILL_EASE}, width ${PILL_MOVE_MS}ms ${PILL_EASE}`
+        : "none";
+      pill.style.transform = `translateX(${target.offsetLeft}px)`;
+      pill.style.width = `${target.offsetWidth}px`;
+      pill.style.opacity = "1";
+    };
+    const from = lastX.current;
+    const to = target.offsetLeft;
+    const moving = from !== null && from !== to && !reduce;
+    place(moving);
+    lastX.current = to;
+    // 글꼴 로드·굵기 변경으로 버튼 너비가 바뀌면 애니메이션 없이 다시 맞춘다.
+    const ro = new ResizeObserver(() => {
+      place(false);
+      lastX.current = target.offsetLeft;
+    });
+    if (groupRef.current) ro.observe(groupRef.current);
+    for (const el of Object.values(buttonRefs.current)) if (el) ro.observe(el);
+    return () => ro.disconnect();
+  }, [renderMode]);
+
+  const button = (mode: RenderMode, icon: "Box" | "Grid3x3", label: string) => {
+    const active = renderMode === mode;
+    return (
+      <button
+        ref={(el) => {
+          buttonRefs.current[mode] = el;
+        }}
+        type="button"
+        aria-pressed={active}
+        onClick={() => setRenderMode(mode)}
+        className={cn(
+          "group relative z-[1] flex h-8 items-center gap-1 rounded-full px-3 text-[12px] transition-colors duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          active ? "font-bold text-dt-bg" : "font-medium text-dt-text-2 hover:text-dt-text",
+        )}
+      >
+        <Icon
+          icon={icon}
+          className={cn(
+            "size-4 transition-colors duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+            active ? "stroke-dt-bg" : "stroke-dt-text-2 group-hover:stroke-dt-text",
+          )}
+        />
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div ref={groupRef} className="relative flex items-center">
+      <span
+        ref={pillRef}
+        aria-hidden
+        className="pointer-events-none absolute top-0 left-0 h-8 rounded-full bg-dt-point opacity-0 will-change-transform"
+      />
+      {button("solid", "Box", "3D")}
+      {button("wire", "Grid3x3", "와이어")}
+    </div>
+  );
+}
+
 export default function HudOverlay() {
   const started = useViewportStore((s) => s.monitoringStarted);
   const monitorMode = useViewportStore((s) => s.monitorMode);
@@ -102,8 +191,6 @@ export default function HudOverlay() {
   const showOccupancy = started && activeView == null && occupancyMode;
   const hasLeftPanel = showSummary || showOccupancy || (activeView != null && !monitorMode);
   const showKpi = started;
-  const renderMode = useViewportStore((s) => s.renderMode);
-  const setRenderMode = useViewportStore((s) => s.setRenderMode);
   const clockLabel = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
   const quayActive = sim.kpi.cranesActive;
   const quayIdle = sim.kpi.cranesIdle;
@@ -231,30 +318,7 @@ export default function HudOverlay() {
       {started ? (
         <div className={cn("pointer-events-none absolute right-0 bottom-6 z-20 flex justify-center", hasLeftPanel ? "left-[calc(24px+360px)]" : "left-0")}>
         <div className="hud-flat hud-in-up pointer-events-auto flex h-10 items-center gap-1 rounded-[20px] px-1">
-          <button
-            type="button"
-            aria-pressed={renderMode === "solid"}
-            onClick={() => setRenderMode("solid")}
-            className={cn(
-              "flex h-8 items-center gap-1 rounded-full px-3 text-[12px]",
-              renderMode === "solid" ? "bg-dt-point font-bold text-dt-bg" : "font-medium text-dt-text-2 hover:bg-white/10",
-            )}
-          >
-            <Icon icon="Box" className={cn("size-4", renderMode === "solid" ? "stroke-dt-bg" : "stroke-dt-text-2")} />
-            3D
-          </button>
-          <button
-            type="button"
-            aria-pressed={renderMode === "wire"}
-            onClick={() => setRenderMode("wire")}
-            className={cn(
-              "flex h-8 items-center gap-1 rounded-full px-3 text-[12px]",
-              renderMode === "wire" ? "bg-dt-point font-bold text-dt-bg" : "font-medium text-dt-text-2 hover:bg-white/10",
-            )}
-          >
-            <Icon icon="Grid3x3" className={cn("size-4", renderMode === "wire" ? "stroke-dt-bg" : "stroke-dt-text-2")} />
-            와이어
-          </button>
+          <RenderModeToggle />
           <span className="mx-1 h-6 w-px bg-white/8" />
           <button type="button" aria-label="확대" onClick={() => zoom("in")} className="grid size-8 place-items-center rounded-full text-dt-text hover:bg-white/10">
             <Icon icon="ZoomIn" className="size-4" />

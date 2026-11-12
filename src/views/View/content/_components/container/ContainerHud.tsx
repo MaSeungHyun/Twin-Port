@@ -208,12 +208,13 @@ export default function ContainerHud() {
             <button type="button" className="h-10 flex-1 rounded-md border border-white/10 text-[14px] text-[#F2F5F8]">
               이력 전체
             </button>
+            {/* 위치추적 = 목록 클릭과 같은 카메라 Tracking. focus 는 토글이라 쓰면 상세가 닫힌다 */}
             <button
               type="button"
-              onClick={() => focus(selected)}
-              className="h-10 flex-1 rounded-md bg-[#FF6B3D] text-[14px] font-medium text-[#0A1219]"
+              onClick={() => selectContainer(selected.id)}
+              className="h-10 flex-1 rounded-lg bg-dt-point text-[14px] font-medium text-dt-bg"
             >
-              3D 위치
+              위치추적
             </button>
           </div>
           </div>

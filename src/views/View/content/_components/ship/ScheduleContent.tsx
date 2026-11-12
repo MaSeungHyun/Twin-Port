@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { shipStatusLabel } from "@/domain/portTwinMock";
 import type { ShipOperationalStatus } from "@/domain/portTwinBase";
 import type { SimShip } from "@/domain/portSim";
@@ -35,6 +35,43 @@ function formatMinute(minute: number) {
   return `${String(Math.floor(day / 60)).padStart(2, "0")}:${String(day % 60).padStart(2, "0")}`;
 }
 
+const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+/** "11-05 11:45" → "2026.11.05 THU" (시뮬레이션 시계 날짜, 연도는 올해) */
+function dateLabel(clock: string) {
+  const match = clock.match(/(\d{2})-(\d{2})/);
+  if (!match) return "";
+  const date = new Date(new Date().getFullYear(), Number(match[1]) - 1, Number(match[2]));
+  return `${date.getFullYear()}.${match[1]}.${match[2]} ${WEEKDAYS[date.getDay()]}`;
+}
+
+/** 선석 일정 기본 표시 범위 06:00–22:00 (라벨 2시간). 휠로 이동, Ctrl+휠로 2–24시간 사이 확대/축소 */
+const GANTT_START_H = 6;
+const GANTT_END_H = 22;
+const GANTT_MIN_SPAN = 120;
+const GANTT_MAX_SPAN = 1440;
+/** 라벨 간격 후보(분). 라벨끼리 GANTT_LABEL_MIN_PX 이상 떨어지는 가장 짧은 값을 쓴다 */
+const GANTT_LABEL_STEPS = [30, 60, 120, 180, 240, 360];
+const GANTT_LABEL_MIN_PX = 72;
+/** 휠 후 목표 범위로 따라가는 비율 (프레임당) */
+const GANTT_EASE = 0.3;
+
+/** 하루(00:00–24:00) 안의 표시 범위. start·span 은 분 */
+type GanttView = { start: number; span: number };
+const GANTT_DEFAULT_VIEW: GanttView = { start: GANTT_START_H * 60, span: (GANTT_END_H - GANTT_START_H) * 60 };
+
+function clampView(view: GanttView): GanttView {
+  const span = Math.min(GANTT_MAX_SPAN, Math.max(GANTT_MIN_SPAN, view.span));
+  return { span, start: Math.min(1440 - span, Math.max(0, view.start)) };
+}
+
+/** 일정 막대 색: 작업 중 / 예정 / 지연 구간 */
+const GANTT_LEGEND = [
+  { label: "작업 중", className: "bg-dt-info" },
+  { label: "예정", className: "bg-[#6B7A8A29]" },
+  { label: "지연", className: "bg-[#A88A2B]" },
+] as const;
+
 function isWorking(status: ShipOperationalStatus) {
   return status === "loading" || status === "discharging" || status === "berthed" || status === "preparing" || status === "departing";
 }
@@ -58,6 +95,11 @@ export default function ScheduleContent() {
   const [trackWidth, setTrackWidth] = useState(0);
   const scrubbingRef = useRef(false);
   const trackRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<GanttView>(GANTT_DEFAULT_VIEW);
+  const viewNow = useRef<GanttView>(GANTT_DEFAULT_VIEW);
+  const viewTarget = useRef<GanttView>(GANTT_DEFAULT_VIEW);
+  const viewFrame = useRef(0);
+  const sectionRef = useRef<HTMLElement>(null);
   const selection = useDetailSelection<number>(null, () => {
     const viewport = useViewportStore.getState();
     viewport.clearShipSelection();
@@ -84,20 +126,20 @@ export default function ScheduleContent() {
     ? null
     : sim.ships.find((ship) => ship.index === selection.key) ?? null;
 
+  // 표시 범위 = 현재 시뮬레이션 날짜 안의 view (기본 06:00–22:00). 범위 밖 막대는 가장자리에서 잘린다
   const window = useMemo(() => {
-    const points = sim.ships.flatMap((ship) => [parseClock(ship.eta), parseClock(ship.etd)]).filter((value): value is number => value != null);
     const now = parseClock(sim.clock);
-    if (points.length === 0 && now == null) return null;
-    const min = Math.min(...points, now ?? Number.POSITIVE_INFINITY) - 60;
-    const max = Math.max(...points, now ?? 0) + 60;
-    return { min, max: Math.max(max, min + 60), now };
-  }, [sim.ships, sim.clock]);
+    const base = now ?? sim.ships.map((ship) => parseClock(ship.eta)).find((value): value is number => value != null) ?? null;
+    if (base == null) return null;
+    const day = Math.floor(base / 1440) * 1440;
+    return { min: day + view.start, max: day + view.start + view.span, now };
+  }, [sim.ships, sim.clock, view]);
 
   const berths = [...new Set(sim.ships.map((ship) => ship.berth))];
-  const nowMinute = window?.now ?? null;
-  const scrubMinute = window == null || scrub == null
-    ? null
-    : Math.min(window.max, Math.max(window.min, scrub));
+  // 현재 시각이 표시 범위 밖이면 현재선은 숨긴다 (탐색선도 같다)
+  const nowMinute = window?.now != null && window.now >= window.min && window.now <= window.max ? window.now : null;
+  const scrubMinute = window != null && scrub != null && scrub >= window.min && scrub <= window.max ? scrub : null;
+  const hasWindow = window != null;
 
   const minuteFromClientX = (clientX: number) => {
     const el = trackRef.current;
@@ -118,13 +160,77 @@ export default function ScheduleContent() {
     const observer = new ResizeObserver(apply);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [window]);
+  }, [hasWindow]);
+
+  // 휠 = 시간대 이동, Ctrl+휠 = 커서 시각 기준 확대/축소. passive:false 로 막아 페이지·3D 카메라·브라우저 확대가 같이 돌지 않게 한다
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const step = () => {
+      const current = viewNow.current;
+      const target = viewTarget.current;
+      const reduce = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      const done = reduce || (Math.abs(target.start - current.start) < 0.5 && Math.abs(target.span - current.span) < 0.5);
+      const next = done ? target : {
+        start: current.start + (target.start - current.start) * GANTT_EASE,
+        span: current.span + (target.span - current.span) * GANTT_EASE,
+      };
+      viewNow.current = next;
+      setView(next);
+      viewFrame.current = done ? 0 : requestAnimationFrame(step);
+    };
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const scale = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? 800 : 1;
+      const target = viewTarget.current;
+      let next: GanttView;
+      if (event.ctrlKey) {
+        const delta = event.deltaY * scale;
+        if (!delta) return;
+        const span = Math.min(GANTT_MAX_SPAN, Math.max(GANTT_MIN_SPAN, target.span * Math.exp(delta * 0.0015)));
+        let ratio = 0.5;
+        const track = trackRef.current;
+        if (track) {
+          const rect = track.getBoundingClientRect();
+          const width = rect.width - 48;
+          if (width > 0) ratio = Math.min(1, Math.max(0, (event.clientX - rect.left - 48) / width));
+        }
+        const anchor = target.start + ratio * target.span;
+        next = clampView({ start: anchor - ratio * span, span });
+      } else {
+        // 휠 한 칸(100px) ≈ 기본 16시간 폭에서 1시간, 폭에 비례
+        const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY) * scale;
+        if (!delta) return;
+        next = clampView({ start: target.start + (delta / 100) * (target.span / 16), span: target.span });
+      }
+      if (next.start === target.start && next.span === target.span) return;
+      viewTarget.current = next;
+      if (!viewFrame.current) viewFrame.current = requestAnimationFrame(step);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      cancelAnimationFrame(viewFrame.current);
+      viewFrame.current = 0;
+    };
+  }, []);
 
   const lineLeft = (minute: number) => {
     if (!window) return 0;
     const ratio = Math.max(0, Math.min(1, (minute - window.min) / (window.max - window.min)));
     return `calc(48px + (100% - 48px) * ${ratio})`;
   };
+  // 라벨 간격은 확대 정도에 따라 30분–6시간. 기본 06–22 폭에서는 2시간
+  const pxPerMinute = window && trackWidth > 48 ? (trackWidth - 48) / (window.max - window.min) : 1;
+  const labelStep = GANTT_LABEL_STEPS.find((step) => step * pxPerMinute >= GANTT_LABEL_MIN_PX) ?? 360;
+  const minorStep = Math.max(15, labelStep / 2);
+  const hours: number[] = [];
+  if (window) {
+    for (let minute = Math.ceil(window.min / minorStep) * minorStep; minute <= window.max + 0.001; minute += minorStep) hours.push(minute);
+  }
+  const majorTick = (minute: number) => minute % labelStep === 0;
+  const tickLabel = (minute: number) => (labelStep < 60 ? formatMinute(minute) : String(Math.floor(minute / 60) % 24).padStart(2, "0"));
   const labelLift = nowMinute != null && scrubMinute != null && trackWidth > 48
     && Math.abs((scrubMinute - nowMinute) / (window!.max - window!.min)) * (trackWidth - 48) < 40;
 
@@ -132,9 +238,9 @@ export default function ScheduleContent() {
     <>
       <FrameSlot side="left" id="schedule" size={{ width: 360, height: "fill" }} rank={3}>
       <aside className="flex h-full min-h-0 w-full flex-col text-white">
-        <header className="px-3 pt-3 pb-2">
+        <header className="px-6 pt-[21px] pb-2">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-[16px] font-medium text-dt-text">스케줄</h2>
+            <h2 className="text-[16px] leading-6 font-medium text-dt-text">스케줄</h2>
             <span className="text-[12px] text-dt-text-3">{sim.clock}</span>
           </div>
           <SegmentedControl<ListTab>
@@ -147,7 +253,7 @@ export default function ScheduleContent() {
             ]}
           />
         </header>
-        <div className="px-3 pb-2">
+        <div className="px-6 pb-2">
           <SearchField value={query} onChange={setQuery} placeholder="선박, 선석, 콜 검색" label="선박, 선석, 콜 검색" />
           <div className="mt-2 flex flex-wrap gap-1">
             {([
@@ -162,7 +268,7 @@ export default function ScheduleContent() {
             ))}
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
           {tab === "berth"
             ? berths.map((berth) => (
                 <div key={berth} className="mb-2">
@@ -184,8 +290,9 @@ export default function ScheduleContent() {
       {selected ? (
         <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden px-6 py-6 text-white">
           <header className="flex shrink-0 items-start justify-between gap-2">
-            <div>
-              <h2 className="text-[16px] font-semibold">{selected.name}</h2>
+            <div className="min-w-0">
+              <p className="text-[10px] leading-[15px] font-medium tracking-[1px] text-dt-text-3">SCHEDULE · 기항 상세</p>
+              <h2 className="mt-0.5 truncate text-[20px] leading-[29px] font-medium text-dt-text">{selected.name}</h2>
               <Tag tone={badge(selected).tone} className="mt-1">{badge(selected).label}</Tag>
             </div>
             <button type="button" aria-label="상세 닫기" onClick={selection.close} className="grid size-6 place-items-center text-dt-text-2 hover:text-dt-text">
@@ -193,12 +300,13 @@ export default function ScheduleContent() {
             </button>
           </header>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <ol className="mt-3 flex flex-col gap-2">
+          <p className="mt-4 text-[10px] leading-[15px] font-medium tracking-[1px] text-dt-text-3">일정</p>
+          <ol className="mt-2 flex flex-col gap-2">
             {selected.schedule.map((event) => (
               <li key={event.label} className="grid grid-cols-[10px_1fr_auto] items-center gap-2 text-[12px]">
                 <span className={cn("size-2 rounded-full", event.complete ? "bg-dt-point" : "bg-white/25")} />
                 <span className={event.complete ? "text-white" : "text-white/45"}>{event.label}</span>
-                <span className="tabular-nums text-white/55">{hm(event.at)}</span>
+                <span className="text-right text-[12px] leading-[17px] font-medium tabular-nums text-dt-text">{hm(event.at)}</span>
               </li>
             ))}
           </ol>
@@ -236,36 +344,67 @@ export default function ScheduleContent() {
       ) : null}
       </FrameSlot>
 
-      <section className="hud-flat pointer-events-auto absolute right-[408px] bottom-[88px] left-[408px] h-[240px] max-h-[calc(100%-120px)] overflow-hidden rounded-[14px] px-3 py-2 text-white">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-[12px] font-medium">선석별 일정</h2>
-          <span className="text-[11px] text-white/40">{sim.clock}</span>
+      <section ref={sectionRef} className="hud-flat pointer-events-auto absolute right-[408px] bottom-[88px] left-[408px] h-[240px] max-h-[calc(100%-120px)] overflow-hidden rounded-[14px] px-6 pt-[18px] pb-3 text-white">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h2 className="shrink-0 text-[14px] leading-5 font-medium text-dt-text">선석 배정 일정</h2>
+            <span className="truncate text-[11px] tabular-nums text-white/40">
+              {dateLabel(sim.clock)}
+              {window ? ` · ${formatMinute(window.min)} - ${Math.round(window.max) % 1440 === 0 ? "24:00" : formatMinute(window.max)}` : ""}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-3 text-[11px] text-white/60">
+            {GANTT_LEGEND.map((item) => (
+              <span key={item.label} className="flex items-center gap-1.5">
+                <span className={cn("size-2.5 rounded-[2px]", item.className)} />
+                {item.label}
+              </span>
+            ))}
+          </div>
         </div>
         {window ? (
           <div className="relative">
             <div className="relative ml-12 h-4">
-              {[0, 0.25, 0.5, 0.75, 1].map((t) => {
-                const minute = window.min + (window.max - window.min) * t;
-                const hh = Math.floor(minute / 60) % 24;
-                const mm = minute % 60;
-                return (
-                  <span key={t} className="absolute -translate-x-1/2 text-[10px] text-white/35" style={{ left: `${t * 100}%` }}>
-                    {String(hh).padStart(2, "0")}:{String(mm).padStart(2, "0")}
-                  </span>
-                );
-              })}
+              {hours.filter(majorTick).map((minute) => (
+                <span
+                  key={minute}
+                  className="absolute -translate-x-1/2 text-[10px] tabular-nums text-white/35"
+                  style={{ left: `${((minute - window.min) / (window.max - window.min)) * 100}%` }}
+                >
+                  {tickLabel(minute)}
+                </span>
+              ))}
             </div>
             <div ref={trackRef} className="relative">
+              {hours.map((minute) => (
+                <span
+                  key={minute}
+                  aria-hidden
+                  className={cn(
+                    "pointer-events-none absolute top-0 bottom-0 w-px",
+                    majorTick(minute) ? "bg-white/[0.06]" : "bg-white/[0.025]",
+                  )}
+                  style={{ left: lineLeft(minute) }}
+                />
+              ))}
               {berths.slice(0, 6).map((berth) => (
-                <div key={berth} className="grid grid-cols-[40px_1fr] items-center gap-2">
-                  <span className="truncate text-[10px] text-white/45">{berth}</span>
-                  <div className="relative h-3 rounded-sm bg-white/14">
+                <div key={berth} className="grid h-[26px] grid-cols-[40px_1fr] items-center gap-2">
+                  <span className="truncate text-[12px] leading-[17px] font-medium text-dt-text-2">{berth}</span>
+                  <div className="relative h-full">
                     {sim.ships.filter((ship) => ship.berth === berth).map((ship) => {
                       const start = parseClock(ship.eta);
                       const end = parseClock(ship.etd);
                       if (start == null || end == null || end <= start || !window) return null;
-                      const left = ((start - window.min) / (window.max - window.min)) * 100;
-                      const width = ((end - start) / (window.max - window.min)) * 100;
+                      // 06–22 범위로 잘라서 그린다
+                      const from = Math.max(start, window.min);
+                      const to = Math.min(end, window.max);
+                      if (to <= from) return null;
+                      const left = ((from - window.min) / (window.max - window.min)) * 100;
+                      const width = ((to - from) / (window.max - window.min)) * 100;
+                      // 지연분은 예상 이안 쪽 끝에 금색 구간으로 (보이는 범위 안만)
+                      const delayFrom = Math.max(from, end - ship.delayMinutes);
+                      const delayShare = ship.delayMinutes > 0 && to > delayFrom ? ((to - delayFrom) / (to - from)) * 100 : 0;
+                      const active = selected?.index === ship.index;
                       return (
                         <button
                           key={ship.callId}
@@ -273,11 +412,19 @@ export default function ScheduleContent() {
                           title={ship.name}
                           onClick={() => selection.select(ship.index)}
                           className={cn(
-                            "absolute top-0.5 h-2 rounded-sm",
-                            ship.delayMinutes > 0 ? "bg-dt-danger" : "bg-dt-info",
+                            "absolute top-1/2 flex h-5 -translate-y-1/2 items-center overflow-hidden rounded-[4px] text-left bg-dt-info/80",
+                            isWorking(ship.status) ? "bg-dt-info/80" : "bg-dt-info/40",
+                            active && "shadow-[inset_0_0_0_1.5px_#FFFFFFB3] bg-dt-info border-bg-dt-info",
                           )}
-                          style={{ left: `${Math.max(0, left)}%`, width: `${Math.max(2, Math.min(100 - left, width))}%` }}
-                        />
+                          style={{ left: `${left}%`, width: `${Math.min(100 - left, Math.max(1, width))}%` }}
+                        >
+                          {delayShare > 0 ? (
+                            <span className="absolute inset-y-0 right-0 bg-[#A88A2B]" style={{ width: `${delayShare}%` }} />
+                          ) : null}
+                          <span className="relative min-w-0 truncate px-1.5 text-[10px] font-semibold tracking-[0.04em] text-white uppercase">
+                            {ship.name}
+                          </span>
+                        </button>
                       );
                     })}
                   </div>
@@ -381,12 +528,12 @@ function ShipRow({ ship, active, onClick }: { ship: SimShip; active: boolean; on
       )}
     >
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] font-medium text-dt-text">{ship.name}</span>
-        <span className="block truncate text-[12px] text-dt-text-2">{ship.callId} · {ship.berth}</span>
+        <span className="block truncate text-[14px] leading-5 font-medium text-dt-text">{ship.name}</span>
+        <span className="block truncate text-[12px] leading-[17px] text-dt-text-2">{ship.callId} · {ship.berth}</span>
       </span>
       <span className="text-right">
         <span className={cn("block text-[12px]", tone.tone === "danger" ? "text-dt-danger-bright" : tone.tone === "info" ? "text-dt-info-bright" : "text-dt-text-2")}>{tone.label}</span>
-        <span className="mt-0.5 block text-[10px] tabular-nums text-dt-text-3">{hm(ship.eta)}</span>
+        <span className="mt-0.5 block text-[12px] leading-[17px] tabular-nums text-dt-text-3">{hm(ship.eta)}</span>
       </span>
     </button>
   );

@@ -42,8 +42,6 @@ type Persisted = {
   /** 실제 DPR 상한. 프리셋 선택 시 QUALITY_DPR 로 설정, DebugUI(개발)에서 직접 덮어쓰기 가능 */
   renderScale: number;
   shadowQuality: ShadowQuality;
-  perfOverlay: boolean;
-  perfExpanded: boolean;
 };
 
 type State = Persisted & {
@@ -51,9 +49,6 @@ type State = Persisted & {
   setQuality: (q: QualityPreset) => void;
   setRenderScale: (v: number) => void;
   setShadowQuality: (q: ShadowQuality) => void;
-  setPerfOverlay: (v: boolean) => void;
-  togglePerfOverlay: () => void;
-  togglePerfExpanded: () => void;
 };
 
 const read = (k: string) => {
@@ -64,6 +59,8 @@ const read = (k: string) => {
   }
 };
 const clampScale = (v: number) => Math.min(2, Math.max(0.5, v));
+/** 이 브라우저에 WebGPU 가 있는지 (renderer.ts 의 hasWebGPU 와 같다. 순환 import 를 피해 따로 둔다) */
+const gpuAvailable = () => typeof navigator !== "undefined" && !!(navigator as { gpu?: unknown }).gpu;
 const nearestQuality = (scale: number): QualityPreset =>
   scale <= 1.1 ? "performance" : scale <= 1.35 ? "balanced" : "high";
 
@@ -80,12 +77,10 @@ function legacyDefaults(): Persisted {
   }
   const quality = hasScale ? nearestQuality(s) : "high";
   return {
-    rendererPref: r === "webgl" ? "webgl" : "webgpu",
+    rendererPref: r === "webgl" || !gpuAvailable() ? "webgl" : "webgpu",
     quality,
     renderScale: hasScale ? s : QUALITY_DPR[quality],
     shadowQuality: mapSize && mapSize < 2048 ? "low" : "high",
-    perfOverlay: false,
-    perfExpanded: false,
   };
 }
 
@@ -101,8 +96,6 @@ export function sanitize(v: Partial<Persisted> | undefined, d: Persisted): Persi
     quality: oneOf(x.quality, ["performance", "balanced", "high"] as const, d.quality),
     renderScale: x.renderScale != null && Number.isFinite(scale) ? clampScale(scale) : d.renderScale,
     shadowQuality: oneOf(x.shadowQuality, ["off", "low", "high"] as const, d.shadowQuality),
-    perfOverlay: typeof x.perfOverlay === "boolean" ? x.perfOverlay : d.perfOverlay,
-    perfExpanded: typeof x.perfExpanded === "boolean" ? x.perfExpanded : d.perfExpanded,
   };
 }
 
@@ -116,9 +109,6 @@ export const useViewportSettingsStore = create<State>()(
       setQuality: (quality) => set({ quality, renderScale: QUALITY_DPR[quality] }),
       setRenderScale: (v) => set({ renderScale: clampScale(v) }),
       setShadowQuality: (shadowQuality) => set({ shadowQuality }),
-      setPerfOverlay: (perfOverlay) => set({ perfOverlay }),
-      togglePerfOverlay: () => set((s) => ({ perfOverlay: !s.perfOverlay })),
-      togglePerfExpanded: () => set((s) => ({ perfExpanded: !s.perfExpanded })),
     }),
     {
       name: STORE_KEY,
@@ -128,13 +118,14 @@ export const useViewportSettingsStore = create<State>()(
         quality: s.quality,
         renderScale: s.renderScale,
         shadowQuality: s.shadowQuality,
-        perfOverlay: s.perfOverlay,
-        perfExpanded: s.perfExpanded,
       }),
-      merge: (persisted, current) => ({
-        ...current,
-        ...sanitize(persisted as Partial<Persisted>, DEFAULTS),
-      }),
+      // 예전 저장값의 perfOverlay·perfExpanded(성능 오버레이, 삭제됨)는 sanitize 가 버리고 다음 저장 때 빠진다
+      merge: (persisted, current) => {
+        const next = sanitize(persisted as Partial<Persisted>, DEFAULTS);
+        // 저장값이 WebGPU 인데 이 브라우저에 WebGPU 가 없으면 WebGL2 로
+        if (next.rendererPref === "webgpu" && !gpuAvailable()) next.rendererPref = "webgl";
+        return { ...current, ...next };
+      },
     },
   ),
 );

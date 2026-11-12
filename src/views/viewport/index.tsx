@@ -10,7 +10,6 @@ import Scene from "./_components/Scene";
 import IntroOverlay from "./_components/IntroOverlay";
 import MonitoringOverlay from "./_components/MonitoringOverlay";
 // TEMP: 디버그 UI 비활성화
-// import PerfOverlay from "./_components/PerfOverlay";
 
 import Presence from "@/components/ui/Presence";
 import ContentPanel from "../View/content/ContentPanel";
@@ -41,7 +40,6 @@ export default function Viewport() {
           <MonitoringOverlay />
         </Presence>
         {/* TEMP: 디버그 UI 비활성화 */}
-        {/* <PerfOverlay /> */}
         {/* [failure] 기존 점유율 mock 토스트는 설정으로만 */}
         {!hudHidden && FAILURE_SCENARIO.keepMockOccupancyToasts ? (
           <ToasterTestTrigger />

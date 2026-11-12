@@ -9,14 +9,18 @@ import { createPortal } from "react-dom";
 
 const TOASTER_Z_INDEX = 45;
 const VISIBLE_LIMIT = 3;
-const AUTO_CLOSE_MS = 5000;
+/** 주의·복구·안내는 6초 뒤 자동으로 닫힌다. 긴급은 복구 토스트(같은 id)로 바뀌거나 닫을 때까지 유지 */
+const AUTO_CLOSE_MS = 6000;
 
 export type ToasterType = "success" | "info" | "warning" | "error";
 
 type ToastCardProps = {
   title: string;
   message?: string;
+  /** 윗줄 등급 뒤에 붙는 "11:42 · CRANE" */
+  meta: string;
   border: string;
+  surface: string;
   iconStyle: string;
   icon: keyof typeof icons;
   level: string;
@@ -25,11 +29,15 @@ type ToastCardProps = {
   onDismiss: () => void;
 };
 
-/** type별 스타일 — 여기서만 수정 */
+/**
+ * type별 스타일 — 여기서만 수정.
+ * border: 1.5px 테두리 색, surface: 남색 카드 위에 같은 색 옅은 틴트, iconStyle: 윗줄(아이콘·등급·시각·분류) 색
+ */
 export const TOASTER_TYPE_STYLE: Record<
   ToasterType,
   {
     border: string;
+    surface: string;
     iconStyle: string;
     icon: keyof typeof icons;
     level: string;
@@ -37,25 +45,29 @@ export const TOASTER_TYPE_STYLE: Record<
 > = {
   success: {
     border: "border-[#14D99B]",
-    iconStyle: "text-[#6FE8C0]",
+    surface: "[background:linear-gradient(#14D99B14,#14D99B14),#0A1219F2]",
+    iconStyle: "stroke-[#3DE0AE]! text-[#3DE0AE]",
     icon: "CircleCheck",
     level: "복구",
   },
   info: {
     border: "border-[#3D8BFF]",
-    iconStyle: "text-[#7EB6FF]",
+    surface: "[background:linear-gradient(#3D8BFF14,#3D8BFF14),#0A1219F2]",
+    iconStyle: "stroke-[#7EB6FF]! text-[#7EB6FF]",
     icon: "Info",
     level: "안내",
   },
   warning: {
     border: "border-[#FFB020]",
-    iconStyle: "text-[#FFC966]",
-    icon: "TriangleAlert",
+    surface: "[background:linear-gradient(#FFB02014,#FFB02014),#0A1219F2]",
+    iconStyle: "stroke-[#FFC24D]! text-[#FFC24D]",
+    icon: "CircleAlert",
     level: "주의",
   },
   error: {
     border: "border-[#F0484A]",
-    iconStyle: "text-[#FF8A8B]",
+    surface: "[background:linear-gradient(#F0484A1A,#F0484A1A),#0A1219F2]",
+    iconStyle: "stroke-[#FF6B6E]! text-[#FF6B6E]",
     icon: "TriangleAlert",
     level: "긴급",
   },
@@ -64,7 +76,9 @@ export const TOASTER_TYPE_STYLE: Record<
 function ToastCard({
   title,
   message,
+  meta,
   border,
+  surface,
   iconStyle,
   icon,
   level,
@@ -75,29 +89,29 @@ function ToastCard({
   return (
     <div
       className={cn(
-        "pointer-events-auto flex h-16 w-full items-center gap-2 rounded-[10px] border bg-dt-bg/92 px-3 shadow-[inset_0_0_0_1px_#ffffff14]",
+        "pointer-events-auto flex w-full items-center gap-3 rounded-lg border-[1.5px] py-3 pr-3 pl-4 shadow-[0_8px_24px_#00000059]",
         border,
+        surface,
       )}
     >
-      <Icon icon={icon} className={cn("size-4 shrink-0", iconStyle)} />
       <div
         className={cn("min-w-0 flex-1 select-none", onClick && "cursor-pointer")}
         role={onClick ? "button" : undefined}
         tabIndex={onClick ? 0 : undefined}
         onClick={onClick}
       >
-        <p className="text-[10px] tracking-[0.12em] text-white/45">{level}</p>
-        <p className="truncate text-[13px] font-medium text-white">{title}</p>
-        {message ? <p className="truncate text-[12px] text-white/55">{message}</p> : null}
+        <p className={cn("flex items-center gap-1.5 text-[12px] leading-4 font-medium tabular-nums", iconStyle)}>
+          <Icon icon={icon} className="size-3.5 shrink-0" />
+          <span className="truncate">{meta ? `${level} · ${meta}` : level}</span>
+        </p>
+        <p className="mt-1 truncate text-[14px] leading-5 font-bold text-white">{title}</p>
+        {message ? <p className="mt-0.5 truncate text-[12px] text-white/60">{message}</p> : null}
       </div>
       {onTrack ? (
         <button
           type="button"
-          onClick={() => {
-            onTrack();
-            onDismiss();
-          }}
-          className="shrink-0 rounded-md bg-[#E4572E] px-2 py-0.5 text-[12px] font-medium text-white hover:bg-[#c94b26]"
+          onClick={onTrack}
+          className="h-8 shrink-0 rounded-md border border-[#F0484A] bg-[#5C1B20] px-3 text-[12px] font-medium text-[#FFE1E1] transition-colors hover:bg-[#74222A]"
         >
           추적
         </button>
@@ -106,12 +120,17 @@ function ToastCard({
         type="button"
         aria-label="알림 닫기"
         onClick={onDismiss}
-        className="grid size-5 shrink-0 place-items-center rounded text-white/45 hover:bg-white/10 hover:text-white"
+        className="grid size-6 shrink-0 place-items-center rounded text-white/50 hover:bg-white/10 hover:text-white"
       >
-        <Icon icon="X" className="size-3.5" />
+        <Icon icon="X" className="size-4" />
       </button>
     </div>
   );
+}
+
+function hhmm(ms: number) {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 type ToasterOptions = {
@@ -120,8 +139,12 @@ type ToasterOptions = {
   message?: string;
   /** 본문 클릭 시 (예: 장비 위치로 카메라 이동) */
   onClick?: () => void;
-  /** 지정 시 추적 버튼. 누르면 토스트가 닫힌다 */
+  /** 지정 시 추적 버튼(좌측 목록 클릭과 같은 Tracking). 긴급 토스트는 눌러도 복구될 때까지 남는다 */
   onTrack?: () => void;
+  /** 윗줄 시각(ms, HH:MM 로 표시). 없으면 지금 */
+  at?: number;
+  /** 윗줄 끝 분류·부가 정보 (예: "CRANE", "다운타임 16분") */
+  meta?: string;
 };
 
 type ToastEntry = {
@@ -130,6 +153,7 @@ type ToastEntry = {
   type: ToasterType;
   title: string;
   message?: string;
+  meta: string;
   onClick?: () => void;
   onTrack?: () => void;
   timer: number | null;
@@ -174,7 +198,7 @@ function removeSid(sid: string) {
   commit([...entries]);
   window.setTimeout(() => {
     commit(entries.filter((entry) => entry.sid !== sid));
-  }, 160);
+  }, 200);
 }
 
 function canToast() {
@@ -212,6 +236,7 @@ function show(type: ToasterType, title: string, messageOrOptions?: string | Toas
     type,
     title,
     message: options.message,
+    meta: [hhmm(options.at ?? Date.now()), options.meta].filter(Boolean).join(" · "),
     onClick: options.onClick,
     onTrack: options.onTrack,
     timer: type === "error" ? null : window.setTimeout(() => removeSid(sid), AUTO_CLOSE_MS),
@@ -318,6 +343,7 @@ export default function Toaster() {
           <ToastCard
             title={entry.title}
             message={entry.message}
+            meta={entry.meta}
             onClick={entry.onClick}
             onTrack={entry.onTrack}
             onDismiss={() => removeSid(entry.sid)}

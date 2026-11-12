@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Checkbox from "@/components/Checkbox";
 import Icon from "@/components/Icon";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { hasWebGPU, switchRenderer, useRendererStore } from "@/stores/renderer";
@@ -17,8 +16,6 @@ export default function GraphicsSettingsPanel({ onClose }: { onClose: () => void
   const setQuality = useViewportSettingsStore((s) => s.setQuality);
   const shadow = useViewportSettingsStore((s) => s.shadowQuality);
   const setShadow = useViewportSettingsStore((s) => s.setShadowQuality);
-  const perf = useViewportSettingsStore((s) => s.perfOverlay);
-  const setPerf = useViewportSettingsStore((s) => s.setPerfOverlay);
   const pref = useRendererStore((s) => s.pref);
   const active = useRendererStore((s) => s.active);
   const reason = useRendererStore((s) => s.fallbackReason);
@@ -46,6 +43,7 @@ export default function GraphicsSettingsPanel({ onClose }: { onClose: () => void
       <div className="mt-4 flex flex-col gap-4">
         <SegmentedControl<QualityPreset>
           label="품질"
+          hint="그림자 해상도는 다음 실행부터"
           value={quality}
           onChange={setQuality}
           options={[
@@ -56,6 +54,7 @@ export default function GraphicsSettingsPanel({ onClose }: { onClose: () => void
         />
         <SegmentedControl<ShadowQuality>
           label="그림자"
+          hint="낮음·높음은 다음 실행부터"
           value={shadow}
           onChange={setShadow}
           options={[
@@ -90,16 +89,6 @@ export default function GraphicsSettingsPanel({ onClose }: { onClose: () => void
           >
             적용
           </button>
-        </div>
-        <div className="h-px bg-white/8" />
-        <div className="flex items-center justify-between gap-2">
-          <Checkbox
-            id="render-settings-perf"
-            label="성능 오버레이"
-            checked={perf}
-            onCheckedChange={(checked) => setPerf(checked === true)}
-          />
-          <span className="rounded bg-white/8 px-1.5 py-0.5 text-[10px] font-medium tracking-[1px] text-dt-text-3">Shift+P</span>
         </div>
       </div>
       </div>

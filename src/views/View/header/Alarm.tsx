@@ -73,13 +73,15 @@ function useAlarmRows() {
 
 export default function Alarm() {
   const alarmOpen = useHudUiStore((s) => s.alarmOpen);
-  const unseenAlarmCount = useHudUiStore((s) => s.unseenAlarmCount);
   const toggleAlarm = useHudUiStore((s) => s.toggleAlarm);
   const started = useViewportStore((s) => s.monitoringStarted);
   const introOpen = useViewportStore((s) => s.introOpen);
   const live = started && !introOpen;
-  const rows = useAlarmRows();
-  const hasAlert = live && rows.some((row) => row.level === "error" || row.level === "warning");
+  // 배지 = 지금 진행 중인 알람(주의·고장) 수. 복구(safe) 는 세지 않는다. 0 이면 숨김, 100 이상은 99+
+  const activeCount = useFailureStore((s) =>
+    Object.values(s.active).reduce((n, f) => (f.state === "safe" ? n : n + 1), 0),
+  );
+  const badge = live && activeCount > 0 ? (activeCount > 99 ? "99+" : String(activeCount)) : null;
 
   return (
     <button
@@ -93,12 +95,10 @@ export default function Alarm() {
       )}
     >
       <Icon icon="Bell" className="size-5" />
-      {unseenAlarmCount > 0 ? (
-        <span className="absolute top-1 right-1 grid h-4 min-w-4 place-items-center rounded bg-dt-danger px-1 text-[10px] leading-none font-bold text-white">
-          {unseenAlarmCount > 9 ? "9+" : unseenAlarmCount}
+      {badge ? (
+        <span className="absolute top-1 right-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#F0484A] px-1 text-[10px] leading-none font-bold tabular-nums text-white">
+          {badge}
         </span>
-      ) : hasAlert ? (
-        <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-dt-danger" />
       ) : null}
     </button>
   );

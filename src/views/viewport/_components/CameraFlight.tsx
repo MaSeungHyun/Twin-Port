@@ -18,6 +18,8 @@ import {
 } from "@/domain/cameraFocus";
 import { getContainerWorldPosition } from "@/domain/container";
 import { getBlockSlotGrid } from "@/constants/block";
+import { CONTAINER_H } from "@/constants/container";
+import { getBlockFootprintCenter } from "@/domain/blockFootprint";
 import { useViewportStore } from "@/stores/viewport";
 import { useYardStore } from "@/stores/yard";
 
@@ -109,12 +111,16 @@ function animateLookAtFlight(options: {
 
 type AlarmFollow = { kind: "quayCrane" | "overheadCrane"; index: number } | null;
 
+/** 블록 위치추적 거리 — 블록과 점유율 막대가 한 화면에 들어오게 */
+const BLOCK_TRACKING_FOCUS_DISTANCE = 360;
+
 function resolveTrackingTarget(
   selectedContainerId: string | null,
   selectedShipKey: string | null,
   selectedCraneIndex: number | null,
   selectedOverheadCraneIndex: number | null = null,
   alarmFollow: AlarmFollow = null,
+  trackedBlockCode: string | null = null,
 ): Vector3 | null {
   if (selectedContainerId) {
     const { blocks, containers, deckY, yardOffset } = useYardStore.getState();
@@ -152,6 +158,20 @@ function resolveTrackingTarget(
     return getOverheadCraneFocusTarget(selectedOverheadCraneIndex);
   }
 
+  // 블록 위치추적 — 블록 바닥 중심에서 조금 위 (점유율 막대 아래쪽)
+  if (trackedBlockCode) {
+    const { blocks, deckY, yardOffset } = useYardStore.getState();
+    const block = blocks.find((item) => item.code === trackedBlockCode);
+    if (!block) return null;
+    const center = getBlockFootprintCenter(block);
+    const grid = getBlockSlotGrid(block);
+    return new Vector3(
+      center[0] + yardOffset[0],
+      deckY + block.origin[1] + yardOffset[1] + grid.tiers * CONTAINER_H * 2,
+      center[2] + yardOffset[2],
+    );
+  }
+
   // [alarm] 알람 follow — Tracking 과 같은 대상 계산
   if (alarmFollow) {
     return alarmFollow.kind === "quayCrane"
@@ -164,8 +184,10 @@ function resolveTrackingTarget(
 
 function resolveTrackingFocusDistance(
   selectedContainerId: string | null,
+  trackedBlockCode: string | null = null,
 ): number {
   if (selectedContainerId) return CONTAINER_TRACKING_FOCUS_DISTANCE;
+  if (trackedBlockCode) return BLOCK_TRACKING_FOCUS_DISTANCE;
   return TRACKING_FOCUS_DISTANCE;
 }
 
@@ -180,6 +202,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
   );
   const focusNonce = useViewportStore((s) => s.focusNonce);
   const alarmFollow = useViewportStore((s) => s.alarmFollow);
+  const trackedBlockCode = useViewportStore((s) => s.trackedBlockCode);
   const quayCranes = useYardStore((s) => s.quayCranes);
   const ships = useYardStore((s) => s.ships);
   const blocks = useYardStore((s) => s.blocks);
@@ -193,6 +216,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     selectedCraneIndex: null as number | null,
     selectedOverheadCraneIndex: null as number | null,
     alarmFollow: null as AlarmFollow,
+    trackedBlockCode: null as string | null,
     focusNonce: 0,
   });
 
@@ -228,12 +252,13 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       prev.selectedShipKey !== selectedShipKey ||
       prev.selectedCraneIndex !== selectedCraneIndex ||
       prev.selectedOverheadCraneIndex !== selectedOverheadCraneIndex ||
-      prev.alarmFollow !== alarmFollow;
+      prev.alarmFollow !== alarmFollow ||
+      prev.trackedBlockCode !== trackedBlockCode;
     const focusRetrigger = prev.focusNonce !== focusNonce;
     const trackingDataUpdated =
       (selectedCraneIndex != null && prevYard.quayCranes !== quayCranes) ||
       (selectedShipKey != null && prevYard.ships !== ships) ||
-      (selectedContainerId != null && prevYard.blocks !== blocks);
+      ((selectedContainerId != null || trackedBlockCode != null) && prevYard.blocks !== blocks);
     prevYardDataRef.current = { quayCranes, ships, blocks };
 
     prevSelectionRef.current = {
@@ -242,6 +267,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedCraneIndex,
       selectedOverheadCraneIndex,
       alarmFollow,
+      trackedBlockCode,
       focusNonce,
     };
 
@@ -252,13 +278,15 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       prev.selectedShipKey != null ||
       prev.selectedCraneIndex != null ||
       prev.selectedOverheadCraneIndex != null ||
-      prev.alarmFollow != null;
+      prev.alarmFollow != null ||
+      prev.trackedBlockCode != null;
     const isTracking =
       selectedContainerId != null ||
       selectedShipKey != null ||
       selectedCraneIndex != null ||
       selectedOverheadCraneIndex != null ||
-      alarmFollow != null;
+      alarmFollow != null ||
+      trackedBlockCode != null;
 
     const quayCraneIndex =
       selectedContainerId == null && selectedShipKey == null
@@ -275,6 +303,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
         selectedCraneIndex,
         selectedOverheadCraneIndex,
         alarmFollow,
+        trackedBlockCode,
       );
 
     tweenRef.current?.kill();
@@ -289,7 +318,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
         focusCameraPosition(
           toTarget,
           camera.position,
-          resolveTrackingFocusDistance(selectedContainerId),
+          resolveTrackingFocusDistance(selectedContainerId, trackedBlockCode),
         );
       const timeline = animateLookAtFlight({
         camera,
@@ -336,6 +365,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
     selectedCraneIndex,
     selectedOverheadCraneIndex,
     alarmFollow,
+    trackedBlockCode,
     focusNonce,
     quayCranes,
     ships,
@@ -352,7 +382,8 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
       selectedShipKey != null ||
       selectedCraneIndex != null ||
       selectedOverheadCraneIndex != null ||
-      alarmFollow != null;
+      alarmFollow != null ||
+      trackedBlockCode != null;
     if (!isTracking) return;
 
     const controls = controlsRef.current;
@@ -373,6 +404,7 @@ export default function CameraFlight({ controlsRef }: CameraFlightProps) {
         selectedCraneIndex,
         selectedOverheadCraneIndex,
         alarmFollow,
+        trackedBlockCode,
       );
     if (!target) return;
 
