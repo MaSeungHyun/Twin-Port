@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import Icon from "@/components/Icon";
+import SearchField from "@/components/ui/SearchField";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import SegmentedControl from "@/components/ui/SegmentedControl";
@@ -145,15 +146,7 @@ export default function CraneHud() {
               { value: "overhead", label: "오버헤드" },
             ]}
           />
-          <label className="mt-3 flex h-10 items-center gap-2 rounded-lg bg-white/4 px-3 text-dt-text-3 shadow-[inset_0_0_0_1px_#ffffff14]">
-            <Icon icon="Search" className="size-4" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="크레인, 선박, 블록 검색"
-              className="w-full bg-transparent text-[12px] text-dt-text outline-none placeholder:text-dt-text-3"
-            />
-          </label>
+          <SearchField className="mt-3" value={query} onChange={setQuery} placeholder="크레인, 선박, 블록 검색" label="크레인, 선박, 블록 검색" />
           <div className="mt-3 flex gap-1">
             {FILTERS.map((item) => (
               <button

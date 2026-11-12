@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import Icon from "@/components/Icon";
+import SearchField from "@/components/ui/SearchField";
 import WindowedList from "@/components/ui/WindowedList";
 import { getBlockSlotGrid } from "@/constants/block";
 import { getPortSim } from "@/domain/portSim";
@@ -180,15 +181,7 @@ export default function BlockHud() {
             <h2 className="text-[16px] font-medium text-[#F2F5F8]">블록</h2>
             <span className="text-[10px] text-[#5C6B7A]">{occupancies.length}개</span>
           </div>
-          <label className="mt-4 flex h-10 items-center gap-2 rounded-lg bg-black/25 px-3 text-[#5C6B7A]">
-            <Icon icon="Search" className="size-4" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="블록 코드 검색 (예: B26)"
-              className="w-full bg-transparent text-[12px] text-[#F2F5F8] outline-none placeholder:text-[#5C6B7A]"
-            />
-          </label>
+          <SearchField className="mt-4" value={query} onChange={setQuery} placeholder="블록 코드 검색 (예: B26)" label="블록 코드 검색 (예: B26)" />
           <div className="mt-3 flex gap-2">
             {FILTERS.map((item) => (
               <button

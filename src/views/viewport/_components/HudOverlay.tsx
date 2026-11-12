@@ -45,7 +45,8 @@ function KpiCell({
           <ProgressBar
             value={bar}
             tone={barTone}
-            className="h-1 w-10 shrink-0"
+            // 값 옆에 붙지 않게 셀 오른쪽 패딩까지 밀고 길게. 좁은 화면에선 줄어든다
+            className="ml-auto h-1 w-[72px] min-w-8 shrink"
           />
         ) : null}
       </div>

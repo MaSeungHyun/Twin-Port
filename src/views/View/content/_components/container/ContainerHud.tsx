@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
+import SearchField from "@/components/ui/SearchField";
 import WindowedList from "@/components/ui/WindowedList";
 import { searchContainers } from "@/domain/containerSearch";
 import { usePortSim } from "@/hooks/usePortSim";
@@ -101,15 +102,7 @@ export default function ContainerHud() {
             <h2 className="text-[16px] font-medium text-[#F2F5F8]">컨테이너</h2>
             <span className="text-[10px] text-[#5C6B7A]">{containers.length.toLocaleString()}개</span>
           </div>
-          <label className="mt-4 flex h-10 items-center gap-2 rounded-lg bg-black/25 px-3 text-[#5C6B7A]">
-            <Icon icon="Search" className="size-4" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="컨테이너 번호 검색 (예: HMMU 4829153)"
-              className="w-full bg-transparent text-[12px] text-[#F2F5F8] outline-none placeholder:text-[#5C6B7A]"
-            />
-          </label>
+          <SearchField className="mt-4" value={query} onChange={setQuery} placeholder="컨테이너 번호 검색 (예: HMMU 4829153)" label="컨테이너 번호 검색 (예: HMMU 4829153)" />
           <div className="mt-3 flex gap-4">
             {FILTERS.map((item) => (
               <button

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
+import SearchField from "@/components/ui/SearchField";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import WindowedList from "@/components/ui/WindowedList";
@@ -81,15 +82,7 @@ export default function ShipHud() {
             <h2 className="text-[16px] font-medium text-dt-text">선박</h2>
             <span className="text-[12px] text-dt-text-3">{sim.ships.length}척</span>
           </div>
-          <label className="mt-4 flex h-10 items-center gap-2 rounded-lg bg-white/4 px-3 text-dt-text-3 shadow-[inset_0_0_0_1px_#ffffff14]">
-            <Icon icon="Search" className="size-4" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="선박명 · 기항 ID 검색"
-              className="w-full bg-transparent text-[12px] text-dt-text outline-none placeholder:text-dt-text-3"
-            />
-          </label>
+          <SearchField className="mt-4" value={query} onChange={setQuery} placeholder="선박명 · 기항 ID 검색" label="선박명 · 기항 ID 검색" />
           <div className="mt-3 flex gap-1">
             {FILTERS.map((item) => (
               <button
